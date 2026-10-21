@@ -59,7 +59,8 @@ export function dispatch(s,id,crewId) {
  if(crew.fuel<8||crew.condition<20||crew.fatigue>90)throw Error('Бригаде нужен отдых или обслуживание');
  spend(s,TYPES[c.type][4],'Материалы: '+TYPES[c.type][0]);
  c.status='travel';c.crew=crew.id;crew.status='travel';crew.job=c.id;
- crew.remaining=crew.total=10+Math.abs(crew.home-c.home)*5;crew.fuel-=8;
+ // The visual depot is not an additional service region or gameplay difficulty.
+ crew.remaining=crew.total=10+Math.abs((crew.home===3?0:crew.home)-c.home)*5;crew.fuel-=8;
 }
 export function outsource(s,id) {
  if(s.phase!=='active')throw Error('Смена не запущена');const c=s.calls.find(c=>c.id===id);
