@@ -1,0 +1,59 @@
+name: Render production 3D sprites
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/reference-map-ui-v02
+    paths:
+      - tools/render_sprites.py
+      - .github/workflows/render-sprites.yml
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Install Blender
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y blender
+          blender --version
+      - name: Render apartment and van assets
+        run: |
+          blender --background --factory-startup --threads 2 --python tools/render_sprites.py -- --output web/assets/rendered
+          python3 - <<'PY'
+          import os, struct
+          folder='web/assets/rendered'
+          names=[f'house_{i:02d}.png' for i in range(1,5)]+['van_water.png','van_electric.png','van_repair.png']
+          for name in names:
+              path=os.path.join(folder,name)
+              with open(path,'rb') as f: header=f.read(24)
+              assert header.startswith(b'\x89PNG\r\n\x1a\n'), name
+              w,h=struct.unpack('>II',header[16:24])
+              assert w==512 and h==512, (name,w,h)
+              print(name,os.path.getsize(path),'bytes')
+          PY
+      - name: Upload visual review assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: upravdom-isometric-sprites
+          path: web/assets/rendered/*.png
+          if-no-files-found: error
+      - name: Commit generated sprites to feature branch
+        if: github.ref_name == 'feature/reference-map-ui-v02'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web/assets/rendered/
+          if git diff --cached --quiet; then
+            echo "Sprites unchanged"
+          else
+            git commit -m "art: generate Blender apartment and vehicle sprites"
+            git push origin HEAD:feature/reference-map-ui-v02
+          fi
