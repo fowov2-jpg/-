@@ -13,6 +13,17 @@ function phaseText(){return {prep:'Подготовка к смене',active:pa
 function active(){return state.calls.filter(c=>c.status!=='done');}
 function pill(c){return `<span class="badge ${c.priority===3?'red':''}">${['','ОБЫЧНЫЙ','ВЫСОКИЙ','КРИТИЧЕСКИЙ'][c.priority]} ПРИОРИТЕТ</span>`;}
 function button(action,text,extra='',cls=''){return `<button data-action="${action}" ${extra} class="${cls}">${text}</button>`;}
+
+const spritePaths=['van_water.png','van_electric.png','van_repair.png'];
+const vehicleNames=['Аварийный фургон · Сантехники','Электротехнический фургон','Ремонтный пикап'];
+function vehicleArt(c,extraClass=''){
+ const idx=Math.max(0,Math.min(2,c.service));
+ return '<div class="vehicle-stage '+extraClass+' vehicle-type-'+idx+'">'+
+  '<div class="vehicle-glow"></div><img class="vehicle-sprite" src="./assets/rendered/'+spritePaths[idx]+
+  '" alt="'+vehicleNames[idx]+'" loading="eager" decoding="async">'+
+  '<div class="vehicle-ground"></div></div>';
+}
+
 function render(){
 
  const season = Math.floor((state.day-1)/7)%4;
@@ -29,8 +40,8 @@ function render(){
    '<div class="stat clock-stat"><strong>'+time()+'</strong><small>Смена '+state.day+' · до 16:00</small></div>'+
    '<div class="stat weather"><strong><span class="weather-symbol">'+weather.symbol+'</span> '+weather.temp+'</strong><small>'+weather.title+'</small></div>'+
    '<div class="stat budget"><strong class="money"><span class="cash-icon">◆</span> '+rub(state.money)+'</strong><small>Репутация '+state.reputation+'/100</small></div>'+
-   '<div class="stat notifications"><strong>'+icon('bell')+'<span class="notification-count">'+active().length+'</span></strong><small>Заявки</small></div>'+
-  '</div>';
+  '</div>'+
+  '<div class="stat notifications" aria-label="Активные заявки: '+active().length+'"><strong>'+icon('bell')+'<span class="notification-count">'+active().length+'</span></strong><small>Заявки</small></div>';
  $('#nav').innerHTML=[
   ['map','map','Карта'],['calls','calls','Заявки'],['services','crew','Бригады'],
   ['finance','money','Финансы'],['garage','garage','Гараж']
@@ -73,14 +84,14 @@ function renderPage(){
  const list=state.calls.filter(c=>filter==='all'||(filter==='done'?c.status==='done':c.status!=='done')).slice().sort((a,b)=>b.priority-a.priority||a.id-b.id);
  p.innerHTML=`<div class="pageHead"><div class="eyebrow">ДИСПЕТЧЕРСКАЯ</div><h2>Обращения жителей</h2><p class="muted">${active().length} в работе · ${state.calls.filter(c=>c.status==='done').length} завершено</p></div><div class="tabs">${[['active','Активные'],['done','Завершённые'],['all','Все']].map(([id,label])=>button('filter',label,`data-filter="${id}"`,filter===id?'active':'')).join('')}</div>${list.map(c=>`<div class="card"><div class="row">${pill(c)}<small>№${String(c.id).padStart(3,'0')}</small></div><h3 style="margin-top:12px">${E.TYPES[c.type][0]}</h3><p class="muted">${state.homes[c.home].name}</p><div class="row"><small class="${c.late?'danger':''}">${c.late?'Срок превышен':c.status==='done'?'Работа принята':'До срока: '+Math.max(0,c.due-state.minute)+' мин'} · ${status[c.status]}</small>${button('call',icon('arrow'),`data-id="${c.id}" aria-label="Открыть заявку ${c.id}"`)}</div></div>`).join('')||'<div class="empty">Здесь появятся обращения после начала смены.</div>'}`;
  }else if(tab==='services'){
- p.innerHTML=`<div class="pageHead"><div class="eyebrow">ЛЮДИ И ТЕХНИКА</div><h2>Службы компании</h2><p class="muted">${state.crews.filter(c=>c.status==='idle').length} из 3 свободны · 6 сотрудников</p></div>${state.crews.map(c=>`<div class="card"><div class="row"><h3>${c.name}</h3><span class="badge ${c.status==='idle'?'green':''}">${status[c.status]}</span></div><div class="crewArt" style="color:${E.COLORS[c.service]}">${icon('truck')}</div><div class="row"><span>${c.id===2?'Сервисный пикап':'Сервисный фургон'} · 2 специалиста</span><small>Уровень ${c.level}</small></div><div class="specs">${[['Топливо',c.fuel],['Состояние',c.condition],['Усталость',c.fatigue]].map(([name,n])=>`<div><small>${name}</small>${n}%<div class="condition"><i style="width:${n}%"></i></div></div>`).join('')}<div><small>Оснащение / опыт</small>${c.equipment}/3 · ${c.xp} XP</div></div><div class="actions">${button('maintain','ТО · 5 000 ₽',`data-id="${c.id}" data-kind="service" ${c.status!=='idle'?'disabled':''}`)}${button('maintain','Оснастить · '+rub(25000*c.equipment),`data-id="${c.id}" data-kind="equipment" ${c.status!=='idle'||c.equipment>=3?'disabled':''}`)}${button('maintain','Обучить · 15 000 ₽',`data-id="${c.id}" data-kind="train" ${c.status!=='idle'||c.xp<30?'disabled':''}`)}</div><small>Зарплата: 3 600 ₽ / смена · отдых между сменами −50 усталости</small></div>`).join('')}`;
+ p.innerHTML=`<div class="pageHead"><div class="eyebrow">ЛЮДИ И ТЕХНИКА</div><h2>Службы компании</h2><p class="muted">${state.crews.filter(c=>c.status==='idle').length} из 3 свободны · 6 сотрудников</p></div>${state.crews.map(c=>`<div class="card"><div class="row"><h3>${c.name}</h3><span class="badge ${c.status==='idle'?'green':''}">${status[c.status]}</span></div>${vehicleArt(c,'crew-vehicle')}<div class="row"><span>${c.id===2?'Сервисный пикап':'Сервисный фургон'} · 2 специалиста</span><small>Уровень ${c.level}</small></div><div class="specs">${[['Топливо',c.fuel],['Состояние',c.condition],['Усталость',c.fatigue]].map(([name,n])=>`<div><small>${name}</small>${n}%<div class="condition"><i style="width:${n}%"></i></div></div>`).join('')}<div><small>Оснащение / опыт</small>${c.equipment}/3 · ${c.xp} XP</div></div><div class="actions">${button('maintain','ТО · 5 000 ₽',`data-id="${c.id}" data-kind="service" ${c.status!=='idle'?'disabled':''}`)}${button('maintain','Оснастить · '+rub(25000*c.equipment),`data-id="${c.id}" data-kind="equipment" ${c.status!=='idle'||c.equipment>=3?'disabled':''}`)}${button('maintain','Обучить · 15 000 ₽',`data-id="${c.id}" data-kind="train" ${c.status!=='idle'||c.xp<30?'disabled':''}`)}</div><small>Зарплата: 3 600 ₽ / смена · отдых между сменами −50 усталости</small></div>`).join('')}`;
  }else if(tab==='garage'){
  p.innerHTML='<div class="pageHead"><div class="eyebrow">АВТОПАРК УК «УЮТ»</div>'+
   '<h2>Гараж и техника</h2><p class="muted">Три служебных автомобиля. ТО и заправка стоят 5 000 ₽.</p></div>'+
   state.crews.map(cr=>'<div class="card garage-card">'+
    '<div class="row"><div><h3>'+(cr.id===2?'Ремонтный пикап':'Сервисный фургон')+'</h3>'+
    '<small>'+cr.name+'</small></div><span class="badge '+(cr.status==='idle'?'green':'')+'">'+status[cr.status]+'</span></div>'+
-   '<div class="garage-vehicle" style="color:'+E.COLORS[cr.service]+'">'+icon('truck')+'</div>'+
+   vehicleArt(cr,'garage-vehicle')+
    '<div class="specs"><div><small>Топливо</small><b>'+cr.fuel+'%</b><div class="condition"><i style="width:'+cr.fuel+'%"></i></div></div>'+
    '<div><small>Состояние</small><b>'+cr.condition+'%</b><div class="condition"><i style="width:'+cr.condition+'%"></i></div></div></div>'+
    '<div class="actions">'+button('maintain','Заправить и обслужить · 5 000 ₽',
