@@ -10,6 +10,17 @@ const fs=require('node:fs');
   const errors=[];
   page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://localhost:4173',{waitUntil:'networkidle'});
+  // Binary assets must really be served, not just described in an asset manifest.
+  const sprites=['house_01.png','house_02.png','house_03.png','house_04.png',
+    'van_water.png','van_electric.png','van_repair.png'];
+  for(const name of sprites){
+   const response=await page.request.get('http://localhost:4173/assets/rendered/'+name);
+   assert.equal(response.status(),200,'Sprite must exist: '+name);
+   const bytes=await response.body();
+   assert.ok(bytes.length>5000,'Sprite cannot be empty: '+name);
+   assert.equal(bytes.subarray(0,8).toString('hex'),'89504e470d0a1a0a','Valid PNG: '+name);
+  }
+
   await page.getByRole('button',{name:'Начать смену',exact:true}).click();
   await page.getByRole('button',{name:'Пауза',exact:true}).click();
   await page.locator('button[data-action="call"]').first().click();
@@ -20,6 +31,7 @@ const fs=require('node:fs');
   assert.equal(await money(),'2993800','Materials deducted once');
   fs.mkdirSync('artifacts',{recursive:true});
   await page.locator('#toast').waitFor({state:'hidden'});
+  await page.waitForTimeout(1100); // Let asynchronously loaded 3D sprite images settle.
   await page.screenshot({path:'artifacts/upravdom-map-412.png'});
   await page.reload({waitUntil:'networkidle'});
   assert.equal(await money(),'2993800','Budget survives reload');
