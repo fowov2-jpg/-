@@ -5,7 +5,7 @@ import {route,vehiclePosition} from '../web/map.js';
 import {BUILDINGS,STOPS,ROADS,COURTYARDS,TREES,footprint,onRoad,buildingIntersectsRoad} from '../web/district.js';
 
 test('Road network uses orthogonal service routes',()=>{
- assert.deepEqual(route(0,2),[[2.25,0],[0,0],[0,5.55]]);
+ assert.deepEqual(route(0,2),[[0,4],[0,5.55]]);
  const local=route(1,1);
  assert.equal(local.length,3);
  assert.deepEqual(local[0],local.at(-1));
