@@ -12,7 +12,8 @@ const fs=require('node:fs');
   await page.goto('http://localhost:4173',{waitUntil:'networkidle'});
   // Binary assets must really be served, not just described in an asset manifest.
   const sprites=['house_01.png','house_02.png','house_03.png','house_04.png',
-    'van_water.png','van_electric.png','van_repair.png'];
+    'van_water.png','van_electric.png','van_repair.png',
+    'tree_green.png','tree_autumn.png','tree_pine.png'];
   for(const name of sprites){
    const response=await page.request.get('http://localhost:4173/assets/rendered/'+name);
    assert.equal(response.status(),200,'Sprite must exist: '+name);
