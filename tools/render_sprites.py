@@ -169,9 +169,12 @@ def house(idx):
     # Broader Russian slab blocks rather than short, square office-like towers.
     for obj in bpy.context.scene.objects:
         if obj.type == 'MESH':
-            obj.location.x *= 1.24
+            obj.location.x *= 1.75
             if not obj.name.startswith(('Tree trunk','Layered leaves')):
-                obj.scale.x *= 1.24
+                obj.scale.x *= 1.75
+            # Five clearly legible storeys, proportioned as a low, long slab.
+            obj.location.z *= .90
+            obj.scale.z *= .90
     render(f"house_{idx+1:02d}.png")
 
 def vehicle(i):
