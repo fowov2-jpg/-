@@ -1,4 +1,5 @@
 import {COLORS,TYPES} from './engine.js';
+import {drawApartment,drawTree,drawVan,drawStreetFurniture} from './scenery.js';
 
 // Procedural isometric district. Every visible route and incident uses live game state.
 const houses=[[2,2],[6,2],[2,6]];
@@ -94,77 +95,19 @@ export function renderMap(canvas,state,view){
   ctx.save();ctx.shadowBlur=14;ctx.shadowColor='#ffe7a7';
   dot(top[0],top[1],4,'#ffe3a0');ctx.restore();
  }
- function tree(x,y,i){
-  const p=iso(x,y),t=noise(i),tall=26+22*t;
-  ctx.save();ctx.translate(p[0],p[1]);
-  ctx.fillStyle='#091c2390';ctx.beginPath();ctx.ellipse(8,7,19,7,-.3,0,7);ctx.fill();
-  ctx.fillStyle='#5a5243';ctx.fillRect(-2,-tall*.55,4,tall*.6);
-  const evergreen=i%3===0;
-  if(evergreen){
-   for(let j=0;j<3;j++){
-    const v=tall*(.37+j*.2);
-    poly([[-13+j*3,-v+9],[0,-tall-8+j*12],[13-j*3,-v+9]],j===0?'#163d43':j===1?'#28564e':'#35745d');
-    if(winter)line([[-9+j*2,-v+6],[0,-tall-7+j*12],[8-j*2,-v+6]],'#dce9e9',2);
-   }
-  }else{
-   for(let j=0;j<5;j++){
-    const angle=j*2.4,rad=j%2?10:5,cx=Math.cos(angle)*rad,cy=-tall+Math.sin(angle)*7;
-    dot(cx,cy,11+4*noise(j+i*11),['#658b5c','#aa9855','#d5a45d','#4f755a'][i%4]);
-    if(winter){dot(cx-3,cy-5,5,'#d7e5e8');}
-   }
-  }
-  ctx.restore();
- }
+
+ function tree(x,y,i){drawTree(ctx,iso,x,y,i,winter);}
  function car(x,y,rotation,color,service=false){
-  const p=iso(x,y);ctx.save();ctx.translate(p[0],p[1]-5+(service?Math.sin((view.animation||0)*2.4+rotation)*1.1:0));ctx.rotate(rotation);
-  ctx.fillStyle='#04151b9c';ctx.beginPath();ctx.ellipse(5,8,21,9,0,0,7);ctx.fill();
-  ctx.fillStyle='#1c2a35';ctx.fillRect(-15,3,8,9);ctx.fillRect(9,3,8,9);
-  const g=ctx.createLinearGradient(-22,-10,19,12);
-  g.addColorStop(0,'#ffffff');g.addColorStop(.22,color);g.addColorStop(1,'#586873');
-  ctx.fillStyle=g;ctx.beginPath();ctx.roundRect(-22,-12,43,22,5);ctx.fill();
-  ctx.fillStyle='#d7f3fb';ctx.fillRect(-7,-9,15,9);
-  ctx.fillStyle=service?'#ecf8fe':'#384958';ctx.fillRect(12,-5,6,6);
-  ctx.fillStyle=service?'#e8fdff':'#ffd5a0';ctx.fillRect(-21,-2,3,4);
-  ctx.restore();
+  drawVan(ctx,iso,x,y,rotation,color,service,view.animation||0);
  }
  function apartment(x,y,i,managed=false){
-  const w=2.55,h=1.65,z=managed?105:89;
-  const a=iso(x-w/2,y-h/2),b=iso(x+w/2,y-h/2);
-  const c=iso(x+w/2,y+h/2),d=iso(x-w/2,y+h/2);
-  const up=p=>[p[0],p[1]-z];
-  const aa=up(a),bb=up(b),cc=up(c),dd=up(d);
-  // Exterior shadow, recessed ground plinth, five-storey masonry facades.
-  poly([a,b,c,d].map(p=>[p[0]+12,p[1]+13]),'#10232c77');
-  poly([b,c,cc,bb],managed?'#b99b87':'#a5a69c','#52616a',1.2);
-  poly([d,c,cc,dd],managed?'#dfc0a3':'#c4b4a1','#66737a',1.2);
-  poly([aa,bb,cc,dd],winter?'#91a4a7':'#747f84','#d0d9d2',2);
-  // Roof parapets, snow caps and rooftop ventilation shafts.
-  line([aa,bb,cc,dd,aa],winter?'#e4eced':'#bdc6bd',3);
-  const center=iso(x,y,z);
-  poly([[center[0]-11,center[1]-6],[center[0],center[1]-12],[center[0]+14,center[1]-4],[center[0]+2,center[1]+2]],'#566976','#b4bfbe');
-  poly([[center[0]+18,center[1]+6],[center[0]+27,center[1]+2],[center[0]+27,center[1]-10],[center[0]+18,center[1]-6]],'#74848a');
-  if(winter)line([[center[0]-18,center[1]-14],[center[0]+11,center[1]+2]],'#d8e8e9',2);
-  // Brick floor levels and lit windows on both visible facades.
-  for(let floor=0;floor<5;floor++){
-   const zf=12+floor*(z-24)/5;
-   for(let win=1;win<=7;win++){
-    const t=win/8,base=lerp(d,c,t),px=base[0],py=base[1]-zf;
-    const lit=noise(i*71+floor*31+win*13)>.55;
-    poly([[px-5,py-8],[px+2,py-4],[px+2,py+3],[px-5,py-1]],lit?'#ffdf91':'#557283','#354d59',.6);
-    if(lit)line([[px-4,py-6],[px,py-4]],'#fff0bf',.9);
-   }
-   for(let win=1;win<=5;win++){
-    const t=win/6,base=lerp(b,c,t),px=base[0],py=base[1]-zf;
-    const lit=noise(i*39+floor*17+win*7)>.58;
-    poly([[px-3,py-4],[px+4,py-8],[px+4,py-1],[px-3,py+3]],lit?'#f5d698':'#476477','#425465',.6);
-   }
-  }
-  const door=lerp(d,c,.5);
-  poly([[door[0]-6,door[1]-17],[door[0]+5,door[1]-11],[door[0]+5,door[1]],[door[0]-6,door[1]-6]],'#283e46','#ffcd81',1);
+  const art=drawApartment(ctx,iso,x,y,i,managed,winter);
   if(managed){
-   tag(state.homes[i].name,iso(x,y,z+18),undefined,11);
-   view.hits.push({point:view.project(iso(x,y,z/2)),home:i});
-  }else tag(neighbors[i-3].name,iso(x,y,z+15),undefined,11);
+   tag(state.homes[i].name,iso(x,y,art.z+20),undefined,11);
+   view.hits.push({point:view.project(iso(x,y,art.z*.56)),home:i});
+  }else{
+   tag(neighbors[i-3].name,iso(x,y,art.z+22),undefined,11);
+  }
  }
  // A broad living city fills the whole mobile viewport during zoom/pan.
  tile(-8,-8,27,27,winter?'#6b8383':'#6b8b69');
@@ -210,6 +153,14 @@ export function renderMap(canvas,state,view){
   const t=(k*3)%16;
   if(k%2===0)lamp(t+.72,k%4?4.83:8.83);
   else lamp(k%4?4.83:8.83,t+.72);
+ }
+
+ // Park benches, bollards, enclosures and planter boxes add a street-level scale.
+ for(let k=0;k<37;k++){
+  const fx=1.3+noise(k*19+3)*11.4,fy=1.3+noise(k*29+9)*11.4;
+  if([0,4,8,12].some(n=>Math.abs(fx-n)<.85||Math.abs(fy-n)<.85))continue;
+  if([...houses,...neighbors.map(n=>[n.x,n.y])].some(h=>Math.abs(fx-h[0])<1.65&&Math.abs(fy-h[1])<1.35))continue;
+  drawStreetFurniture(ctx,iso,fx,fy,k,winter);
  }
  const buildings=[
   ...houses.map(([x,y],i)=>({x,y,i,managed:true})),
