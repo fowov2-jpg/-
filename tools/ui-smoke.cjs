@@ -31,6 +31,7 @@ const fs=require('node:fs');
      'No horizontal overflow: '+tab+' at '+width);
    }
    if(width===360){
+    assert.equal(await page.locator("header .weather").evaluate(el=>getComputedStyle(el).display!=="none"),true,"Mobile weather visible");
     await page.locator('[data-tab="map"]').click();
     await page.screenshot({path:'artifacts/upravdom-map-360.png'});
    }
