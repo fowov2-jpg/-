@@ -109,22 +109,49 @@ export function renderMap(canvas,state,view){
    tag(neighbors[i-3].name,iso(x,y,art.z+22),undefined,11);
   }
  }
- // A broad living city fills the whole mobile viewport during zoom/pan.
- tile(-8,-8,27,27,winter?'#6b8383':'#6b8b69');
- for(let x=-7;x<18;x++)for(let y=-7;y<18;y++){
-  const n=noise(x*71+y*9);
-  if(n>.26)tile(x+.08,y+.08,.84,.84,winter?n>.76?'#a5b6b1':'#778c87':n>.6?'#6e916b':'#678364');
+
+ // Natural-looking continuous ground, replacing the previous chessboard terrain.
+ tile(-8,-8,27,27,winter?'#647d77':'#698765');
+ for(let k=0;k<420;k++){
+  const gx=-7+noise(k*7+81)*25,gy=-7+noise(k*13+219)*25;
+  const p=iso(gx,gy);
+  const size=1.8+noise(k*21+6)*5.8;
+  const shade=winter?['#9db0a4','#506b67','#839895','#b9c6bd']:
+   ['#52795b','#879e6d','#a79868','#3f755c'];
+  ctx.save();ctx.globalAlpha=.12+.15*noise(k*9+28);
+  ctx.fillStyle=shade[k%shade.length];ctx.beginPath();
+  ctx.ellipse(p[0],p[1],size*2,size*.9,.3,0,Math.PI*2);ctx.fill();
+  ctx.restore();
  }
- // Pavements, kerbs, carriageways and lane markings.
+ // Soft landscaped slopes, meandering footpaths, and snow banks.
+ for(const [xx,yy,ww,hh] of [
+  [1.3,4.9,2.4,2.2],[4.6,5.0,3.1,2.4],[8.7,5.3,2.4,2.1],
+  [1.3,8.8,2.2,2.4],[4.8,9.0,2.7,2.3],[8.7,9.0,2.4,2.2]
+ ]){
+  tile(xx,yy,ww,hh,winter?'#708983':'#6a8f6c');
+ }
+ // Road and pavement shades are separated to read like actual streets.
  for(const t of [-4,0,4,8,12,16]){
-  tile(t-.68,-8,1.36,27,'#b7bdba');
-  tile(-8,t-.68,27,1.36,'#b7bdba');
-  tile(t-.52,-8,1.04,27,'#475663');
-  tile(-8,t-.52,27,1.04,'#475663');
-  line([iso(t,-8),iso(t,19)],'#dedfc670',2,[13,16]);
-  line([iso(-8,t),iso(19,t)],'#dedfc670',2,[13,16]);
-  line([iso(t-.53,-8),iso(t-.53,19)],'#909e9c',2);
-  line([iso(-8,t-.53),iso(19,t-.53)],'#909e9c',2);
+  tile(t-.78,-8,1.56,27,winter?'#b2bab5':'#a9b5a8');
+  tile(-8,t-.78,27,1.56,winter?'#b2bab5':'#a9b5a8');
+  tile(t-.59,-8,1.18,27,'#394b57');
+  tile(-8,t-.59,27,1.18,'#394b57');
+  // Asphalt edge wear, curbs and broken lane markings.
+  line([iso(t-.59,-8),iso(t-.59,19)],'#758b8f',2.4);
+  line([iso(-8,t-.59),iso(19,t-.59)],'#758b8f',2.4);
+  line([iso(t+.59,-8),iso(t+.59,19)],'#233c48',1.5);
+  line([iso(-8,t+.59),iso(19,t+.59)],'#233c48',1.5);
+  line([iso(t,-8),iso(t,19)],'#e4e0c688',2,[11,17]);
+  line([iso(-8,t),iso(19,t)],'#e4e0c688',2,[11,17]);
+ }
+ // A few irregular garden paths: local courtyards no longer look like grid squares.
+ for(const [from,to] of [
+  [[1,4.94],[3.4,5.65]],[[5.1,4.97],[6.7,6.62]],
+  [[9.2,5.09],[10.8,6.23]],[[1.4,8.86],[3.6,10.1]],
+  [[5.1,8.94],[6.7,10.12]],[[9.3,9.1],[10.9,10.3]]
+ ]){
+  line([iso(...from),iso(...to)],'#aab2a188',7);
+  line([iso(...from),iso(...to)],'#d7ceac55',3);
  }
  // Marked crosswalks at a few important intersections.
  for(const [x,y] of [[4,4],[8,4],[4,8],[8,8],[0,4],[12,8]]){
@@ -142,13 +169,25 @@ export function renderMap(canvas,state,view){
  for(let k=0;k<4;k++)car(1+k*.46,4.83,0,['#dde9ed','#adceda','#304454','#b8a5a0'][k]);
  for(let k=0;k<4;k++)car(8.75+k*.5,8.48,.8,['#cbd4da','#435c6a','#e2e1d4','#b45d53'][k]);
  // A consistent seeded scattering gives a stable world between game ticks.
- for(let k=0;k<91;k++){
-  const x=-5+noise(k*5+11)*21,y=-5+noise(k*7+17)*21;
+ for(let k=0;k<210;k++){
+  const x=-5+noise(k*17+11)*21,y=-5+noise(k*43+17)*21;
   if([0,4,8,12].some(n=>Math.abs(x-n)<.9||Math.abs(y-n)<.9))continue;
   if([...houses,...neighbors.map(n=>[n.x,n.y])].some(h=>Math.abs(x-h[0])<1.7&&Math.abs(y-h[1])<1.2))continue;
   if(x>4.5&&x<7.5&&y>5&&y<11)continue;
   tree(x,y,k);
  }
+
+ // Clusters of substantial trees frame the roads and deepen the courtyards.
+ const streetTrees=[
+  [1.1,5.0],[1.5,5.4],[3.1,5.15],[3.5,5.55],[5.1,5.02],[7.1,5.05],
+  [8.7,5.0],[9.0,6.3],[10.8,5.3],[1.0,9.0],[1.3,10.5],[3.3,9.3],
+  [4.9,9.0],[6.9,10.8],[8.8,9.2],[9.0,10.8],[11.0,9.5],
+  [1.2,1.0],[3.25,1.1],[5.5,1.0],[7.3,2.2],[9.1,1.1],[11.1,2.0]
+ ];
+ streetTrees.forEach(([x,y],i)=>{
+  if([...houses,...neighbors.map(n=>[n.x,n.y])].some(h=>Math.abs(x-h[0])<1.6&&Math.abs(y-h[1])<1.25))return;
+  tree(x,y,220+i);
+ });
  for(let k=0;k<19;k++){
   const t=(k*3)%16;
   if(k%2===0)lamp(t+.72,k%4?4.83:8.83);
