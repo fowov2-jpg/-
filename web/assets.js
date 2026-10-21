@@ -3,7 +3,8 @@
 const files={
   house_01:'house_01.png',house_02:'house_02.png',house_03:'house_03.png',
   house_04:'house_04.png',van_water:'van_water.png',
-  van_electric:'van_electric.png',van_repair:'van_repair.png'
+  van_electric:'van_electric.png',van_repair:'van_repair.png',
+  tree_green:'tree_green.png',tree_autumn:'tree_autumn.png',tree_pine:'tree_pine.png'
 };
 const cache=Object.create(null);
 const failed=new Set();
