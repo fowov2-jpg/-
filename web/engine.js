@@ -109,5 +109,11 @@ export function maintain(s,id,kind) {
  else throw Error('Неизвестное действие');
 }
 export function prevent(s,id) {if(s.phase!=='prep')throw Error('Профилактика доступна перед сменой');const h=s.homes[id];if(!h)throw Error('Дом не найден');spend(s,12000,'Профилактика: '+h.name);h.wear=Math.max(0,h.wear-15);}
+export function financialReserve(s) {
+ const fixed=2*(6*1800+4500);
+ const materials=s.calls.filter(c=>c.status==='new').reduce((sum,c)=>sum+TYPES[c.type][4],0);
+ const total=fixed+materials;
+ return {fixed,materials,total,shortfall:Math.max(0,total-s.money)};
+}
 export function encode(s){return JSON.stringify(s);}
 export function decode(raw){const s=JSON.parse(raw);if(s?.version!==1||!['prep','active','report'].includes(s.phase)||!Number.isFinite(s.money)||!Number.isInteger(s.day)||s.day<1||!Number.isFinite(s.minute)||s.minute<0||s.minute>480||!Array.isArray(s.crews)||s.crews.length!==3||!Array.isArray(s.homes)||s.homes.length!==3||!Array.isArray(s.calls)||!Array.isArray(s.ledger))throw Error('Сохранение повреждено');for(const c of s.calls)if(!TYPES[c.type]||!s.homes[c.home])throw Error('Неизвестная заявка');return s;}

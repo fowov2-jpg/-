@@ -11,3 +11,15 @@ test('Save reload continuation is deterministic',()=>{const a=E.fresh();E.start(
 test('Maintenance and prevention enforce eligibility',()=>{const s=E.fresh();E.prevent(s,0);assert.equal(s.homes[0].wear,25);E.start(s);assert.throws(()=>E.prevent(s,0));E.dispatch(s,1,0);assert.throws(()=>E.maintain(s,0,'service'));});
 test('Multiple days do not lose a repair in progress',()=>{const s=E.fresh();E.start(s);s.minute=470;const c=E.spawn(s,0,0);E.dispatch(s,c.id,0);E.tick(s,10);E.nextDay(s);E.start(s);E.tick(s,40);assert.equal(s.calls.find(x=>x.id===c.id).status,'done');});
 test('Ten managed shifts reconcile ledger and preserve job references',()=>{const s=E.fresh();for(let day=0;day<10;day++){for(const c of s.crews)if(c.status==='idle')E.maintain(s,c.id,'service');E.start(s);while(s.phase==='active'){for(const c of s.calls.filter(c=>c.status==='new')){const cr=s.crews.find(x=>x.status==='idle'&&x.service===E.TYPES[c.type][1]&&x.fatigue<=90&&x.fuel>=8&&x.condition>=20);if(cr){E.question(s,c.id);E.dispatch(s,c.id,cr.id);}}E.tick(s,1);}const sum=s.ledger.filter(e=>e.day===s.day).reduce((a,e)=>a+e.amount,0);const prepCosts=s.ledger.filter(e=>e.day===s.day&&e.minute===0&&e.label.startsWith('Топливо')).reduce((a,e)=>a+e.amount,0);assert.equal(s.report.net,sum-prepCosts);for(const cr of s.crews)if(cr.job!==null)assert.ok(s.calls.find(c=>c.id===cr.job));if(day<9)E.nextDay(s);}});
+
+test('Financial reserve includes two shifts costs and only unpaid materials',()=>{
+ const s=E.fresh();
+ assert.deepEqual(E.financialReserve(s),{fixed:30600,materials:0,total:30600,shortfall:0});
+ E.start(s);
+ assert.equal(E.financialReserve(s).total,42800);
+ E.dispatch(s,1,0);
+ assert.equal(E.financialReserve(s).materials,6000);
+ assert.equal(E.financialReserve(s).total,36600);
+ s.money=30000;
+ assert.equal(E.financialReserve(s).shortfall,6600);
+});
