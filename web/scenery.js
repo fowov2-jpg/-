@@ -224,3 +224,85 @@ export function drawStreetFurniture(ctx,iso,x,y,index,winter=false){
   }
  }
 }
+
+
+// Gameworld art for parks: playground, swings, courts, fences and ground painting.
+export function drawPlayground(ctx,iso,x=4.85,y=5.2,winter=false){
+ const tile=(x,y,w,h,color,stroke)=>{
+  poly(ctx,[iso(x,y),iso(x+w,y),iso(x+w,y+h),iso(x,y+h)],color,stroke);
+ };
+ const p=(u,v,z=0)=>iso(x+u,y+v,z);
+ const stroke=(pts,color,width=2)=>seg(ctx,pts,color,width);
+ tile(x,y,2.55,2.25,'#9e9a81','#cfcbac');
+ tile(x+.11,y+.11,2.3,2.03,winter?'#bcaf97':'#caac89');
+ tile(x+.31,y+.37,1.96,1.5,'#ba865b');
+ tile(x+.53,y+.55,1.5,1.1,'#73a06e');
+ // Fence traces the perimeter with 3D vertical poles.
+ for(const [[ax,ay],[bx,by]] of [
+  [[.08,.08],[2.46,.08]],[[2.46,.08],[2.46,2.16]],
+  [[2.46,2.16],[.08,2.16]],[[.08,2.16],[.08,.08]]
+ ]){
+  stroke([p(ax,ay,0),p(bx,by,0)],'#314a4a',2);
+  stroke([p(ax,ay,23),p(bx,by,23)],'#aebbb7',2.4);
+  for(let t=0;t<=1;t+=.16){
+   const xx=mix(ax,bx,t),yy=mix(ay,by,t);
+   stroke([p(xx,yy,0),p(xx,yy,25)],'#e0dfc9',1.6);
+  }
+ }
+ // Slide tower: platform legs, guardrails, red chute and roof.
+ const base=p(1.19,1.12,0),platform=p(1.19,1.12,36);
+ for(const [u,v] of [[1.01,.98],[1.35,.98],[1.01,1.25],[1.35,1.25]]){
+  stroke([p(u,v,0),p(u,v,35)],'#316b68',3.6);
+ }
+ poly(ctx,[p(.92,.85,34),p(1.44,.85,34),p(1.44,1.39,34),p(.92,1.39,34)],'#edb76b','#f7e9af',1.2);
+ poly(ctx,[p(.87,.84,57),p(1.47,.84,57),p(1.43,1.40,57),p(.91,1.4,57)],'#b74340','#fa996f');
+ stroke([p(1.18,1.41,36),p(1.82,1.58,3)],'#ff614d',10);
+ stroke([p(1.18,1.43,36),p(1.8,1.59,5)],'#efb26f',2);
+ for(let j=0;j<4;j++)stroke([p(.84+j*.1,.98+j*.08,3+j*8),p(.84+j*.1,1.3+j*.08,3+j*8)],'#d9b779',2);
+ // Swing set, actually suspended and triangulated in 3D.
+ for(const t of [.20,.72]){
+  stroke([p(.18,t,0),p(.45,t+.1,35)],'#ff7c4d',3.5);
+  stroke([p(.70,t,0),p(.45,t+.1,35)],'#ff7c4d',3.5);
+ }
+ stroke([p(.45,.3,35),p(.45,.82,35)],'#ffc965',3);
+ for(const t of [.4,.65]){
+  stroke([p(.45,t,31),p(.45,t,8)],'#d9d9c6',1);
+  stroke([p(.47,t,31),p(.47,t,8)],'#d9d9c6',1);
+  stroke([p(.43,t,8),p(.55,t,8)],'#447e6e',4);
+ }
+ // Benches, sandbox and small leaf piles.
+ poly(ctx,[p(1.7,.23),p(2.19,.23),p(2.19,.68),p(1.7,.68)],'#d5c28a','#876e4c',2.2);
+ poly(ctx,[p(1.79,.3),p(2.10,.3),p(2.10,.58),p(1.79,.58)],'#eac589');
+ for(let k=0;k<8;k++){
+  const dx=rand(k*19+5)*2.25,dy=rand(k*21+7)*2.04;
+  const q=p(dx,dy);oval(ctx,q,2.5,1.7,winter?'#d3e5e2':k%2?'#d6aa5a':'#768b50');
+ }
+}
+export function drawSportCourt(ctx,iso,x=5.1,y=9.2,winter=false){
+ const p=(u,v,z=0)=>iso(x+u,y+v,z);
+ poly(ctx,[p(0,0),p(2.6,0),p(2.6,2.1),p(0,2.1)],'#405e58','#b3b3ac',2);
+ poly(ctx,[p(.12,.12),p(2.48,.12),p(2.48,1.98),p(.12,1.98)],'#9b5855');
+ poly(ctx,[p(.42,.36),p(2.20,.36),p(2.20,1.78),p(.42,1.78)],'#507f65','#ceddc4',1.5);
+ seg(ctx,[p(1.30,.36),p(1.30,1.78)],'#f1f0db',1.5);
+ for(const x0 of [.73,1.89]){
+  ctx.beginPath();const q=p(x0,1.07);ctx.ellipse(q[0],q[1],11,6,0,0,Math.PI*2);
+  ctx.strokeStyle='#f3f2df';ctx.lineWidth=1.4;ctx.stroke();
+  seg(ctx,[p(x0,.93),p(x0,1.22)],'#e6e4cd',1.2);
+ }
+ // Transparent wire fence reads as a 3D structure.
+ for(const [[ax,ay],[bx,by]] of [
+  [[0,0],[2.6,0]],[[2.6,0],[2.6,2.1]],[[2.6,2.1],[0,2.1]],[[0,2.1],[0,0]]
+ ]){
+  seg(ctx,[p(ax,ay,32),p(bx,by,32)],'#d4dfdc',2.2);
+  seg(ctx,[p(ax,ay,0),p(bx,by,0)],'#2e5257',2.1);
+  for(let t=0;t<=1;t+=.125){
+   const xx=mix(ax,bx,t),yy=mix(ay,by,t);
+   seg(ctx,[p(xx,yy,0),p(xx,yy,33)],'#b5d0cc88',1);
+  }
+ }
+ for(const u of [.14,2.46]){
+  seg(ctx,[p(u,1.05,0),p(u,1.05,30)],'#4e5f68',2.3);
+  const ring=p(u,1.05,25);
+  poly(ctx,[[ring[0]-6,ring[1]-3],[ring[0]+5,ring[1]],[ring[0]+5,ring[1]+7],[ring[0]-6,ring[1]+4]],'#e7e9e3','#899ca2',1);
+ }
+}
