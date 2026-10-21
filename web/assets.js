@@ -7,6 +7,31 @@ const files={
 };
 const cache=Object.create(null);
 const failed=new Set();
+const crops=Object.create(null);
+function opaqueBounds(img){
+ // Find real alpha edges of the 3D asset instead of hardcoding Blender framing.
+ try{
+  const surface=document.createElement('canvas');
+  surface.width=img.naturalWidth;surface.height=img.naturalHeight;
+  const g=surface.getContext('2d',{willReadFrequently:true});
+  g.drawImage(img,0,0);
+  const pixels=g.getImageData(0,0,surface.width,surface.height).data;
+  let l=surface.width,t=surface.height,r=0,b=0;
+  for(let y=0;y<surface.height;y+=2){
+   for(let x=0;x<surface.width;x+=2){
+    if(pixels[(y*surface.width+x)*4+3]>30){
+     l=Math.min(l,x);t=Math.min(t,y);
+     r=Math.max(r,x);b=Math.max(b,y);
+    }
+   }
+  }
+  if(r<=l||b<=t)return [0,0,surface.width,surface.height];
+  const pad=8;
+  const x=Math.max(0,l-pad),y=Math.max(0,t-pad);
+  return [x,y,Math.min(surface.width-x,r+pad-x+1),Math.min(surface.height-y,b+pad-y+1)];
+ }catch{return [0,0,img.naturalWidth,img.naturalHeight];}
+}
+
 
 export function drawGameSprite(ctx,canvas,key,x,y,width,height){
  if(typeof Image==='undefined'||!files[key]||failed.has(key))return false;
@@ -22,8 +47,8 @@ export function drawGameSprite(ctx,canvas,key,x,y,width,height){
   img.src='./assets/rendered/'+files[key];
  }
  if(img.complete&&img.naturalWidth>0){
-  const crop=key.startsWith('house_')?[107,35,298,444]:[140,142,254,219];
-  ctx.drawImage(img,...crop,x,y,width,height);
+  if(!crops[key])crops[key]=opaqueBounds(img);
+  ctx.drawImage(img,...crops[key],x,y,width,height);
   return true;
  }
  return false;
