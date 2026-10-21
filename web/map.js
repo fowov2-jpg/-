@@ -15,7 +15,8 @@ const noise=n=>((Math.sin(n*127.1+78.233)*43758.5453)%1+1)%1;
 
 export function route(from,to){
  const a=stops[from]||[8,8],b=stops[to];
- if(from===to)return [a];
+ // A nearby incident still requires a short drive from the depot around the block.
+ if(from===to)return [a,[a[0]+1,a[1]],[a[0]+1,a[1]-1.2],[a[0],a[1]-1.2],a];
  return [a,[4,a[1]],[4,b[1]],b];
 }
 export function vehiclePosition(crew,state){
