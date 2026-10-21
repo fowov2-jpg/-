@@ -21,6 +21,9 @@ const fs=require('node:fs');
    assert.equal(bytes.subarray(0,8).toString('hex'),'89504e470d0a1a0a','Valid PNG: '+name);
   }
 
+  fs.mkdirSync('artifacts',{recursive:true});
+  await page.waitForTimeout(500);
+  await page.screenshot({path:'artifacts/upravdom-map-prep-412.png'});
   await page.getByRole('button',{name:'Начать смену',exact:true}).click();
   await page.getByRole('button',{name:'Пауза',exact:true}).click();
   await page.locator('button[data-action="call"]').first().click();
@@ -69,6 +72,7 @@ const fs=require('node:fs');
   await page.screenshot({path:'artifacts/upravdom-crews-412.png',fullPage:false});
   await page.locator('[data-tab="garage"]').click();
   assert.equal(await page.locator('.garage-vehicle img').count(),3,'Garage uses same 3D vehicle art');
+  assert.equal(await page.locator('.garage-vehicle img').evaluateAll(xs=>new Set(xs.map(x=>x.getAttribute('src'))).size),3,'Each crew must have a distinct vehicle');
   assert.equal(await page.locator('.garage-vehicle img').evaluateAll(xs=>xs.every(x=>x.complete&&x.naturalWidth>0)),true,'All garage sprites loaded');
   await page.screenshot({path:'artifacts/upravdom-garage-412.png',fullPage:false});
   assert.equal(await page.getByRole('heading',{name:'Гараж и техника'}).count(),1);
