@@ -6,6 +6,8 @@ import android.webkit.WebView;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.view.View;
+import android.view.WindowManager;
+import android.widget.FrameLayout;
 import androidx.webkit.WebViewAssetLoader;
 import androidx.webkit.WebViewClientCompat;
 import java.io.ByteArrayInputStream;
@@ -15,14 +17,23 @@ public class MainActivity extends Activity {
     private WebView web;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        // The game draws its own clock and status HUD. Hide the Android status bar
+        // so system icons never overlap the brand or budgets on edge-to-edge devices.
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN);
         web = new WebView(this);
         web.setBackgroundColor(0xff081923);
-        web.setOnApplyWindowInsetsListener((v, insets) -> {
+        FrameLayout root = new FrameLayout(this);
+        root.setBackgroundColor(0xff081923);
+        root.addView(web, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        root.setOnApplyWindowInsetsListener((v, insets) -> {
+            // Reserve Android's bottom navigation / gesture inset in native layout.
             v.setPadding(insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(),
                     insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom());
-            return insets;
+            return insets.consumeSystemWindowInsets();
         });
-        setContentView(web);
+        setContentView(root);
         web.getSettings().setJavaScriptEnabled(true);
         web.getSettings().setDomStorageEnabled(true);
         web.getSettings().setAllowFileAccess(false);
