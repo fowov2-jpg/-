@@ -173,3 +173,34 @@ nav .nav-count{position:absolute;left:21px;top:-10px;background:#fe4248;color:wh
  header .stat small{font-size:7px}
  header .stats{grid-template-columns:minmax(33px,.68fr) minmax(29px,.6fr) minmax(65px,1.46fr) minmax(18px,.42fr)}
 }
+
+
+/* Pixel-checked 360–412 dp toolbar: fixed-size clock/weather, flexible cash amount. */
+@media(max-width:700px){
+ header{display:flex;flex-wrap:nowrap;gap:4px;padding-left:8px;padding-right:8px}
+ header .brand{width:90px;min-width:90px;max-width:90px;flex:0 0 90px;gap:2px}
+ header .brand>svg{width:16px;height:16px}
+ header .brand>div{min-width:0}
+ header .brand h1{font-size:12px;line-height:1.15;letter-spacing:-.2px}
+ header .brand small{font-size:6px;line-height:1.05;max-width:69px}
+ header .stats{
+  flex:1 1 auto;width:auto;min-width:0;
+  display:grid;grid-template-columns:44px 48px minmax(0,1fr) 32px;gap:0
+ }
+ header .stat{padding-left:3px;min-width:0}
+ header .clock-stat{padding-left:3px}
+ header .stat strong{font-size:11px;line-height:1.1;gap:1px;min-width:0}
+ header .clock-stat small,header .budget small{display:none}
+ header .weather small{font-size:7px}
+ header .weather .weather-symbol{font-size:13px}
+ header .budget .cash-icon{font-size:10px}
+ header .budget .money{font-size:clamp(9px,2.6vw,11px);letter-spacing:-.25px}
+ header .notifications{padding-left:2px}
+ header .notifications strong{font-size:12px}
+ header .notifications svg{width:14px;height:14px}
+}
+@media(max-width:380px){
+ header .brand{width:86px;min-width:86px;max-width:86px;flex-basis:86px}
+ header .stats{grid-template-columns:42px 43px minmax(0,1fr) 28px}
+ header .budget .money{font-size:9px}
+}
