@@ -1,4 +1,5 @@
 import {COLORS,TYPES} from './engine.js';
+import {drawGameSprite} from './assets.js';
 import {drawApartment,drawTree,drawVan,drawStreetFurniture,drawPlayground,drawSportCourt} from './scenery.js';
 
 // Procedural isometric district. Every visible route and incident uses live game state.
@@ -97,16 +98,23 @@ export function renderMap(canvas,state,view){
  }
 
  function tree(x,y,i){drawTree(ctx,iso,x,y,i,winter);}
- function car(x,y,rotation,color,service=false){
+ function car(x,y,rotation,color,service=false,serviceIndex=0){
+  const p=iso(x,y,0);
+  const asset=['van_water','van_electric','van_repair'][serviceIndex]||'van_water';
+  if(service&&drawGameSprite(ctx,canvas,asset,p[0]-42,p[1]-47,84,57))return;
   drawVan(ctx,iso,x,y,rotation,color,service,view.animation||0);
  }
  function apartment(x,y,i,managed=false){
-  const art=drawApartment(ctx,iso,x,y,i,managed,winter);
+  const height=managed?119:99+(i%2)*5;
+  const p=iso(x,y,0);
+  const rendered=drawGameSprite(ctx,canvas,'house_0'+((i%4)+1),
+   p[0]-103,p[1]-177,206,188);
+  if(!rendered)drawApartment(ctx,iso,x,y,i,managed,winter);
   if(managed){
-   tag(state.homes[i].name,iso(x,y,art.z+20),undefined,11);
-   view.hits.push({point:view.project(iso(x,y,art.z*.56)),home:i});
+   tag(state.homes[i].name,iso(x,y,height+20),undefined,11);
+   view.hits.push({point:view.project(iso(x,y,height*.56)),home:i});
   }else{
-   tag(neighbors[i-3].name,iso(x,y,art.z+22),undefined,11);
+   tag(neighbors[i-3].name,iso(x,y,height+22),undefined,11);
   }
  }
 
@@ -217,7 +225,7 @@ export function renderMap(canvas,state,view){
    }
   }
   const pos=vehiclePosition(cr,state);
-  car(pos[0]+cr.id*.17,pos[1]+.11,cr.id===1?.2:-.3,COLORS[cr.service],true);
+  car(pos[0]+cr.id*.17,pos[1]+.11,cr.id===1?.2:-.3,COLORS[cr.service],true,cr.service);
   if(travel){
    const point=iso(pos[0]+cr.id*.17,pos[1]+.11,25);
    const label=['Сантехники','Электрики','Ремонтники'][cr.service]+' · '+cr.remaining+' мин';
