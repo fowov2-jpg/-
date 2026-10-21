@@ -29,7 +29,7 @@ export const HOMES = [
  {id:2,name:'ул. Молодёжная, 8',x:310,y:820,wear:48}
 ];
 export const SHIFT = 480;
-export function fresh() { return {version:1,day:1,minute:0,phase:'prep',money:3000000,reputation:70,seed:112,sequence:0,nextCall:0,homes:structuredClone(HOMES),calls:[],ledger:[],report:null,opening:3000000,crews:SERVICES.map((name,id)=>({id,name,service:id,level:1,xp:0,fatigue:0,fuel:100,condition:100,equipment:1,status:'idle',job:null,remaining:0,total:0,home:0}))}; }
+export function fresh() { return {version:1,day:1,minute:0,phase:'prep',money:3000000,reputation:70,seed:112,sequence:0,nextCall:0,homes:structuredClone(HOMES),calls:[],ledger:[],report:null,opening:3000000,crews:SERVICES.map((name,id)=>({id,name,service:id,level:1,xp:0,fatigue:0,fuel:100,condition:100,equipment:1,status:'idle',job:null,remaining:0,total:0,home:3}))}; }
 function rand(s) { s.seed=(Math.imul(s.seed,1664525)+1013904223)>>>0; return s.seed/4294967296; }
 export function book(s,amount,label) { s.money+=amount;s.ledger.unshift({day:s.day,minute:s.minute,amount,label});s.ledger=s.ledger.slice(0,100); }
 function spend(s,amount,label) { if(s.money<amount) throw Error('Недостаточно средств');book(s,-amount,label); }
@@ -110,4 +110,8 @@ export function maintain(s,id,kind) {
 }
 export function prevent(s,id) {if(s.phase!=='prep')throw Error('Профилактика доступна перед сменой');const h=s.homes[id];if(!h)throw Error('Дом не найден');spend(s,12000,'Профилактика: '+h.name);h.wear=Math.max(0,h.wear-15);}
 export function encode(s){return JSON.stringify(s);}
-export function decode(raw){const s=JSON.parse(raw);if(s?.version!==1||!['prep','active','report'].includes(s.phase)||!Number.isFinite(s.money)||!Number.isInteger(s.day)||s.day<1||!Number.isFinite(s.minute)||s.minute<0||s.minute>480||!Array.isArray(s.crews)||s.crews.length!==3||!Array.isArray(s.homes)||s.homes.length!==3||!Array.isArray(s.calls)||!Array.isArray(s.ledger))throw Error('Сохранение повреждено');for(const c of s.calls)if(!TYPES[c.type]||!s.homes[c.home])throw Error('Неизвестная заявка');return s;}
+export function decode(raw){const s=JSON.parse(raw);if(s?.version!==1||!['prep','active','report'].includes(s.phase)||!Number.isFinite(s.money)||!Number.isInteger(s.day)||s.day<1||!Number.isFinite(s.minute)||s.minute<0||s.minute>480||!Array.isArray(s.crews)||s.crews.length!==3||!Array.isArray(s.homes)||s.homes.length!==3||!Array.isArray(s.calls)||!Array.isArray(s.ledger))throw Error('Сохранение повреждено');for(const c of s.calls)if(!TYPES[c.type]||!s.homes[c.home])throw Error('Неизвестная заявка');
+ // Existing unplayed day-one saves can adopt the physical depot safely.
+ if(s.day===1&&s.phase==='prep'&&s.minute===0&&s.sequence===0&&
+   s.crews.every(cr=>cr.home===0&&cr.status==='idle'))s.crews.forEach(cr=>{cr.home=3;});
+ return s;}
