@@ -101,14 +101,14 @@ export function renderMap(canvas,state,view){
  function car(x,y,rotation,color,service=false,serviceIndex=0){
   const p=iso(x,y,0);
   const asset=['van_water','van_electric','van_repair'][serviceIndex]||'van_water';
-  if(service&&drawGameSprite(ctx,canvas,asset,p[0]-42,p[1]-47,84,57))return;
+  if(service&&drawGameSprite(ctx,canvas,asset,p[0]-50,p[1]-50,100,67))return;
   drawVan(ctx,iso,x,y,rotation,color,service,view.animation||0);
  }
  function apartment(x,y,i,managed=false){
   const height=managed?119:99+(i%2)*5;
   const p=iso(x,y,0);
   const rendered=drawGameSprite(ctx,canvas,'house_0'+((i%4)+1),
-   p[0]-103,p[1]-177,206,188);
+   p[0]-120,p[1]-180,240,196);
   if(!rendered)drawApartment(ctx,iso,x,y,i,managed,winter);
   if(managed){
    tag(state.homes[i].name,iso(x,y,height+20),undefined,11);
