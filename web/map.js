@@ -157,6 +157,12 @@ export function renderMap(canvas,state,view){
                       [iso(r.from,r.at),iso(r.to,r.at)];
   line(a,'#e5e5d6a2',2.2,[15,22]);
  }
+ // Three signed pull-in spaces keep vans separated from the travel lanes.
+ tile(4.00,7.20,4.15,.66,'#65757a','#b6bfb3');
+ for(let slot=0;slot<4;slot++){
+  const bx=4.10+slot*1.03;
+  line([iso(bx,7.22),iso(bx,7.83)],'#efeddfa8',2.2);
+ }
  // Entrances have their own sidewalk connection to an actual street.
  for(const b of BUILDINGS){
   let start,end;
@@ -200,8 +206,8 @@ export function renderMap(canvas,state,view){
  for(const cr of state.crews){
   const pos=vehiclePosition(cr,state);
   const idle=cr.status==='idle',alongY=Math.abs(pos[0])<.01;
-  const vx=pos[0]+(idle&&!alongY?cr.id*.55:0);
-  const vy=pos[1]+(idle&&alongY?cr.id*.55:0);
+  const vx=pos[0]+(idle&&!alongY?cr.id*1.55:0);
+  const vy=pos[1]+(idle&&alongY?cr.id*1.55:0)-(idle&&!alongY?.35:0);
   scene.push({depth:vx+vy+.05,draw:()=>
    car(vx,vy,0,COLORS[cr.service],true,cr.service)});
   if(cr.status==='travel'){
