@@ -22,7 +22,8 @@ export function drawGameSprite(ctx,canvas,key,x,y,width,height){
   img.src='./assets/rendered/'+files[key];
  }
  if(img.complete&&img.naturalWidth>0){
-  ctx.drawImage(img,x,y,width,height);
+  const crop=key.startsWith('house_')?[107,35,298,444]:[140,142,254,219];
+  ctx.drawImage(img,...crop,x,y,width,height);
   return true;
  }
  return false;
