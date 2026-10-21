@@ -133,5 +133,20 @@ function action(el){const a=el.dataset.action,id=Number(el.dataset.id);try{
  canvas.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,[e.clientX,e.clientY]);if(pointers.size===2){const [a,b]=[...pointers.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1]);if(pinch>0)view.zoom=Math.max(.65,Math.min(2.4,view.zoom*d/pinch));pinch=d;drag=99;}else if(last){const dx=e.clientX-last[0],dy=e.clientY-last[1];view.x=Math.max(-450,Math.min(450,view.x+dx));view.y=Math.max(-450,Math.min(450,view.y+dy));drag+=Math.abs(dx)+Math.abs(dy);}last=[e.clientX,e.clientY];draw();});
  canvas.addEventListener('pointerup',e=>{if(drag<8&&pointers.size===1){const r=canvas.getBoundingClientRect(),p=[e.clientX-r.left,e.clientY-r.top],hit=view.hits.find(h=>Math.hypot(h.point[0]-p[0],h.point[1]-p[1])<30);if(hit){if(hit.call){selected=hit.call;renderCall();}else{homeSelected=hit.home;renderHome();}}}pointers.delete(e.pointerId);last=pointers.size?[...pointers.values()][0]:null;});
  canvas.addEventListener('pointercancel',e=>{pointers.delete(e.pointerId);last=null;});canvas.addEventListener('wheel',e=>{e.preventDefault();view.zoom=Math.max(.65,Math.min(2.4,view.zoom*(e.deltaY<0?1.1:.9)));draw();},{passive:false});
+
+ // Visual animation is independent of simulation time. Throttled for battery life.
+ const reduceMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches??false;
+ let lastMapFrame=0;
+ if(!reduceMotion){
+  function animateMap(timestamp){
+   if(tab==='map'&&!document.hidden&&timestamp-lastMapFrame>=90){
+    view.animation=timestamp/1000;
+    draw();
+    lastMapFrame=timestamp;
+   }
+   requestAnimationFrame(animateMap);
+  }
+  requestAnimationFrame(animateMap);
+ }
  setInterval(()=>{if(!paused&&!document.hidden&&!$('#dialog').open&&state.phase==='active'){E.tick(state,speed);save();render();if(state.phase==='report')showReport();}},1000);
  render();
