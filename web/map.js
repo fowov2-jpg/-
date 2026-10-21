@@ -115,7 +115,7 @@ export function renderMap(canvas,state,view){
   ctx.restore();
  }
  function car(x,y,rotation,color,service=false){
-  const p=iso(x,y);ctx.save();ctx.translate(p[0],p[1]-5);ctx.rotate(rotation);
+  const p=iso(x,y);ctx.save();ctx.translate(p[0],p[1]-5+(service?Math.sin((view.animation||0)*2.4+rotation)*1.1:0));ctx.rotate(rotation);
   ctx.fillStyle='#04151b9c';ctx.beginPath();ctx.ellipse(5,8,21,9,0,0,7);ctx.fill();
   ctx.fillStyle='#1c2a35';ctx.fillRect(-15,3,8,9);ctx.fillRect(9,3,8,9);
   const g=ctx.createLinearGradient(-22,-10,19,12);
@@ -226,7 +226,9 @@ export function renderMap(canvas,state,view){
     ctx.save();ctx.shadowColor=COLORS[cr.service];ctx.shadowBlur=17;
     line(points,COLORS[cr.service]+'9a',8);
     ctx.restore();line(points,'#122734d0',5);
+    ctx.lineDashOffset=-(view.animation||0)*15;
     line(points,COLORS[cr.service],3,[9,7]);
+    ctx.lineDashOffset=0;
    }
   }
   const pos=vehiclePosition(cr,state);
@@ -243,13 +245,26 @@ export function renderMap(canvas,state,view){
   if(!calls.length)continue;
   const c=calls.sort((a,b)=>b.priority-a.priority)[0];
   const type=TYPES[c.type][1],p=iso(houses[i][0],houses[i][1],142),color=COLORS[type];
-  ctx.save();ctx.shadowColor=color;ctx.shadowBlur=24;
-  dot(p[0],p[1],22,color);ctx.restore();
+  const pulse=(view.animation||0),glow=1+Math.sin(pulse*2.8+i*1.5)*.13;
+  ctx.save();ctx.shadowColor=color;ctx.shadowBlur=22+7*glow;
+  dot(p[0],p[1],22*glow,color);ctx.restore();
   dot(p[0],p[1],17,'#0b2737');
   ctx.strokeStyle=color;ctx.lineWidth=3;ctx.beginPath();ctx.arc(p[0],p[1],19,0,Math.PI*2);ctx.stroke();
   ctx.fillStyle='#fff';ctx.font='bold 23px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
   ctx.fillText(['●','ϟ','⚒'][type],p[0],p[1]);
   view.hits.unshift({point:view.project(p),call:c.id});
+ }
+ // Low-opacity weather particles, purely visual: never alter simulation state.
+ if(winter){
+  const animation=view.animation||0;
+  ctx.save();
+  for(let k=0;k<42;k++){
+   const px=(noise(k*17+3)*1120+animation*(4+k%3))%1120;
+   const py=(noise(k*21+9)*1020+animation*(8+k%5))%1020;
+   ctx.globalAlpha=.16+.22*noise(k+13);
+   dot(px,py,k%4===0?2:1,'#ecf7ff');
+  }
+  ctx.restore();
  }
  ctx.restore();
 }
