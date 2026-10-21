@@ -9,7 +9,11 @@ const neighbors=[
  {x:10,y:2,name:'ул. Садовая, 10'},
  {x:2,y:10,name:'ул. Центральная, 3'},
  {x:6,y:10,name:'ул. Молодёжная, 6'},
- {x:10,y:6,name:'ул. Садовая, 16'}
+ {x:10,y:6,name:'ул. Садовая, 16'},
+ {x:10,y:10,name:'ул. Центральная, 5'},
+ {x:-2,y:2,name:'ул. Садовая, 8'},
+ {x:2,y:-2,name:'ул. Садовая, 6'},
+ {x:14,y:6,name:'ул. Лесная, 7'}
 ];
 const iso=(x,y,z=0)=>[500+(x-y)*49,100+(x+y)*27-z];
 const mix=(a,b,t)=>a+(b-a)*t;
@@ -113,7 +117,7 @@ export function renderMap(canvas,state,view){
   if(managed){
    tag(state.homes[i].name,iso(x,y,height+20),undefined,11);
    view.hits.push({point:view.project(iso(x,y,height*.56)),home:i});
-  }else{
+  }else if(i<7){
    tag(neighbors[i-3].name,iso(x,y,height+22),undefined,11);
   }
  }
@@ -139,7 +143,7 @@ export function renderMap(canvas,state,view){
   tile(xx,yy,ww,hh,winter?'#708983':'#6a8f6c');
  }
  // Road and pavement shades are separated to read like actual streets.
- for(const t of [-4,0,4,8,12,16]){
+ for(const t of [0,4,8,12]){
   tile(t-.78,-8,1.56,27,winter?'#b2bab5':'#a9b5a8');
   tile(-8,t-.78,27,1.56,winter?'#b2bab5':'#a9b5a8');
   tile(t-.59,-8,1.18,27,'#394b57');
@@ -165,13 +169,21 @@ export function renderMap(canvas,state,view){
  for(const [x,y] of [[4,4],[8,4],[4,8],[8,8],[0,4],[12,8]]){
   for(let k=-2;k<=2;k++)tile(x-.5+k*.16,y-.39,.10,.72,'#e5e8e1a6');
  }
+ // Small resident parking courts are tucked behind the apartment blocks.
+ for(const [px,py] of [[1.15,4.9],[8.72,4.9],[1.15,8.9],[8.7,8.85]]){
+  tile(px,py,2.05,.88,'#88948d','#bec2b6');
+  for(let slot=0;slot<4;slot++){
+   const a=px+.17+slot*.45,b=py+.18;
+   line([iso(a,b),iso(a,b+.57)],'#eff1dfa2',1.5);
+  }
+ }
  // Layered courtyard art replaces the previous abstract line markings.
  drawPlayground(ctx,iso,4.85,5.2,winter);
  drawSportCourt(ctx,iso,5.1,9.2,winter);
  for(let k=0;k<4;k++)car(1+k*.46,4.83,0,['#dde9ed','#adceda','#304454','#b8a5a0'][k]);
  for(let k=0;k<4;k++)car(8.75+k*.5,8.48,.8,['#cbd4da','#435c6a','#e2e1d4','#b45d53'][k]);
  // A consistent seeded scattering gives a stable world between game ticks.
- for(let k=0;k<210;k++){
+ for(let k=0;k<155;k++){
   const x=-5+noise(k*17+11)*21,y=-5+noise(k*43+17)*21;
   if([0,4,8,12].some(n=>Math.abs(x-n)<.9||Math.abs(y-n)<.9))continue;
   if([...houses,...neighbors.map(n=>[n.x,n.y])].some(h=>Math.abs(x-h[0])<1.7&&Math.abs(y-h[1])<1.2))continue;
