@@ -61,7 +61,7 @@ def common(ortho, target_z):
     scene=bpy.context.scene
     scene.render.engine='CYCLES'
     scene.cycles.samples=24
-    bpy.context.view_layer.cycles.use_denoising=True
+    bpy.context.view_layer.cycles.use_denoising=False
     scene.render.resolution_x=512;scene.render.resolution_y=512
     scene.render.resolution_percentage=100
     scene.render.image_settings.file_format='PNG'
