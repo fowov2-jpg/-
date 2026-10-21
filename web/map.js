@@ -15,6 +15,7 @@ const noise=n=>((Math.sin(n*127.1+78.233)*43758.5453)%1+1)%1;
 
 export function route(from,to){
  const a=stops[from]||[8,8],b=stops[to];
+ if(from===to)return [a];
  return [a,[4,a[1]],[4,b[1]],b];
 }
 export function vehiclePosition(crew,state){
