@@ -42,7 +42,7 @@ def box(name, location, size, mat, bevel=0):
     if bevel:
         mod=obj.modifiers.new("Soft corners", 'BEVEL')
         mod.width=bevel;mod.segments=2
-        mod.affect='EDGES' if hasattr(mod,'affect') else None
+        if hasattr(mod, 'affect'): mod.affect='EDGES'
         mod2=obj.modifiers.new("Weighted normals", 'WEIGHTED_NORMAL')
     return obj
 
@@ -61,7 +61,7 @@ def common(ortho, target_z):
     scene=bpy.context.scene
     scene.render.engine='CYCLES'
     scene.cycles.samples=24
-    scene.cycles.use_denoising=True
+    bpy.context.view_layer.cycles.use_denoising=True
     scene.render.resolution_x=512;scene.render.resolution_y=512
     scene.render.resolution_percentage=100
     scene.render.image_settings.file_format='PNG'
