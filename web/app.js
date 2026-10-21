@@ -98,6 +98,7 @@ function renderCall(){const c=state.calls.find(c=>c.id===selected);if(!c)return;
 function renderHome(){const h=state.homes[homeSelected];openDialog(shell(h.name,`<p>Дом под управлением УК «Уют».</p><div class="grid" style="margin:18px 0"><div class="metric"><small>Износ</small><b>${h.wear}%</b></div><div class="metric"><small>Доход / смена</small><b>22 000 ₽</b></div></div><p class="muted">Профилактика уменьшает износ на 15 пунктов и снижает вероятность новых заявок.</p><div style="margin-top:18px">${button('prevent','Профилактика · 12 000 ₽',`data-id="${h.id}" ${state.phase!=='prep'?'disabled':''}`,'primary wide')}</div><small>Доступно перед началом смены.</small>`));}
 function showReport(){const r=state.report;openDialog(shell('Смена завершена',`<p class="muted">Северный район · день ${state.day}</p><div class="grid" style="margin:20px 0"><div class="metric"><small>Выполнено</small><b>${r.done} / ${r.total}</b></div><div class="metric"><small>Результат</small><b class="${r.net>=0?'green':'danger'}">${rub(r.net)}</b></div></div><p>С просрочкой: ${r.late}. Переходят на завтра: ${r.pending}.</p><p class="muted" style="margin:12px 0">Бригады отдохнут. Незавершённые работы и назначения сохраняются.</p>${button('next','Следующий день', '', 'primary wide')}`));}
 function draw(){if(tab==='map')renderMap(canvas,state,view);}
+canvas.addEventListener('spritesready',draw);
 function close(){selected=null;homeSelected=null;$('#dialog').close();}
 function action(el){const a=el.dataset.action,id=Number(el.dataset.id);try{
  if(a==='tab'){tab=el.dataset.tab;}
