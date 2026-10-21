@@ -279,3 +279,13 @@ nav{flex-shrink:0}
  #header>.stats .budget .money{font-size:11px!important}
  .garage-vehicle{height:160px}
 }
+
+
+.empty-feature{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+ min-height:260px;margin-top:20px;border:1px dashed #42697a;border-radius:18px;
+ background:radial-gradient(ellipse at 50% 25%,#1c594b55,transparent 70%);padding:26px 24px}
+.empty-feature .empty-icon{width:64px;height:64px;display:flex;align-items:center;justify-content:center;
+ border-radius:17px;background:#12493c;color:#53f5aa}
+.empty-feature .empty-icon svg{width:34px;height:34px}
+.empty-feature h3{font-size:20px;color:#eff8f5}
+.empty-feature p{max-width:350px;font-size:13px;line-height:1.55;margin:0 0 8px}
