@@ -19,6 +19,7 @@ const fs=require('node:fs');
   const money=async()=>String(await page.locator('header .money').innerText()).replace(/[^0-9]/g,'');
   assert.equal(await money(),'2993800','Materials deducted once');
   fs.mkdirSync('artifacts',{recursive:true});
+  await page.locator('#toast').waitFor({state:'hidden'});
   await page.screenshot({path:'artifacts/upravdom-map-412.png'});
   await page.reload({waitUntil:'networkidle'});
   assert.equal(await money(),'2993800','Budget survives reload');
