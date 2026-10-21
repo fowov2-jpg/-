@@ -204,3 +204,6 @@ nav .nav-count{position:absolute;left:21px;top:-10px;background:#fe4248;color:wh
  header .stats{grid-template-columns:42px 43px minmax(0,1fr) 28px}
  header .budget .money{font-size:9px}
 }
+
+/* The original narrow-phone rule hid weather; the condensed HUD has room for it. */
+@media(max-width:700px){header .stat.weather{display:block}}
