@@ -1,5 +1,5 @@
 import {COLORS,TYPES} from './engine.js';
-import {drawApartment,drawTree,drawVan,drawStreetFurniture} from './scenery.js';
+import {drawApartment,drawTree,drawVan,drawStreetFurniture,drawPlayground,drawSportCourt} from './scenery.js';
 
 // Procedural isometric district. Every visible route and incident uses live game state.
 const houses=[[2,2],[6,2],[2,6]];
@@ -157,15 +157,9 @@ export function renderMap(canvas,state,view){
  for(const [x,y] of [[4,4],[8,4],[4,8],[8,8],[0,4],[12,8]]){
   for(let k=-2;k<=2;k++)tile(x-.5+k*.16,y-.39,.10,.72,'#e5e8e1a6');
  }
- // Courtyards, parking bays and fenced sports facilities.
- tile(4.85,5.2,2.2,1.7,'#b2a991','#637f77');
- tile(5.05,5.32,1.55,1.2,'#58795e');
- line([iso(5.2,5.5),iso(6.25,5.5)],'#c47b50',5);
- line([iso(5.55,5.42),iso(5.55,6.26)],'#2f8395',4);
- const slide=iso(5.9,5.9);line([[slide[0],slide[1]-17],[slide[0]+13,slide[1]-2]],'#ef6b56',7);
- tile(5.1,9.2,2.1,1.7,'#3b725f','#a2afb1');
- line([iso(5.1,9.2),iso(7.2,9.2),iso(7.2,10.9),iso(5.1,10.9),iso(5.1,9.2)],'#d5e3e7',3);
- line([iso(6.15,9.2),iso(6.15,10.9)],'#dfe3b5',2);
+ // Layered courtyard art replaces the previous abstract line markings.
+ drawPlayground(ctx,iso,4.85,5.2,winter);
+ drawSportCourt(ctx,iso,5.1,9.2,winter);
  for(let k=0;k<4;k++)car(1+k*.46,4.83,0,['#dde9ed','#adceda','#304454','#b8a5a0'][k]);
  for(let k=0;k<4;k++)car(8.75+k*.5,8.48,.8,['#cbd4da','#435c6a','#e2e1d4','#b45d53'][k]);
  // A consistent seeded scattering gives a stable world between game ticks.
