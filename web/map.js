@@ -174,6 +174,21 @@ export function renderMap(canvas,state,view){
   }
  }
  // Controlled depth order makes trees, courtyards and building facades agree.
+ // Route light stays on asphalt beneath real-world buildings and canopies.
+ for(const cr of state.crews){
+  if(cr.status!=='travel')continue;
+  const job=state.calls.find(call=>call.id===cr.job);
+  if(!job)continue;
+  const points=route(cr.home,job.home).map(p=>iso(p[0],p[1],3));
+  ctx.save();ctx.shadowColor=COLORS[cr.service];ctx.shadowBlur=14;
+  line(points,COLORS[cr.service]+'9a',8);ctx.restore();
+  line(points,'#112534c8',4);
+  ctx.lineDashOffset=-(view.animation||0)*15;
+  line(points,COLORS[cr.service],2.8,[9,7]);ctx.lineDashOffset=0;
+ }
+ // Every vehicle shares the same painter's-order pass as houses and trees.
+ // A van behind a house cannot be rendered on that house's roof.
+ const crewLabels=[];
  const scene=[
   ...BUILDINGS.map(b=>({depth:b.x+b.y,draw:()=>apartment(b)})),
   ...TREES.map(([x,y],i)=>({depth:x+y,draw:()=>tree(x,y,i)})),
@@ -182,36 +197,23 @@ export function renderMap(canvas,state,view){
     c.kind==='playground'?drawPlayground(ctx,iso,c.x,c.y,winter):
       drawSportCourt(ctx,iso,c.x,c.y,winter)}))
  ];
- scene.sort((a,b)=>a.depth-b.depth);
- scene.forEach(o=>o.draw());
- // A handful of path lights—not repeated props everywhere.
- for(const [x,y] of [[.83,1.0],[7.15,1.1],[.83,7.0],[7.15,7.1],
-   [9,7.1],[13.8,7.1],[1.0,9.0],[7.1,12.3]])lamp(x,y);
- // Dispatch routes use current job progress; never fabricate an assignment.
  for(const cr of state.crews){
-  const travel=cr.status==='travel';
-  if(travel){
-   const c=state.calls.find(call=>call.id===cr.job);
-   if(c){
-    const points=route(cr.home,c.home).map(p=>iso(p[0],p[1],4));
-    ctx.save();ctx.shadowColor=COLORS[cr.service];ctx.shadowBlur=17;
-    line(points,COLORS[cr.service]+'9a',8);
-    ctx.restore();line(points,'#122734d0',5);
-    ctx.lineDashOffset=-(view.animation||0)*15;
-    line(points,COLORS[cr.service],3,[9,7]);
-    ctx.lineDashOffset=0;
-   }
-  }
   const pos=vehiclePosition(cr,state);
-  const waiting=cr.status==='idle';
-  const vx=pos[0]+(waiting?cr.id*.55:0),vy=pos[1];
-  car(vx,vy,cr.id===1?.2:-.3,COLORS[cr.service],true,cr.service);
-  if(travel){
-   const point=iso(vx,vy,40);
-   const label=['Сантехники','Электрики','Ремонтники'][cr.service]+' · '+cr.remaining+' мин';
-   tag(label,point,'#0b2335ee',12);
+  const idle=cr.status==='idle',alongY=Math.abs(pos[0])<.01;
+  const vx=pos[0]+(idle&&!alongY?cr.id*.55:0);
+  const vy=pos[1]+(idle&&alongY?cr.id*.55:0);
+  scene.push({depth:vx+vy+.05,draw:()=>
+   car(vx,vy,0,COLORS[cr.service],true,cr.service)});
+  if(cr.status==='travel'){
+   crewLabels.push({point:iso(vx,vy,42),
+    label:['Сантехники','Электрики','Ремонтники'][cr.service]+' · '+cr.remaining+' мин'});
   }
  }
+ scene.sort((a,b)=>a.depth-b.depth);
+ scene.forEach(o=>o.draw());
+ for(const [x,y] of [[.83,1.0],[7.15,1.1],[.83,7.0],[7.15,7.1],
+   [9,7.1],[13.8,7.1],[1.0,9.0],[7.1,12.3]])lamp(x,y);
+ crewLabels.forEach(c=>tag(c.label,c.point,'#0b2335ee',12));
  // Large neon incident markers remain touch targets.
  for(let i=0;i<houses.length;i++){
   const calls=state.calls.filter(c=>c.home===i&&c.status!=='done');
