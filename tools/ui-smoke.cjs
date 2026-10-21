@@ -49,7 +49,28 @@ const fs=require('node:fs');
    }
   }
   await page.setViewportSize({width:412,height:915});
+  for(const width of [360,412]){
+   await page.setViewportSize({width,height:915});
+   const metrics=await page.locator('#header').evaluate(header=>{
+    const rect=s=>header.querySelector(s).getBoundingClientRect();
+    const a=rect('.brand'),b=rect('.stats'),n=rect('.notifications');
+    const c=rect('.clock-stat'),w=rect('.weather'),cash=rect('.budget');
+    return {brandClear:a.bottom<=b.top+3,alertsClear:a.right<n.left+3,
+      metricsClear:c.right<=w.left+3&&w.right<=cash.left+3,
+      budgetVisible:cash.right<=innerWidth+1};
+   });
+   assert.ok(Object.values(metrics).every(Boolean),'Header must not overlap at '+width+': '+JSON.stringify(metrics));
+  }
+  await page.setViewportSize({width:412,height:915});
+  await page.locator('[data-tab="services"]').click();
+  await page.locator('.crew-vehicle img').first().waitFor({state:'visible'});
+  assert.equal(await page.locator('.crew-vehicle img').count(),3,'Three specialized crew vehicles');
+  assert.equal(await page.locator('.crew-vehicle img').evaluateAll(xs=>xs.every(x=>x.complete&&x.naturalWidth>0)),true,'All crew sprites loaded');
+  await page.screenshot({path:'artifacts/upravdom-crews-412.png',fullPage:false});
   await page.locator('[data-tab="garage"]').click();
+  assert.equal(await page.locator('.garage-vehicle img').count(),3,'Garage uses same 3D vehicle art');
+  assert.equal(await page.locator('.garage-vehicle img').evaluateAll(xs=>xs.every(x=>x.complete&&x.naturalWidth>0)),true,'All garage sprites loaded');
+  await page.screenshot({path:'artifacts/upravdom-garage-412.png',fullPage:false});
   assert.equal(await page.getByRole('heading',{name:'Гараж и техника'}).count(),1);
   assert.equal(await page.locator('#page .garage-card').count(),3);
   await page.locator('[data-tab="map"]').click();
