@@ -21,7 +21,7 @@ export const BUILDINGS=Object.freeze([
  {id:6,x:2.25,y:13.30,name:'ул. Молодёжная, 6'},
  {id:7,x:5.65,y:13.30,name:'ул. Лесная, 7'}
 ]);
-export const STOPS=Object.freeze([[2.25,0],[5.65,0],[0,5.55]]);
+export const STOPS=Object.freeze([[0,4],[5.65,0],[0,5.55]]);
 export const COURTYARDS=Object.freeze([
  {kind:'playground',x:3.3,y:9.3,w:2.55,h:2.25},
  {kind:'sports',x:9.0,y:9.2,w:2.60,h:2.10}
