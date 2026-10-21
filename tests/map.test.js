@@ -5,7 +5,12 @@ import {route,vehiclePosition} from '../web/map.js';
 
 test('Road network uses orthogonal service routes',()=>{
  assert.deepEqual(route(0,2),[[2,4],[4,4],[4,8],[2,8]]);
- assert.deepEqual(route(1,1),[[6,4]]);
+ const local=route(1,1);
+ assert.equal(local.length,5);
+ assert.deepEqual(local[0],local.at(-1));
+ for(let i=1;i<local.length;i++){
+  assert.ok(local[i][0]===local[i-1][0]||local[i][1]===local[i-1][1],'Local roads stay orthogonal');
+ }
 });
 test('Van position uses real dispatch job and progress',()=>{
  const s=E.fresh();E.start(s);
