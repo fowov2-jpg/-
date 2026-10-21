@@ -1,30 +1,17 @@
 import {COLORS,TYPES} from './engine.js';
 import {drawGameSprite} from './assets.js';
+import {BUILDINGS,ROADS,COURTYARDS,TREES,STREET_PROPS,STOPS,route as districtRoute} from './district.js';
 import {drawApartment,drawTree,drawVan,drawStreetFurniture,drawPlayground,drawSportCourt} from './scenery.js';
 
-// Procedural isometric district. Every visible route and incident uses live game state.
-const houses=[[2,2],[6,2],[2,6]];
-const stops=[[2,4],[6,4],[2,8]];
-const neighbors=[
- {x:10,y:2,name:'ул. Садовая, 10'},
- {x:2,y:10,name:'ул. Центральная, 3'},
- {x:6,y:10,name:'ул. Молодёжная, 6'},
- {x:10,y:6,name:'ул. Садовая, 16'},
- {x:10,y:10,name:'ул. Центральная, 5'},
- {x:-2,y:2,name:'ул. Садовая, 8'},
- {x:2,y:-2,name:'ул. Садовая, 6'},
- {x:14,y:6,name:'ул. Лесная, 7'}
-];
+// Shared geometry determines roads, landmarks and interactive stops.
+const houses=BUILDINGS.filter(b=>Number.isInteger(b.managed)).map(b=>[b.x,b.y]);
+const stops=STOPS;
+const neighbors=BUILDINGS.filter(b=>!Number.isInteger(b.managed));
 const iso=(x,y,z=0)=>[500+(x-y)*49,100+(x+y)*27-z];
 const mix=(a,b,t)=>a+(b-a)*t;
 const noise=n=>((Math.sin(n*127.1+78.233)*43758.5453)%1+1)%1;
 
-export function route(from,to){
- const a=stops[from]||[8,8],b=stops[to];
- // A nearby incident still requires a short drive from the depot around the block.
- if(from===to)return [a,[a[0]+1,a[1]],[a[0]+1,a[1]-1.2],[a[0],a[1]-1.2],a];
- return [a,[4,a[1]],[4,b[1]],b];
-}
+export const route=districtRoute;
 export function vehiclePosition(crew,state){
  const start=stops[crew.home]||[8,8];
  if(crew.status!=='travel')return start;
@@ -114,21 +101,25 @@ export function renderMap(canvas,state,view){
  function car(x,y,rotation,color,service=false,serviceIndex=0){
   const p=iso(x,y,0);
   const asset=['van_water','van_electric','van_repair'][serviceIndex]||'van_water';
-  if(service&&drawGameSprite(ctx,canvas,asset,p[0]-50,p[1]-50,100,67))return;
+  // Ground-contact anchor: PNG tires end at the road coordinate, not mid-air.
+  ctx.save();ctx.fillStyle='#071a2399';ctx.beginPath();
+  ctx.ellipse(p[0]+4,p[1],24,7,-.17,0,Math.PI*2);ctx.fill();ctx.restore();
+  if(service&&drawGameSprite(ctx,canvas,asset,p[0]-37,p[1]-48,74,49))return;
   drawVan(ctx,iso,x,y,rotation,color,service,view.animation||0);
  }
- function apartment(x,y,i,managed=false){
-  const height=managed?119:99+(i%2)*5;
-  const p=iso(x,y,0);
+ function apartment(b){
+  const {x,y,id:i}=b,managed=Number.isInteger(b.managed);
+  const height=managed?119:99+(i%2)*5,p=iso(x,y,0);
+  // The footprint is planted inside the authored residential lot.
+  ctx.save();ctx.fillStyle='#0b273360';ctx.beginPath();
+  ctx.ellipse(p[0]+12,p[1]+5,85,23,-.12,0,Math.PI*2);ctx.fill();ctx.restore();
   const rendered=drawGameSprite(ctx,canvas,'house_0'+((i%4)+1),
-   p[0]-130,p[1]-172,260,186);
+    p[0]-112,p[1]-165,224,165);
   if(!rendered)drawApartment(ctx,iso,x,y,i,managed,winter);
   if(managed){
-   tag(state.homes[i].name,iso(x,y,height+20),undefined,11);
-   view.hits.push({point:view.project(iso(x,y,height*.56)),home:i});
-  }else if(i<7){
-   tag(neighbors[i-3].name,iso(x,y,height+22),undefined,11);
-  }
+   tag(state.homes[b.managed].name,iso(x,y,height+20),undefined,11);
+   view.hits.push({point:view.project(iso(x,y,height*.55)),home:b.managed});
+  }else if(i<6)tag(b.name,iso(x,y,height+16),undefined,10);
  }
 
  // Natural-looking continuous ground, replacing the previous chessboard terrain.
@@ -144,92 +135,58 @@ export function renderMap(canvas,state,view){
   ctx.ellipse(p[0],p[1],size*2,size*.9,.3,0,Math.PI*2);ctx.fill();
   ctx.restore();
  }
- // Soft landscaped slopes, meandering footpaths, and snow banks.
- for(const [xx,yy,ww,hh] of [
-  [1.3,4.9,2.4,2.2],[4.6,5.0,3.1,2.4],[8.7,5.3,2.4,2.1],
-  [1.3,8.8,2.2,2.4],[4.8,9.0,2.7,2.3],[8.7,9.0,2.4,2.2]
- ]){
-  tile(xx,yy,ww,hh,winter?'#708983':'#6a8f6c');
+
+ // Designed parcels and streets: no random buildings, parking or vehicles.
+ for(const b of BUILDINGS){
+  tile(b.x-1.76,b.y-1.29,3.52,2.58,winter?'#8b9a91':'#9a9d8b','#cad3c5');
  }
- // Road and pavement shades are separated to read like actual streets.
- for(const t of [0,4,8,12]){
-  tile(t-.78,-8,1.56,27,winter?'#b2bab5':'#a9b5a8');
-  tile(-8,t-.78,27,1.56,winter?'#b2bab5':'#a9b5a8');
-  tile(t-.59,-8,1.18,27,'#394b57');
-  tile(-8,t-.59,27,1.18,'#394b57');
-  // Asphalt edge wear, curbs and broken lane markings.
-  line([iso(t-.59,-8),iso(t-.59,19)],'#758b8f',2.4);
-  line([iso(-8,t-.59),iso(19,t-.59)],'#758b8f',2.4);
-  line([iso(t+.59,-8),iso(t+.59,19)],'#233c48',1.5);
-  line([iso(-8,t+.59),iso(19,t+.59)],'#233c48',1.5);
-  line([iso(t,-8),iso(t,19)],'#e4e0c688',2,[11,17]);
-  line([iso(-8,t),iso(19,t)],'#e4e0c688',2,[11,17]);
+ for(const p of COURTYARDS){
+  tile(p.x-.10,p.y-.10,p.w+.20,p.h+.20,winter?'#97a49c':'#86a186');
  }
- // A few irregular garden paths: local courtyards no longer look like grid squares.
- for(const [from,to] of [
-  [[1,4.94],[3.4,5.65]],[[5.1,4.97],[6.7,6.62]],
-  [[9.2,5.09],[10.8,6.23]],[[1.4,8.86],[3.6,10.1]],
-  [[5.1,8.94],[6.7,10.12]],[[9.3,9.1],[10.9,10.3]]
- ]){
-  line([iso(...from),iso(...to)],'#aab2a188',7);
-  line([iso(...from),iso(...to)],'#d7ceac55',3);
+ // A sparse road network encloses the blocks rather than cutting through them.
+ for(const r of ROADS){
+  const x=r.axis==='x'?r.at-.72:r.from;
+  const y=r.axis==='y'?r.at-.72:r.from;
+  const w=r.axis==='x'?1.44:r.to-r.from;
+  const h=r.axis==='y'?1.44:r.to-r.from;
+  tile(x,y,w,h,'#aab5ae');
+  const ax=r.axis==='x'?r.at-.60:r.from;
+  const ay=r.axis==='y'?r.at-.60:r.from;
+  tile(ax,ay,r.axis==='x'?1.20:r.to-r.from,r.axis==='y'?1.20:r.to-r.from,'#354957');
+  const a=r.axis==='x'?[iso(r.at,r.from),iso(r.at,r.to)]:
+                      [iso(r.from,r.at),iso(r.to,r.at)];
+  line(a,'#e5e5d6a2',2.2,[15,22]);
  }
- // Marked crosswalks at a few important intersections.
- for(const [x,y] of [[4,4],[8,4],[4,8],[8,8],[0,4],[12,8]]){
-  for(let k=-2;k<=2;k++)tile(x-.5+k*.16,y-.39,.10,.72,'#e5e8e1a6');
+ // Entrances have their own sidewalk connection to an actual street.
+ for(const b of BUILDINGS){
+  let start,end;
+  if(b.y<4){start=[b.x,b.y-1.25];end=[b.x,.70];}
+  else if(b.y<8){start=[b.x,b.y+1.25];end=[b.x,7.30];}
+  else{start=[b.x,b.y+1.25];end=[b.x,16.30];}
+  line([iso(...start),iso(...end)],'#b1b7ac',12);
+  line([iso(...start),iso(...end)],'#e5ded0',5);
  }
- // Small resident parking courts are tucked behind the apartment blocks.
- for(const [px,py] of [[1.15,4.9],[8.72,4.9],[1.15,8.9],[8.7,8.85]]){
-  tile(px,py,2.05,.88,'#88948d','#bec2b6');
-  for(let slot=0;slot<4;slot++){
-   const a=px+.17+slot*.45,b=py+.18;
-   line([iso(a,b),iso(a,b+.57)],'#eff1dfa2',1.5);
+ // Actual road crossings, not zebra markings through courtyards.
+ for(const [x,y,axis] of [[0,8,'x'],[8,8,'y'],[0,0,'x'],[8,0,'y']]){
+  for(let n=-2;n<=2;n++){
+   if(axis==='x')tile(x-.51+n*.2,y-.41,.12,.82,'#dde8e0b3');
+   else tile(x-.41,y-.51+n*.2,.82,.12,'#dde8e0b3');
   }
  }
- // Layered courtyard art replaces the previous abstract line markings.
- drawPlayground(ctx,iso,4.85,5.2,winter);
- drawSportCourt(ctx,iso,5.1,9.2,winter);
- for(let k=0;k<4;k++)car(1+k*.46,4.83,0,['#dde9ed','#adceda','#304454','#b8a5a0'][k]);
- for(let k=0;k<4;k++)car(8.75+k*.5,8.48,.8,['#cbd4da','#435c6a','#e2e1d4','#b45d53'][k]);
- // A consistent seeded scattering gives a stable world between game ticks.
- for(let k=0;k<155;k++){
-  const x=-5+noise(k*17+11)*21,y=-5+noise(k*43+17)*21;
-  if([0,4,8,12].some(n=>Math.abs(x-n)<.9||Math.abs(y-n)<.9))continue;
-  if([...houses,...neighbors.map(n=>[n.x,n.y])].some(h=>Math.abs(x-h[0])<1.7&&Math.abs(y-h[1])<1.2))continue;
-  if(x>4.5&&x<7.5&&y>5&&y<11)continue;
-  tree(x,y,k);
- }
-
- // Clusters of substantial trees frame the roads and deepen the courtyards.
- const streetTrees=[
-  [1.1,5.0],[1.5,5.4],[3.1,5.15],[3.5,5.55],[5.1,5.02],[7.1,5.05],
-  [8.7,5.0],[9.0,6.3],[10.8,5.3],[1.0,9.0],[1.3,10.5],[3.3,9.3],
-  [4.9,9.0],[6.9,10.8],[8.8,9.2],[9.0,10.8],[11.0,9.5],
-  [1.2,1.0],[3.25,1.1],[5.5,1.0],[7.3,2.2],[9.1,1.1],[11.1,2.0]
+ // Controlled depth order makes trees, courtyards and building facades agree.
+ const scene=[
+  ...BUILDINGS.map(b=>({depth:b.x+b.y,draw:()=>apartment(b)})),
+  ...TREES.map(([x,y],i)=>({depth:x+y,draw:()=>tree(x,y,i)})),
+  ...STREET_PROPS.map(([x,y],i)=>({depth:x+y,draw:()=>drawStreetFurniture(ctx,iso,x,y,i,winter)})),
+  ...COURTYARDS.map(c=>({depth:c.x+c.y+.8,draw:()=>
+    c.kind==='playground'?drawPlayground(ctx,iso,c.x,c.y,winter):
+      drawSportCourt(ctx,iso,c.x,c.y,winter)}))
  ];
- streetTrees.forEach(([x,y],i)=>{
-  if([...houses,...neighbors.map(n=>[n.x,n.y])].some(h=>Math.abs(x-h[0])<1.6&&Math.abs(y-h[1])<1.25))return;
-  tree(x,y,220+i);
- });
- for(let k=0;k<19;k++){
-  const t=(k*3)%16;
-  if(k%2===0)lamp(t+.72,k%4?4.83:8.83);
-  else lamp(k%4?4.83:8.83,t+.72);
- }
-
- // Park benches, bollards, enclosures and planter boxes add a street-level scale.
- for(let k=0;k<37;k++){
-  const fx=1.3+noise(k*19+3)*11.4,fy=1.3+noise(k*29+9)*11.4;
-  if([0,4,8,12].some(n=>Math.abs(fx-n)<.85||Math.abs(fy-n)<.85))continue;
-  if([...houses,...neighbors.map(n=>[n.x,n.y])].some(h=>Math.abs(fx-h[0])<1.65&&Math.abs(fy-h[1])<1.35))continue;
-  drawStreetFurniture(ctx,iso,fx,fy,k,winter);
- }
- const buildings=[
-  ...houses.map(([x,y],i)=>({x,y,i,managed:true})),
-  ...neighbors.map((n,j)=>({x:n.x,y:n.y,i:j+3,managed:false}))
- ];
- buildings.sort((a,b)=>(a.x+a.y)-(b.x+b.y));
- buildings.forEach(b=>apartment(b.x,b.y,b.i,b.managed));
+ scene.sort((a,b)=>a.depth-b.depth);
+ scene.forEach(o=>o.draw());
+ // A handful of path lights—not repeated props everywhere.
+ for(const [x,y] of [[.83,1.0],[7.15,1.1],[.83,7.0],[7.15,7.1],
+   [9,7.1],[13.8,7.1],[1.0,9.0],[7.1,12.3]])lamp(x,y);
  // Dispatch routes use current job progress; never fabricate an assignment.
  for(const cr of state.crews){
   const travel=cr.status==='travel';
@@ -246,9 +203,11 @@ export function renderMap(canvas,state,view){
    }
   }
   const pos=vehiclePosition(cr,state);
-  car(pos[0]+cr.id*.17,pos[1]+.11,cr.id===1?.2:-.3,COLORS[cr.service],true,cr.service);
+  const waiting=cr.status==='idle';
+  const vx=pos[0]+(waiting?cr.id*.55:0),vy=pos[1];
+  car(vx,vy,cr.id===1?.2:-.3,COLORS[cr.service],true,cr.service);
   if(travel){
-   const point=iso(pos[0]+cr.id*.17,pos[1]+.11,25);
+   const point=iso(vx,vy,40);
    const label=['Сантехники','Электрики','Ремонтники'][cr.service]+' · '+cr.remaining+' мин';
    tag(label,point,'#0b2335ee',12);
   }
