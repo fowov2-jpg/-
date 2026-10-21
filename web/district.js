@@ -21,7 +21,7 @@ export const BUILDINGS=Object.freeze([
  {id:6,x:2.25,y:13.30,name:'ул. Молодёжная, 6'},
  {id:7,x:5.65,y:13.30,name:'ул. Лесная, 7'}
 ]);
-export const STOPS=Object.freeze([[0,4],[5.65,0],[0,5.55]]);
+export const STOPS=Object.freeze([[0,4],[5.65,0],[0,5.55],[4.5,8]]); // 3 = road-side service depot
 export const COURTYARDS=Object.freeze([
  {kind:'playground',x:3.3,y:9.3,w:2.55,h:2.25},
  {kind:'sports',x:9.0,y:9.2,w:2.60,h:2.10}
@@ -57,6 +57,13 @@ export function route(from,to){
  if(from===to){
   const mid=a[1]===0?[a[0]+.40,0]:[0,a[1]+.40];
   return [a,mid,a]; // Nearby service access on the same road.
+ }
+ if(from===3||to===3){
+  // Depot joins the public road at y=8, with turns only at real intersections.
+  if(to===3)return [...route(3,from)].reverse();
+  const base=[a,[0,8]];
+  if(b[0]===0)return [...base,b];
+  return [...base,[0,0],b];
  }
  if(a[1]===0&&b[1]===0)return [a,b];
  if(a[0]===0&&b[0]===0)return [a,b];
