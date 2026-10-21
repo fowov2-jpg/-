@@ -55,7 +55,7 @@ export function buildingIntersectsRoad(b){
 export function route(from,to){
  const a=STOPS[from]||STOPS[0], b=STOPS[to]||STOPS[0];
  if(from===to){
-  const mid=a[1]===0?[a[0]+.40,0]:[0,a[1]+.40];
+  const mid=a[0]===0?[0,a[1]+.40]:[a[0]+.40,a[1]];
   return [a,mid,a]; // Nearby service access on the same road.
  }
  if(from===3||to===3){
