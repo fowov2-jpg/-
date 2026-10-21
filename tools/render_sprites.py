@@ -166,35 +166,98 @@ def house(idx):
         cl=leaves[(n+idx)%3]
         for dz,rad in [(.96,.46),(1.29,.39),(1.59,.27)]:
             sphere("Layered leaves",(x,y,dz),rad,cl,(1,1,.65))
+    # Broader Russian slab blocks rather than short, square office-like towers.
+    for obj in bpy.context.scene.objects:
+        if obj.type == 'MESH':
+            obj.location.x *= 1.24
+            if not obj.name.startswith(('Tree trunk','Layered leaves')):
+                obj.scale.x *= 1.24
     render(f"house_{idx+1:02d}.png")
 
 def vehicle(i):
-    clear();common(6.5,0.77)
-    white=material("Clean painted steel",(.83,.89,.91),rough=.3)
-    paint=[material("Santechnik red",(.76,.09,.09)),
-           material("Electric yellow",(.95,.68,.08)),
-           material("Repair blue",(.16,.48,.70))][i]
-    body=paint if i==1 else white
-    window=material("Van windows",(.10,.23,.31),rough=.09,metallic=.32)
-    rubber=material("Tires",(.058,.067,.076),rough=.95)
-    lights=material("Headlamps",(.89,.81,.56),glow=.30)
-    steel=material("Alloy",(.53,.58,.60),metallic=.65)
-    # Chassis and rounded body.
-    box("Box van cargo",(0,.10,.98),(2.65,1.22,1.40),body,.12)
-    box("Driver cabin",(1.07,.08,.85),(.92,1.26,1.10),white,.18)
-    box("Windscreen",(1.58,.08,1.12),(.04,1.00,.48),window)
-    box("Cabin windows",(1.13,-.572,1.20),(.51,.04,.36),window)
-    box("Cargo stripe",(0,-.537,.79),(2.55,.035,.20),paint)
-    box("Cargo stripe other side",(0,.735,.79),(2.55,.035,.20),paint)
-    box("Cabin roof",(1.0,.08,1.55),(.97,1.13,.08),white,.08)
-    for x in [-.97,1.02]:
-        for y in [-.66,.65]:
-            cyl("Rubber wheel",(x,y,.33),.32,.16,rubber,24,rotate=(radians(90),0,0))
-            cyl("Wheel hub",(x,y*1.12,.33),.14,.07,steel,24,rotate=(radians(90),0,0))
-    for y in [-.37,.37]:
-        box("Headlights",(1.56,y,.57),(.05,.21,.14),lights)
-    box("Roof beacon",(1.09,0,1.63),(.35,.17,.085),paint,.02)
-    box("Front bumper",(1.64,0,.48),(.19,1.25,.12),steel)
+    clear();common(6.7,0.85)
+    white=material("Gloss white painted steel",(.88,.93,.93),rough=.38)
+    paint=[material("Emergency red",(.86,.11,.13)),
+           material("Electrical yellow",(.99,.67,.055)),
+           material("Maintenance blue",(.085,.47,.78))][i]
+    navy=material("Service details",(.10,.19,.26),rough=.39)
+    yellow=material("Reflective gold",(.95,.78,.18),rough=.3)
+    tinted=material("Tinted auto glass",(.065,.17,.23),rough=.13,metallic=.36)
+    windowshine=material("Glass reflections",(.44,.69,.78),rough=.18)
+    rubber=material("Tire rubber",(.038,.049,.06),rough=.97)
+    rim=material("Aluminum hub",(.64,.68,.68),rough=.24,metallic=.7)
+    lights=material("Warm running lamps",(.97,.89,.66),rough=.24,glow=.7)
+    redlight=material("Red lights",(.86,.07,.07),rough=.26,glow=.4)
+    chrome=material("Painted mirror/bumper",(.35,.47,.52),metallic=.6)
+    under=material("Undercarriage",(.12,.17,.21))
+    # All vans have the same real-world wheelbase, cab doors and driveline.
+    box("Long wheelbase",(-.05,.08,.46),(3.3,1.32,.23),under,.06)
+    box("Cab / bonnet",(1.02,.08,.94),(1.22,1.28,1.04),white,.18)
+    box("Windscreen",(1.655,.08,1.10),(.035,1.04,.52),tinted)
+    box("Reflecting line",(1.679,.08,1.28),(.009,.98,.05),windowshine)
+    box("Driver window",(1.10,-.58,1.20),(.62,.03,.37),tinted)
+    box("Passenger window",(1.10,.74,1.20),(.62,.03,.37),tinted)
+    box("Cab door seam",(1.00,-.605,.88),(.035,.025,.55),chrome)
+    box("Door handle",(1.17,-.62,.93),(.14,.045,.045),chrome)
+    box("Door panel stripe",(1.20,-.607,.67),(.43,.04,.12),paint)
+    box("Left wing mirror",(1.42,-.76,1.18),(.15,.12,.18),navy,.04)
+    box("Right wing mirror",(1.42,.89,1.18),(.15,.12,.18),navy,.04)
+    box("Bonnet and grille",(1.62,.08,.70),(.10,.82,.22),navy,.03)
+    box("Front bumper",(1.69,.08,.48),(.15,1.38,.16),chrome,.035)
+    for y in [-.44,.57]:
+        box("Headlight",(1.705,y,.77),(.045,.21,.12),lights,.02)
+    for y in [-.45,.60]:
+        box("Rear taillight",(-1.64,y,.61),(.052,.16,.18),redlight)
+    for x in [-1.11,1.08]:
+        for y in [-.63,.78]:
+            cyl("Road wheel",(x,y,.36),.31,.20,rubber,32,rotate=(radians(90),0,0))
+            cyl("Wheel hub",(x,y+(.13 if y>0 else -.13),.36),.17,.08,rim,28,rotate=(radians(90),0,0))
+            cyl("Axle center",(x,y+(.175 if y>0 else -.175),.36),.045,.025,navy,16,rotate=(radians(90),0,0))
+
+    if i != 2:
+        # Full body van; yellow electricians use a noticeably taller equipment roof.
+        roof=1.91 if i==1 else 1.77
+        box("Cargo coachwork",(-.56,.07,1.12),(2.04,1.31,roof-.46),paint if i==1 else white,.115)
+        box("Side body flash",(-.58,-.603,.83),(1.99,.038,.22),navy if i==1 else paint,.018)
+        box("Service upper side decal",(-.72,-.61,1.32),(1.15,.031,.12),white if i==1 else paint)
+        box("Rear double door seam",(-1.615,.07,1.11),(.035,1.17,1.12),navy)
+        box("Body roof",(-.52,.07,roof+.005),(2.01,1.27,.075),white if i==0 else paint,.045)
+        box("Left rear light",(-1.64,-.42,.90),(.06,.11,.26),redlight)
+    else:
+        # Blue maintenance pickup: exposed cargo bed, tailgate and equipment lockers.
+        box("Pickup flatbed",(-.71,.07,.80),(1.83,1.35,.28),paint,.05)
+        for yy in [-.59,.73]:
+            box("Raised bed side",(-.79,yy,1.02),(1.74,.12,.47),paint,.045)
+        box("Tailgate",(-1.60,.07,1.02),(.13,1.32,.49),white,.04)
+        box("Service equipment box",(-.40,.07,1.20),(.73,.96,.54),white,.07)
+        for bx in [-1.31,-1.03]:
+            box("Steel tool case",(bx,.07,1.05),(.22,1.02,.25),navy,.025)
+        box("Tailgate reflective strip",(-1.675,.07,.97),(.03,1.07,.10),white)
+
+    # Type-specific tools: recognizable even at small map scale.
+    if i==0:
+        # Plumber's pipe rack and red hoses.
+        for y in [-.40,.48]:
+            box("Roof pipe rack",(-.55,y,1.95),(1.82,.06,.08),chrome)
+            cyl("Rooftop copper pipe",(-.60,y,2.03),.075,1.40,paint,12,rotate=(0,radians(90),0))
+        box("Emergency roof beacon",(1.03,.08,1.55),(.42,.23,.10),redlight,.025)
+        box("Medical white side stripe",(-.52,-.628,.98),(1.36,.04,.10),white)
+    elif i==1:
+        # Electrical ladder is carried above the cargo deck.
+        for y in [-.42,.53]:
+            box("Aluminium ladder rail",(-.48,y,2.05),(1.82,.045,.09),rim)
+        for j in range(7):
+            box("Ladder rung",(-1.25+j*.255,.055,2.07),(.045,.99,.045),rim)
+        box("Amber rotating beacon",(1.11,.08,1.58),(.42,.26,.13),yellow,.02)
+        box("Electrical door insignia",(-.28,-.65,1.18),(.39,.035,.41),navy)
+        box("Insignia bright slash",(-.28,-.68,1.20),(.075,.04,.43),yellow)
+    else:
+        box("Blue roof beacon",(1.02,.08,1.55),(.35,.25,.12),paint,.03)
+        box("Spare part containers",(-1.05,.10,1.34),(.28,.65,.15),yellow,.02)
+        # Upright cabin rack.
+        for yy in [-.53,.69]:
+            box("Pickup protection frame",(.09,yy,1.56),(.085,.08,.58),chrome,.02)
+        box("Pickup frame horizontal",(.07,.08,1.85),(.10,1.26,.10),chrome)
     render(["van_water.png","van_electric.png","van_repair.png"][i])
 
 for n in range(4): house(n)
