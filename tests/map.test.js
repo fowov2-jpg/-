@@ -11,8 +11,8 @@ test('Van position uses real dispatch job and progress',()=>{
  const s=E.fresh();E.start(s);
  E.dispatch(s,2,1);
  const cr=s.crews[1];
- assert.deepEqual(vehiclePosition(cr,s),[6,4]);
- E.tick(s,10);
+ assert.deepEqual(vehiclePosition(cr,s),[2,4]); // All crews begin at the shared depot.
+ E.tick(s,15);
  assert.deepEqual(vehiclePosition(cr,s),[6,4]);
  assert.equal(cr.status,'diagnosis');
 });
