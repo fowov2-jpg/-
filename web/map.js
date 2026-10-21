@@ -112,7 +112,7 @@ export function renderMap(canvas,state,view){
   const height=managed?119:99+(i%2)*5;
   const p=iso(x,y,0);
   const rendered=drawGameSprite(ctx,canvas,'house_0'+((i%4)+1),
-   p[0]-120,p[1]-180,240,196);
+   p[0]-130,p[1]-172,260,186);
   if(!rendered)drawApartment(ctx,iso,x,y,i,managed,winter);
   if(managed){
    tag(state.homes[i].name,iso(x,y,height+20),undefined,11);
