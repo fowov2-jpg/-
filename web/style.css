@@ -140,3 +140,36 @@ nav .nav-count{position:absolute;left:21px;top:-10px;background:#fe4248;color:wh
  nav button{font-size:10px}
 }
 @media(prefers-reduced-motion:reduce){button{transition:none!important}}
+
+
+/* Portrait phones preserve the reference's single-line dispatch status header. */
+@media(max-width:700px){
+ header{
+  flex-wrap:nowrap;display:flex;gap:5px;min-height:65px;
+  padding:calc(9px + env(safe-area-inset-top)) 8px 9px
+ }
+ header .brand{width:auto;flex:0 1 87px;min-width:75px;gap:3px}
+ header .brand>svg{width:20px;height:20px}
+ header .brand h1{font-size:15px;white-space:nowrap}
+ header .brand small{font-size:6px;line-height:1.1;letter-spacing:0;white-space:normal}
+ header .stats{
+  display:grid;flex:1 1 auto;min-width:0;width:auto;
+  grid-template-columns:minmax(35px,.7fr) minmax(31px,.65fr) minmax(68px,1.5fr) minmax(20px,.47fr);
+  gap:0
+ }
+ header .stat{padding-left:4px;min-width:0}
+ header .stat strong{font-size:clamp(9px,2.45vw,13px);white-space:nowrap;gap:2px}
+ header .stat small{font-size:8px}
+ header .stat .cash-icon{font-size:12px}
+ header .stat .weather-symbol{font-size:15px}
+ header .notifications strong{font-size:13px;justify-content:center}
+ header .notifications svg{width:16px;height:16px}
+ header .notifications small{display:none}
+ .incident{max-height:108px}
+}
+@media(max-width:380px){
+ header .brand{flex-basis:78px;min-width:70px}
+ header .brand h1{font-size:13px}
+ header .stat small{font-size:7px}
+ header .stats{grid-template-columns:minmax(33px,.68fr) minmax(29px,.6fr) minmax(65px,1.46fr) minmax(18px,.42fr)}
+}
