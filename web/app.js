@@ -14,12 +14,54 @@ function active(){return state.calls.filter(c=>c.status!=='done');}
 function pill(c){return `<span class="badge ${c.priority===3?'red':''}">${['','ОБЫЧНЫЙ','ВЫСОКИЙ','КРИТИЧЕСКИЙ'][c.priority]} ПРИОРИТЕТ</span>`;}
 function button(action,text,extra='',cls=''){return `<button data-action="${action}" ${extra} class="${cls}">${text}</button>`;}
 function render(){
- $('#header').innerHTML=`<div class="brand">${icon('home')}<div><h1>Управдом</h1><small>УК «УЮТ» · СМЕНА ${state.day}</small></div></div><div class="stats"><div class="stat weather"><strong>${['−2° · Снег','+8° · Дождь','+23° · Ясно','+5° · Дождь'][Math.floor((state.day-1)/7)%4]}</strong><small>Северный район</small></div><div class="stat"><strong class="money">${rub(state.money)}</strong><small>Репутация ${state.reputation}/100</small></div></div>`;
- $('#nav').innerHTML=[['map','map','Карта'],['calls','calls','Заявки'],['services','crew','Службы'],['finance','money','Финансы']].map(([id,ico,name])=>button('tab',`${icon(ico)}<span>${name}${id==='calls'&&active().length?' · '+active().length:''}</span>`,`data-tab="${id}" aria-current="${tab===id?'page':'false'}"`,tab===id?'active':'')).join('');
+
+ const season = Math.floor((state.day-1)/7)%4;
+ const climates = [
+  {symbol:'❄',temp:'−2°C',title:'Снег'},
+  {symbol:'☂',temp:'+8°C',title:'Дождь'},
+  {symbol:'☀',temp:'+23°C',title:'Ясно'},
+  {symbol:'☁',temp:'+5°C',title:'Облачно'}
+ ];
+ const weather = climates[season];
+ $('#header').innerHTML =
+  '<div class="brand">'+icon('home')+'<div><h1>Управдом</h1><small>ПОРЯДОК В КАЖДОМ ДОМЕ</small></div></div>'+
+  '<div class="stats">'+
+   '<div class="stat clock-stat"><strong>'+time()+'</strong><small>Смена '+state.day+' · до 16:00</small></div>'+
+   '<div class="stat weather"><strong><span class="weather-symbol">'+weather.symbol+'</span> '+weather.temp+'</strong><small>'+weather.title+'</small></div>'+
+   '<div class="stat budget"><strong class="money"><span class="cash-icon">◆</span> '+rub(state.money)+'</strong><small>Репутация '+state.reputation+'/100</small></div>'+
+   '<div class="stat notifications"><strong>'+icon('bell')+'<span class="notification-count">'+active().length+'</span></strong><small>Заявки</small></div>'+
+  '</div>';
+ $('#nav').innerHTML=[
+  ['map','map','Карта'],['calls','calls','Заявки'],['services','crew','Бригады'],
+  ['finance','money','Финансы'],['garage','garage','Гараж']
+ ].map(([id,ico,name])=>button('tab',
+  '<span class="tabIcon">'+icon(ico)+(id==='calls'&&active().length?'<b class="nav-count">'+active().length+'</b>':'')+'</span><span>'+name+'</span>',
+  'data-tab="'+id+'" aria-current="'+(tab===id?'page':'false')+'"',
+  tab===id?'active':'')).join('');
+
  $('#mapView').hidden=tab!=='map';$('#page').hidden=tab==='map';
  if(tab==='map'){
- const c=active().sort((a,b)=>b.priority-a.priority)[0];
- $('#mapTop').innerHTML=c?`<button class="incident" data-action="call" data-id="${c.id}"><span class="serviceIcon" style="color:${E.COLORS[E.TYPES[c.type][1]]}">${icon(serviceIcons[E.TYPES[c.type][1]])}</span><div class="info">${pill(c)}<h3>${E.TYPES[c.type][0]}</h3><small>${state.homes[c.home].name} · ${status[c.status]}</small></div>${icon('arrow')}</button>`:`<div class="incident"><span class="serviceIcon green">${icon('shield')}</span><div><h3>${state.phase==='prep'?'Район готов к работе':'Все заявки обработаны'}</h3><small>${state.phase==='prep'?'Проверьте службы и начните смену':'Ожидайте обращения жителей'}</small></div></div>`;
+
+ const c=active().slice().sort((a,b)=>b.priority-a.priority||a.id-b.id)[0];
+ if(c){
+  const t=E.TYPES[c.type],crew=state.crews.find(cr=>cr.job===c.id);
+  const service=crew?crew.name:status[c.status];
+  const arrival=crew&&crew.status==='travel'?'В пути: '+crew.remaining+' мин':
+   crew?'На объекте':c.status==='contractor'?'Подрядчик: '+c.remaining+' мин':'Ожидает';
+  $('#mapTop').innerHTML='<button class="incident" data-action="call" data-id="'+c.id+'">'+
+   '<span class="serviceIcon" style="color:'+E.COLORS[t[1]]+'">'+icon(serviceIcons[t[1]])+'</span>'+
+   '<span class="info">'+pill(c)+'<h3>'+state.homes[c.home].name+' — '+t[0]+'</h3>'+
+   '<small>'+t[5]+'</small></span>'+
+   '<span class="incident-assignment"><small>Назначен</small><strong>'+service+'</strong>'+
+   '<span class="eta">'+icon('truck')+' '+arrival+'</span></span>'+icon('arrow')+'</button>';
+ }else{
+  $('#mapTop').innerHTML='<div class="incident"><span class="serviceIcon green">'+icon('shield')+'</span>'+
+   '<div class="info"><span class="badge">СЕВЕРНЫЙ РАЙОН</span><h3>'+
+   (state.phase==='prep'?'Район готов к работе':'Все заявки выполнены')+'</h3>'+
+   '<small>'+(state.phase==='prep'?'Проверьте бригады и начните смену':'Ожидайте новых обращений')+
+   '</small></div></div>';
+ }
+
  $('#mapBottom').innerHTML=`<div class="shiftBar"><div class="row"><div><span class="eyebrow">${phaseText()}</span><h3>${time()} <small>/ 16:00 · ${active().length} заявок</small></h3></div><div class="controls">${state.phase==='prep'?button('start',icon('play')+'Начать смену','','primary'):state.phase==='report'?button('report','Итоги смены','','primary'):button('pause',icon(paused?'play':'pause'),'aria-label="'+(paused?'Продолжить':'Пауза')+'"')+button('speed',speed+'×')+button('help','?','aria-label="Помощь"')}</div></div><progress value="${state.minute}" max="480" aria-label="Прогресс смены"></progress></div>`;
  }else renderPage();
  if(selected!==null)renderCall();if(homeSelected!==null)renderHome();
@@ -32,6 +74,18 @@ function renderPage(){
  p.innerHTML=`<div class="pageHead"><div class="eyebrow">ДИСПЕТЧЕРСКАЯ</div><h2>Обращения жителей</h2><p class="muted">${active().length} в работе · ${state.calls.filter(c=>c.status==='done').length} завершено</p></div><div class="tabs">${[['active','Активные'],['done','Завершённые'],['all','Все']].map(([id,label])=>button('filter',label,`data-filter="${id}"`,filter===id?'active':'')).join('')}</div>${list.map(c=>`<div class="card"><div class="row">${pill(c)}<small>№${String(c.id).padStart(3,'0')}</small></div><h3 style="margin-top:12px">${E.TYPES[c.type][0]}</h3><p class="muted">${state.homes[c.home].name}</p><div class="row"><small class="${c.late?'danger':''}">${c.late?'Срок превышен':c.status==='done'?'Работа принята':'До срока: '+Math.max(0,c.due-state.minute)+' мин'} · ${status[c.status]}</small>${button('call',icon('arrow'),`data-id="${c.id}" aria-label="Открыть заявку ${c.id}"`)}</div></div>`).join('')||'<div class="empty">Здесь появятся обращения после начала смены.</div>'}`;
  }else if(tab==='services'){
  p.innerHTML=`<div class="pageHead"><div class="eyebrow">ЛЮДИ И ТЕХНИКА</div><h2>Службы компании</h2><p class="muted">${state.crews.filter(c=>c.status==='idle').length} из 3 свободны · 6 сотрудников</p></div>${state.crews.map(c=>`<div class="card"><div class="row"><h3>${c.name}</h3><span class="badge ${c.status==='idle'?'green':''}">${status[c.status]}</span></div><div class="crewArt" style="color:${E.COLORS[c.service]}">${icon('truck')}</div><div class="row"><span>${c.id===2?'Сервисный пикап':'Сервисный фургон'} · 2 специалиста</span><small>Уровень ${c.level}</small></div><div class="specs">${[['Топливо',c.fuel],['Состояние',c.condition],['Усталость',c.fatigue]].map(([name,n])=>`<div><small>${name}</small>${n}%<div class="condition"><i style="width:${n}%"></i></div></div>`).join('')}<div><small>Оснащение / опыт</small>${c.equipment}/3 · ${c.xp} XP</div></div><div class="actions">${button('maintain','ТО · 5 000 ₽',`data-id="${c.id}" data-kind="service" ${c.status!=='idle'?'disabled':''}`)}${button('maintain','Оснастить · '+rub(25000*c.equipment),`data-id="${c.id}" data-kind="equipment" ${c.status!=='idle'||c.equipment>=3?'disabled':''}`)}${button('maintain','Обучить · 15 000 ₽',`data-id="${c.id}" data-kind="train" ${c.status!=='idle'||c.xp<30?'disabled':''}`)}</div><small>Зарплата: 3 600 ₽ / смена · отдых между сменами −50 усталости</small></div>`).join('')}`;
+ }else if(tab==='garage'){
+ p.innerHTML='<div class="pageHead"><div class="eyebrow">АВТОПАРК УК «УЮТ»</div>'+
+  '<h2>Гараж и техника</h2><p class="muted">Три служебных автомобиля. ТО и заправка стоят 5 000 ₽.</p></div>'+
+  state.crews.map(cr=>'<div class="card garage-card">'+
+   '<div class="row"><div><h3>'+(cr.id===2?'Ремонтный пикап':'Сервисный фургон')+'</h3>'+
+   '<small>'+cr.name+'</small></div><span class="badge '+(cr.status==='idle'?'green':'')+'">'+status[cr.status]+'</span></div>'+
+   '<div class="garage-vehicle" style="color:'+E.COLORS[cr.service]+'">'+icon('truck')+'</div>'+
+   '<div class="specs"><div><small>Топливо</small><b>'+cr.fuel+'%</b><div class="condition"><i style="width:'+cr.fuel+'%"></i></div></div>'+
+   '<div><small>Состояние</small><b>'+cr.condition+'%</b><div class="condition"><i style="width:'+cr.condition+'%"></i></div></div></div>'+
+   '<div class="actions">'+button('maintain','Заправить и обслужить · 5 000 ₽',
+    'data-id="'+cr.id+'" data-kind="service" '+(cr.status!=='idle'?'disabled':''),'primary')+'</div></div>'
+  ).join('');
  }else{
  const income=state.ledger.filter(e=>e.day===state.day&&e.amount>0).reduce((a,e)=>a+e.amount,0),expenses=-state.ledger.filter(e=>e.day===state.day&&e.amount<0).reduce((a,e)=>a+e.amount,0);
  p.innerHTML=`<div class="pageHead"><div class="eyebrow">ЭКОНОМИКА УК «УЮТ»</div><h2>Финансы и договоры</h2><p class="muted">Решения сегодня — устойчивый район завтра</p></div><div class="card"><small>Доступный бюджет</small><h2 class="green">${rub(state.money)}</h2><div class="grid"><div class="metric"><small>Доход за смену</small><b>${rub(income)}</b></div><div class="metric"><small>Расход за смену</small><b>${rub(expenses)}</b></div></div></div><h3 style="margin:22px 0 12px">Дома под управлением</h3>${state.homes.map(h=>`<div class="card"><div class="row"><div><h3>${h.name}</h3><small>Договор: 22 000 ₽ / смена</small></div>${button('home',icon('home'),`data-id="${h.id}" aria-label="Карточка дома ${h.name}"`)}</div><p>Износ сетей: ${h.wear}%</p><div class="condition"><i style="width:${h.wear}%;background:#ffbe62"></i></div></div>`).join('')}<h3 style="margin:22px 0 12px">Операции</h3>${state.ledger.slice(0,20).map(e=>`<div class="row ledger"><span>${e.label}<br><small>Смена ${e.day}</small></span><b class="${e.amount>0?'green':''}">${e.amount>0?'+':''}${rub(e.amount)}</b></div>`).join('')||'<p class="muted">Операций пока нет.</p>'}<p class="footerNote">Тендеры, кредиты и лизинг — следующий этап развития проекта.</p>${button('help','Как играть')} ${button('reset','Новая компания','','danger')}`;
@@ -64,6 +118,7 @@ function action(el){const a=el.dataset.action,id=Number(el.dataset.id);try{
  else if(a==='close')close();
  else if(a==='report'){showReport();return;}
  else if(a==='next'){E.nextDay(state);paused=true;close();}
+ else if(a==='district'){openDialog(shell('Все районы','<p>Северный район — действующая карта с тремя домами под управлением.</p><p class="muted" style="margin-top:12px">Новые районы появятся в будущих обновлениях.</p>'));return;}
  else if(a==='help'){openDialog(shell('Добро пожаловать в «Уют»',`<div class="stack"><p>Вы управляете тремя домами и тремя коммунальными бригадами.</p><p><b>1.</b> Перед сменой проверьте топливо и состояние машин в «Службах».</p><p><b>2.</b> Начните смену. Откройте заявку, уточните обстоятельства и отправьте подходящую бригаду.</p><p><b>3.</b> Следите за сроками. Если все заняты, можно привлечь подрядчика.</p><p><b>4.</b> В 16:00 появится отчёт. Договорные платежи поступают в конце смены.</p><p class="muted">Карта перемещается пальцем, масштабируется двумя пальцами или кнопками. При открытом окне, сворачивании приложения и выходе время не идёт. Прогресс сохраняется автоматически.</p></div>`));return;}
  else if(a==='reset'){openDialog(shell('Начать заново?',`<p>Текущая компания и её сохранение будут заменены. Это действие нельзя отменить.</p><div class="actions" style="margin-top:20px">${button('confirmReset','Начать новую игру','','danger')} ${button('close','Отмена')}</div>`));return;}
  else if(a==='confirmReset'){state=E.fresh();paused=true;close();tab='map';}
