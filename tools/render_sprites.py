@@ -263,6 +263,58 @@ def vehicle(i):
         box("Pickup frame horizontal",(.07,.08,1.85),(.10,1.26,.10),chrome)
     render(["van_water.png","van_electric.png","van_repair.png"][i])
 
+def tree_sprite(kind):
+    clear(); common(5.6,1.62)
+    random.seed(129+kind)
+    bark=material("Dark bark",(.31,.24,.17),rough=.98)
+    leaf_green=[material("Leaf green",(.16,.38,.18)),
+                material("Sunlit green",(.31,.51,.24)),
+                material("Leaf olive",(.32,.43,.21))]
+    leaf_autumn=[material("Amber leaves",(.87,.45,.12)),
+                 material("Autumn gold",(.94,.66,.21)),
+                 material("Olive highlights",(.54,.54,.20)),
+                 material("Maple orange",(.72,.30,.085))]
+    needles=[material("Spruce deep",(.10,.26,.19)),
+             material("Spruce north face",(.17,.38,.28)),
+             material("Spruce tips",(.28,.46,.32))]
+    snow=material("Light snow on branches",(.81,.88,.87))
+    cyl("Tree trunk",(0,0,1.12),.14,2.24,bark,12)
+    if kind==2:
+        # Staggered low-poly branch whorls create volume and shadow.
+        for level in range(6):
+            z=.65+level*.45
+            radius=1.07-level*.143
+            bpy.ops.mesh.primitive_cone_add(vertices=10,radius1=radius,radius2=0.035,
+                depth=1.22,location=(0,0,z+.43))
+            obj=bpy.context.object;obj.name="Conifer branch crown"
+            obj.data.materials.append(needles[level%3])
+            # Subtle snowy needles, only on the most exposed upper tiers.
+            if level>=4:
+                bpy.ops.mesh.primitive_cone_add(vertices=10,radius1=radius*.63,radius2=.02,
+                    depth=.18,location=(0,0,z+.92))
+                bpy.context.object.data.materials.append(snow)
+        render("tree_pine.png")
+    else:
+        canopy=leaf_green if kind==0 else leaf_autumn
+        for i in range(23):
+            angle=i*2.39996
+            radial=.29+.72*math.sqrt((i+.5)/23)
+            x=math.cos(angle)*radial
+            y=math.sin(angle)*radial*.85
+            z=2.45+random.random()*.86
+            # Uneven canopy is made of overlapping fully lit three-dimensional clumps.
+            size=.41+.14*random.random()
+            sphere("Leaf canopy",(x,y,z),size,canopy[i%len(canopy)],
+                scale=(1.07,.88,.83),sub=2)
+        for k in range(7):
+            a=k*2.6
+            x=math.cos(a)*.75;y=math.sin(a)*.64
+            v=Vector((x,y,2.61))-Vector((0,0,1.28))
+            obj=cyl("Branch trunk",(.5*x,.5*y,1.28+.5*(2.61-1.28)),.055,v.length,bark,8)
+            obj.rotation_euler=v.to_track_quat('Z','Y').to_euler()
+        render("tree_green.png" if kind==0 else "tree_autumn.png")
+
 for n in range(4): house(n)
 for n in range(3): vehicle(n)
+for n in range(3): tree_sprite(n)
 print("SPRITES_COMPLETE", OUTPUT, flush=True)
