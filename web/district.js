@@ -27,8 +27,8 @@ export const STOPS=Object.freeze([[2.25,0],[5.65,0],[0,5.55],[4.5,8]]);
 export const PARKING_BAYS=Object.freeze([[4.50,7.64],[6.05,7.64],[7.60,7.64]]);
 // The walking leg begins where the van stops, ends at the building entrance.
 export const ENTRANCES=Object.freeze([
- {home:0,door:[2.25,1.28],curb:STOPS[0]},
- {home:1,door:[5.65,1.28],curb:STOPS[1]},
+ {home:0,door:[2.25,1.50],curb:STOPS[0]},
+ {home:1,door:[5.65,1.50],curb:STOPS[1]},
  {home:2,door:[.70,5.55],curb:STOPS[2]}
 ]);
 export const COURTYARDS=Object.freeze([
