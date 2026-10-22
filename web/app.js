@@ -8,6 +8,8 @@ import {notifySound} from './audio.js';
 import {vehicle} from './graphics.js';
 import {managementPage,domainDialog} from './management.js';
 import {DEPOT,DISTRICTS,VEHICLE_MODELS} from './content.js';
+import {SECTION_WIDTH,MAX_HOMES_PER_DISTRICT,DEFAULT_PREVIEW_HOMES,PREVIEW_LEVELS,boundsForHomes} from './district-generator.js';
+import {cameraFor} from './map.js';
 const $=s=>document.querySelector(s),esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const rub=n=>Math.round(n===0?0:n).toLocaleString('ru-RU')+' ₽';
 const icons=['water','bolt','tool'],short=['Сантехники','Электрики','Ремонтная бригада'];
@@ -18,7 +20,7 @@ let tab='map',filter='active',paused=true,speed=1,modal=null,imported=null,frame
 const gameClock=new GameClock(performance.now());
 let contractDistrict=null;
 const subpages={services:'crews',garage:'fleet',finance:'overview'};
-const view={zoom:1,x:0,y:0,district:0,focus:null,hits:[]},canvas=$('#map'),dialog=$('#dialog'),importInput=$('#importFile');
+const view={zoom:1,x:0,y:0,district:0,focus:null,hits:[],plannedHomes:DEFAULT_PREVIEW_HOMES},canvas=$('#map'),dialog=$('#dialog'),importInput=$('#importFile');
 const button=(action,text,extra='',cls='')=>`<button data-action="${action}" ${extra} class="${cls}">${text}</button>`;
 const active=()=>state.calls.filter(c=>c.status!=='done');
 const clock=()=>{const t=480+state.minute;return `${String(Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`;};
@@ -42,7 +44,7 @@ function renderMapUI(){
  if(call){const cr=state.crews.find(c=>c.job===call.id),service=E.TYPES[call.type][1];
   $('#mapTop').innerHTML=button('call',`<span class="incidentIcon" style="--service:${E.COLORS[service]}">${icon(icons[service])}</span><span class="incidentInfo">${badge(call)}<strong>${esc(E.TYPES[call.type][0])}</strong><small>${icon('location')}${esc(state.homes[call.home].name)}</small></span><span class="incidentAssignment"><small>${cr?'Назначена:':'Статус:'}</small><span>${cr?short[cr.service]:statuses[call.status]}</span>${cr?`<strong>${icon('truck')}${cr.status==='travel'?'ETA: '+cr.remaining+' мин':statuses[cr.status]}</strong>`:''}</span>${icon('chevron')}`,`data-id="${call.id}"`,'incident');
  }else $('#mapTop').innerHTML=`<div class="incident welcome"><span class="incidentIcon ready">${icon('shield')}</span><div class="incidentInfo"><span class="eyebrow">${view.district===null?'ГОРОД':esc(DISTRICTS[view.district].name.toUpperCase())+' РАЙОН'}</span><strong>${state.phase==='prep'?'Доброе утро, управляющий':'В районе всё спокойно'}</strong><small>${state.phase==='prep'?E.ownedHomes(state).length+' домов · '+state.employees.length+' специалистов · '+state.crews.length+' бригад':'Все обращения обработаны. Службы наготове.'}</small></div>${button('help',icon('info'),'aria-label="Как играть"','iconButton')}</div>`;
- $('#mapBottom').innerHTML=`<div class="mapTools">${button('districts',`${icon('map')}<span>Все<br>районы</span>${icon('chevron')}`,'','districtButton')}<span class="mapLegend"><i></i>${view.district===null?'Весь город':DISTRICTS[view.district].name+' район'} · ${E.ownedHomes(state).length} договоров</span>${button('settings',icon('gear'),'aria-label="Настройки"','settingsButton')}</div><div class="shiftBar"><div class="shiftInfo"><span class="liveDot ${paused||state.phase!=='active'?'paused':''}"></span><div><strong>${phaseText()}</strong><small>${clock()} — 16:00 · репутация ${state.reputation}/100</small></div></div><div class="shiftControls">${state.phase==='prep'?button('start',`${icon('play')}<span>Начать смену</span>`,'','primary'):state.phase==='report'?button('report',`${icon('calls')}Итоги`,'','primary'):button('pause',icon(paused?'play':'pause'),`aria-label="${paused?'Продолжить':'Пауза'}"`,'iconButton')+button('speed',speed+'×','aria-label="Скорость игры"','speedButton')}</div><progress value="${state.minute}" max="480" aria-label="Прогресс смены"></progress></div>`;
+ $('#mapBottom').innerHTML=`<div class="districtExpansion" aria-label="Макет расширения района">${button('mapWest','←','aria-label="На секцию влево"')}${button('previewLess','−',`aria-label="Уменьшить макет" ${view.plannedHomes===PREVIEW_LEVELS[0]?'disabled':''}`)}<span>Макет ${view.plannedHomes}/${MAX_HOMES_PER_DISTRICT}</span>${button('previewMore','+',`aria-label="Добавить секции" ${view.plannedHomes===MAX_HOMES_PER_DISTRICT?'disabled':''}`)}${button('mapEast','→','aria-label="На секцию вправо"')}</div><div class="mapTools">${button('districts',`${icon('map')}<span>Все<br>районы</span>${icon('chevron')}`,'','districtButton')}<span class="mapLegend"><i></i>${view.district===null?'Весь город':DISTRICTS[view.district].name+' район'} · ${E.ownedHomes(state).length} договоров</span>${button('settings',icon('gear'),'aria-label="Настройки"','settingsButton')}</div><div class="shiftBar"><div class="shiftInfo"><span class="liveDot ${paused||state.phase!=='active'?'paused':''}"></span><div><strong>${phaseText()}</strong><small>${clock()} — 16:00 · репутация ${state.reputation}/100</small></div></div><div class="shiftControls">${state.phase==='prep'?button('start',`${icon('play')}<span>Начать смену</span>`,'','primary'):state.phase==='report'?button('report',`${icon('calls')}Итоги`,'','primary'):button('pause',icon(paused?'play':'pause'),`aria-label="${paused?'Продолжить':'Пауза'}"`,'iconButton')+button('speed',speed+'×','aria-label="Скорость игры"','speedButton')}</div><progress value="${state.minute}" max="480" aria-label="Прогресс смены"></progress></div>`;
 }
 function pageHead(tag,title,description,action=''){return `<div class="pageHead"><div><div class="eyebrow">${tag}</div><h1>${title}</h1><p>${description}</p></div>${action}</div>`;}
 function metric(label,value,cls=''){return `<div class="metric"><small>${label}</small><strong class="${cls}">${value}</strong></div>`;}
@@ -117,6 +119,17 @@ function action(el){
   else if(a==='zoomIn'){view.zoom=Math.min(2.7,view.zoom*1.2);dirty=true;draw();return;}
   else if(a==='zoomOut'){view.zoom=Math.max(1,view.zoom/1.2);dirty=true;draw();return;}
   else if(a==='center'){view.x=view.y=0;view.zoom=1;view.focus=null;dirty=true;draw();return;}
+   else if(a==='previewMore'||a==='previewLess'){
+    const step=a==='previewMore'?1:-1,index=PREVIEW_LEVELS.indexOf(view.plannedHomes);
+    view.plannedHomes=PREVIEW_LEVELS[Math.max(0,Math.min(PREVIEW_LEVELS.length-1,index+step))];
+    view.x=view.y=0;view.focus=null;render();return;
+   }
+   else if(a==='mapWest'||a==='mapEast'){
+    const bounds=boundsForHomes(view.plannedHomes),rect=canvas.getBoundingClientRect(),camera=cameraFor(rect.width,rect.height,view);
+    const current=(rect.width/2-camera.x)/camera.scale;
+    const target=Math.max(bounds.minX+SECTION_WIDTH/2,Math.min(bounds.maxX-SECTION_WIDTH/2,current+(a==='mapEast'?1:-1)*SECTION_WIDTH));
+    view.focus=[target,750+(view.district??0)*1500];view.x=view.y=0;dirty=true;draw();return;
+   }
   else if(a==='focusHome'){focusHome(id);return;}
   else if(a==='close'){close();return;}
   else if(['report','settings','districts','help','reset'].includes(a)){open(a);return;}
