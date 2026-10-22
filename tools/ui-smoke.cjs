@@ -62,6 +62,10 @@ const fs=require('node:fs/promises');
     assert.ok(layout.separate,`Money and clock overlap at ${width}`);assert.ok(layout.bottom<=layout.height+1&&layout.inside,`Bottom controls leave viewport at ${width}`);
 
     if(tab==='map'){
+     const pad=await page.locator('.districtExpansion').boundingBox();
+     assert.ok(pad&&pad.x>=0&&pad.x+pad.width<=width+1,`Expansion controls outside viewport at ${width}`);
+     for(const direction of ['mapWest','mapNorth','mapSouth','mapEast'])
+      assert.equal(await page.locator('[data-action="'+direction+'"]').count(),1,`Missing ${direction}`);
      const bounds=await page.locator('#map').boundingBox();
      for(const id of [0,1,2,3]){const label=await page.locator(`.mapLabels [data-action="home"][data-id="${id}"]`).boundingBox();assert.ok(label&&label.x>=bounds.x&&label.x+label.width<=bounds.x+bounds.width,`Starting home ${id} clipped at ${width}`);}
     }
@@ -76,6 +80,18 @@ const fs=require('node:fs/promises');
    await page.mouse.move(bounds.x+bounds.width/2,bounds.y+bounds.height/2);await page.mouse.down();await page.mouse.move(bounds.x+(delta<0?4:bounds.width-4),bounds.y+(delta<0?4:bounds.height-4),{steps:8});await page.mouse.up();
    const coverage=await page.locator('#map').getAttribute('data-coverage').then(JSON.parse);assert.ok(coverage.left<=0&&coverage.top<=0&&coverage.right>=bounds.width-1&&coverage.bottom>=bounds.height-1,'Map edge exposed');
   }
+  await page.locator('[data-action="center"]').click();
+  const camera=()=>page.locator('#map').getAttribute('data-coverage').then(JSON.parse);
+  const origin=await camera();
+  await page.locator('[data-action="mapNorth"]').click();
+  assert.ok((await camera()).y>origin.y,'Up arrow did not move camera north');
+  await page.locator('[data-action="mapSouth"]').click();
+  await page.locator('[data-action="mapWest"]').click();
+  assert.ok((await camera()).x>origin.x,'Left arrow did not move camera west');
+  await page.locator('[data-action="mapEast"]').click();
+  await page.locator('[data-action="previewMore"]').click();
+  assert.equal(await page.locator('#map').getAttribute('data-planned-homes'),'48');
+  await page.locator('[data-action="previewLess"]').click();
   await page.locator('[data-action="center"]').click();
   await page.locator('.mapLabels [data-action="home"][data-id="0"]').click();await page.getByRole('heading',{name:'ул. Садовая, 12',exact:true}).waitFor();await page.getByRole('button',{name:'Закрыть',exact:true}).click();
   // Repair completion and end-of-shift report through the UI clock.
