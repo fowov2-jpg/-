@@ -12,6 +12,8 @@ const mix=(a,b,t)=>a+(b-a)*t;
 const noise=n=>((Math.sin(n*127.1+78.233)*43758.5453)%1+1)%1;
 
 export const route=districtRoute;
+// Summer/autumn PNG foliage must not override the winter procedural canopy.
+export const useFoliageSprite=winter=>!winter;
 function bearingFromSegment(a,b){
  if(b[0]>a[0]+.00001)return 'east';
  if(b[0]<a[0]-.00001)return 'west';
@@ -106,7 +108,7 @@ export function renderMap(canvas,state,view){
   ctx.fillStyle='#091d2660';ctx.beginPath();
   ctx.ellipse(p[0]+9,p[1]+7,21,8,-.25,0,Math.PI*2);ctx.fill();
   ctx.restore();
-  if(drawGameSprite(ctx,canvas,treeType,p[0]-35,p[1]-82,70,94))return;
+  if(useFoliageSprite(winter)&&drawGameSprite(ctx,canvas,treeType,p[0]-35,p[1]-82,70,94))return;
   drawTree(ctx,iso,x,y,i,winter);
  }
  function car(x,y,rotation,color,service=false,serviceIndex=0,heading='east'){
