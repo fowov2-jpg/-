@@ -4,6 +4,9 @@ import static org.junit.Assert.*;
 import android.graphics.Bitmap;
 import android.os.SystemClock;
 import android.view.View;
+import android.view.MotionEvent;
+import android.accessibilityservice.AccessibilityService;
+import androidx.lifecycle.Lifecycle;
 import android.webkit.WebView;
 import androidx.core.graphics.Insets;
 import androidx.core.view.WindowInsetsCompat;
@@ -97,6 +100,39 @@ public class ScreenInsetsTest {
         try (OutputStream output = context.getContentResolver().openOutputStream(destination)) {
             assertNotNull(output);assertTrue(image.compress(format, quality, output));
         }
+    }
+    private void tap(String selector) throws Exception {
+        String quoted = JSONObject.quote(selector);
+        String value = evaluate("JSON.stringify((()=>{const n=document.querySelector("+quoted+");n.scrollIntoView({block:'center'});const r=n.getBoundingClientRect();return {x:(r.left+r.width/2)*devicePixelRatio,y:(r.top+r.height/2)*devicePixelRatio};})())");
+        JSONObject point = new JSONObject(new org.json.JSONTokener(value).nextValue().toString());
+        int[] offset = new int[2];
+        activity.getScenario().onActivity(a -> a.getWindow().getDecorView().findViewWithTag("game-webview").getLocationOnScreen(offset));
+        float x=offset[0]+(float)point.getDouble("x"), y=offset[1]+(float)point.getDouble("y");long now=SystemClock.uptimeMillis();
+        MotionEvent down=MotionEvent.obtain(now,now,MotionEvent.ACTION_DOWN,x,y,0),up=MotionEvent.obtain(now,now+40,MotionEvent.ACTION_UP,x,y,0);
+        InstrumentationRegistry.getInstrumentation().sendPointerSync(down);InstrumentationRegistry.getInstrumentation().sendPointerSync(up);down.recycle();up.recycle();SystemClock.sleep(160);
+    }
+    @Test public void allSectionsLifecycleAndDocumentPickers() throws Exception {
+        waitForPage();tap("#mapBottom [data-action=settings]");tap("dialog [data-action=reset]");tap("dialog [data-action=confirmReset]");
+        for(String section:new String[]{"calls","services","garage","finance"}){
+            tap("#nav [data-tab="+section+"]");
+            String[] pages=section.equals("services")?new String[]{"crews","people","hire"}:section.equals("garage")?new String[]{"fleet","stock","buy"}:section.equals("finance")?new String[]{"overview","contracts","goals"}:new String[]{};
+            for(String page:pages){tap("#page .segmented [data-sub="+page+"]");assertEquals("true",evaluate("!!document.querySelector('#page h1') && document.documentElement.scrollWidth<=innerWidth"));}
+        }
+        tap("#nav [data-tab=map]");tap("[data-action=start]");SystemClock.sleep(1300);
+        activity.getScenario().moveToState(Lifecycle.State.CREATED);SystemClock.sleep(1000);activity.getScenario().moveToState(Lifecycle.State.RESUMED);SystemClock.sleep(400);
+        String saved=evaluate("JSON.parse(localStorage.getItem('upravdom.v1')).minute");SystemClock.sleep(1200);assertEquals("Background resumed simulation",saved,evaluate("JSON.parse(localStorage.getItem('upravdom.v1')).minute"));
+        tap("#mapBottom [data-action=settings]");
+        for(String action:new String[]{"export","import"}){
+            tap("dialog [data-action="+action+"]");SystemClock.sleep(700);
+            android.view.accessibility.AccessibilityNodeInfo root=InstrumentationRegistry.getInstrumentation().getUiAutomation().getRootInActiveWindow();assertNotNull(root);
+            assertTrue("System document picker did not open",root.getPackageName().toString().contains("documentsui"));root.recycle();
+            for(int back=0;back<3;back++){
+                InstrumentationRegistry.getInstrumentation().getUiAutomation().performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK);SystemClock.sleep(650);
+                AtomicReference<Boolean> focused=new AtomicReference<>(false);activity.getScenario().onActivity(a->focused.set(a.getWindow().getDecorView().hasWindowFocus()));if(focused.get())break;
+            }
+            assertEquals("Picker cancellation changed progress",saved,evaluate("JSON.parse(localStorage.getItem('upravdom.v1')).minute"));
+        }
+        tap("dialog [data-action=close]");
     }
     @Test public void systemPanelsNeverCoverGameControls() throws Exception {
         verify("threebutton");

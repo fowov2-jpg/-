@@ -27,6 +27,14 @@ function contextFor(canvas){
  const nodes=CITY_HOMES.map(home=>{const node=document.createElement('button');node.className='mapAddress';node.dataset.action='home';node.dataset.id=home.id;node.textContent=home.name;labels.appendChild(node);return node;});
  result={ctx:canvas.getContext('2d'),nodes};contexts.set(canvas,result);return result;
 }
+export function vehiclePose(state,cr,progress=0){
+ const call=state.calls.find(c=>c.id===cr.job),moving=cr.status==='travel'&&call,path=moving?route(cr.home,call.home):route(cr.home,cr.home);
+ const loc=onRoute(path,moving?(cr.total-cr.remaining+progress)/cr.total:1),vehicle=state.vehicles.find(v=>v.id===cr.vehicle);
+ const last=call||state.calls.filter(c=>c.crew===cr.id&&c.status==='done').at(-1);
+ if(!moving&&last?.origin!==undefined){const arrival=route(last.origin,cr.home);if(arrival.length>1)loc.angle=onRoute(arrival,1).angle;}
+ if(cr.status==='idle'&&cr.home===DEPOT){const bay=vehicle.id;loc.point[0]+=(bay%3-1)*72;loc.point[1]+=-100+Math.floor(bay/3)*50+(bay%3-1)*28;loc.angle=-2.55;}
+ return {...loc,path,moving:!!moving,model:vehicle.model};
+}
 export function renderMap(canvas,state,view,{labels=true,motion=true,progress=0,now=0}={}){
  const rect=canvas.getBoundingClientRect();if(!rect.width||!rect.height)return;
  const dpr=Math.min(globalThis.devicePixelRatio||1,2),{ctx,nodes}=contextFor(canvas);if(!ctx)return;
@@ -53,22 +61,19 @@ export function renderMap(canvas,state,view,{labels=true,motion=true,progress=0,
   node.hidden=!labels||!belongs||!visible(p,0);const half=(node.offsetWidth||110)/2+6;node.style.left=clamp(p[0],half,rect.width-half)+'px';node.style.top=clamp(p[1],15,rect.height-15)+'px';node.classList.toggle('owned',home.active);node.title=home.active?'Доверие жителей '+home.loyalty+'%':'Новый договор';
   if(belongs)view.hits.push({point:view.project(MARKERS[home.id]),home:home.id,radius:40});
  }
- // Idle vehicles occupy separate spaces at the depot, rather than a stack of rectangles.
- const parked=state.crews.filter(c=>c.status==='idle'&&c.home===DEPOT);
+ const poses=[];
  for(const cr of state.crews){
-  const call=state.calls.find(c=>c.id===cr.job),moving=cr.status==='travel'&&call;
-  const path=moving?route(cr.home,call.home):route(cr.home,cr.home),loc=onRoute(path,moving?(cr.total-cr.remaining+progress)/cr.total:1);
-  if(loc.transfer||!local(loc.point))continue;
+  const loc=vehiclePose(state,cr,progress),moving=loc.moving;poses.push({id:cr.id,point:loc.point,angle:loc.angle,transfer:!!loc.transfer});if(loc.transfer||!local(loc.point))continue;
   const point=view.project(loc.point);if(!visible(point))continue;
-  if(cr.status==='idle'&&cr.home===DEPOT){const index=parked.indexOf(cr);point[0]+=(index%3-1)*72*scale;point[1]+=(Math.floor(index/3)*80+(index%3-1)*36)*scale;}
-  const vehicle=state.vehicles.find(v=>v.id===cr.vehicle),row=modelRows[vehicle?.model]??0,angle=moving?loc.angle:(cr.home===DEPOT?-2.55:.7);
+  const row=modelRows[loc.model]??0,angle=loc.angle;
   drawVehicle(ctx,point,angle,row,scale,COLORS[cr.service]);
   if(cr.status!=='idle'){
    const eta=moving?cr.remaining+' мин':cr.status==='diagnosis'?'Диагностика':'Ремонт',text=titles[cr.service]+' · '+eta;
-   ctx.font='600 10px system-ui';const w=ctx.measureText(text).width+20,lx=clamp(point[0]+16,5,rect.width-w-5),ly=clamp(point[1]-27,8,rect.height-30);
+   ctx.font='600 10px system-ui';const w=ctx.measureText(text).width+20,lx=clamp(point[0]+16,5,rect.width-w-5),ly=clamp(point[1]-46,8,rect.height-30);
    ctx.fillStyle='#061e28f2';ctx.strokeStyle=COLORS[cr.service]+'aa';ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(lx,ly,w,24,6);ctx.fill();ctx.stroke();ctx.fillStyle=COLORS[cr.service];ctx.beginPath();ctx.arc(lx+7,ly+12,2.5,0,Math.PI*2);ctx.fill();ctx.fillStyle='#eff5ef';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(text,lx+14,ly+12);
   }
  }
+ canvas.dataset.fleet=JSON.stringify(poses);
  const active=state.calls.filter(c=>c.status!=='done');
  for(const home of CITY_HOMES.filter(h=>h.district===district)){
   const calls=active.filter(c=>c.home===home.id).sort((a,b)=>(a.status==='blocked')-(b.status==='blocked')||b.priority-a.priority||a.due-b.due);if(!calls.length)continue;

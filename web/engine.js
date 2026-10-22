@@ -17,7 +17,7 @@ function preparation(s){requireThat(s.phase==='prep','Доступно пере�
 export function crewVehicle(s,cr){return s.vehicles.find(v=>v.id===cr.vehicle);}
 export function crewPeople(s,cr){return cr.members.map(id=>s.employees.find(e=>e.id===id));}
 export function refreshCrews(s){for(const cr of s.crews){const people=crewPeople(s,cr),v=crewVehicle(s,cr);cr.level=Math.min(...people.map(e=>e.level));cr.xp=Math.min(...people.map(e=>e.xp));cr.fatigue=Math.max(...people.map(e=>e.fatigue));cr.fuel=v.fuel;cr.condition=v.condition;cr.equipment=v.equipment;}}
-function makeMarket(s){s.candidates=[];for(let service=0;service<3;service++){const pool=PEOPLE.slice(6).filter(p=>p[1]===service&&!s.employees.some(e=>e.name===p[0]));for(let i=0;i<Math.min(2,pool.length);i++){const p=pool[(s.day-1+i)%pool.length];s.candidates.push({id:s.day*100+service*2+i,name:p[0],service:p[1],level:p[2],wage:p[3],years:p[4]});}}}
+function makeMarket(s){s.candidates=[];for(let service=0;service<3;service++){const pool=PEOPLE.filter(p=>p[1]===service&&!s.employees.some(e=>e.name===p[0]));for(let i=0;i<Math.min(2,pool.length);i++){const p=pool[(s.day-1+i)%pool.length];s.candidates.push({id:s.day*100+service*2+i,name:p[0],service:p[1],level:p[2],wage:p[3],years:p[4]});}}}
 export function fresh(){
  const s={version:3,day:1,minute:0,phase:'prep',money:3000000,opening:3000000,reputation:70,seed:112,sequence:0,nextCall:0,report:null,calls:[],ledger:[],
   homes:CITY_HOMES.map(h=>({...h,active:h.id<3,wear:[40,32,48][h.id]??(42+h.id%4*7),loyalty:85,cooldown:0})),
@@ -59,11 +59,11 @@ export function start(s){
  if(s.day===1&&s.sequence===0){spawn(s,0,0);spawn(s,7,1);spawn(s,15,2);}
  else {if(s.calls.filter(c=>!['done','blocked'].includes(c.status)).length<3)spawn(s);if(s.day%5===0)spawnEmergency(s,ownedHomes(s)[Math.floor(rand(s)*ownedHomes(s).length)].id);}
 }
-export function question(s,id){const c=s.calls.find(c=>c.id===id);requireThat(c,'Заявка не найдена');c.asked=true;return TYPES[c.type][6];}
+export function question(s,id){const c=s.calls.find(c=>c.id===id);requireThat(c,'Заявка не найдена');if(!c.asked&&c.status==='diagnosis'){const cr=s.crews.find(cr=>cr.job===id);if(cr){const elapsed=cr.total-cr.remaining;cr.remaining=Math.min(cr.remaining,Math.max(1,4-elapsed));cr.total=elapsed+cr.remaining;}}c.asked=true;return TYPES[c.type][6];}
 export function contain(s,id){const c=s.calls.find(c=>c.id===id);requireThat(c&&c.status==='new'&&!c.contained,'Инструкция уже передана или работа началась');c.contained=true;c.asked=true;c.due+=15;}
 export function dispatch(s,id,crewId){
  refreshCrews(s);const c=s.calls.find(c=>c.id===id),cr=s.crews.find(cr=>cr.id===crewId);requireThat(c&&cr,'Заявка или бригада не найдена');const reason=dispatchReason(s,c,cr);requireThat(!reason,reason);
- const bill=materials(s,c);s.warehouse.stock[bill.part]-=bill.quantity;c.reserved={...bill};c.status='travel';c.crew=cr.id;cr.status='travel';cr.job=c.id;
+ const bill=materials(s,c);s.warehouse.stock[bill.part]-=bill.quantity;c.reserved={...bill};c.origin=cr.home;c.status='travel';c.crew=cr.id;cr.status='travel';cr.job=c.id;
  const v=crewVehicle(s,cr),model=VEHICLE_MODELS.find(m=>m.id===v.model);cr.remaining=cr.total=travelTime(cr.home,c.home,model.speed);v.fuel-=8;refreshCrews(s);
 }
 export function outsource(s,id){requireThat(s.phase==='active','Смена не запущена');const c=s.calls.find(c=>c.id===id);requireThat(c&&c.status==='new','Заявка недоступна');spend(s,TYPES[c.type][4]*3,'Подрядчик: '+TYPES[c.type][0]);c.status='contractor';c.remaining=45;}
@@ -122,11 +122,17 @@ export function nextDay(s){
 }
 export function maintain(s,id,kind){
  const cr=s.crews.find(c=>c.id===id);requireThat(cr&&cr.status==='idle','Дождитесь освобождения бригады');const v=crewVehicle(s,cr);
- if(kind==='service'){spend(s,5000,'Топливо и ТО: '+cr.name);v.fuel=100;v.condition=100;}
- else if(kind==='equipment'){requireThat(v.equipment<3,'Максимальное оснащение');spend(s,25000*v.equipment,'Оснащение: '+cr.name);v.equipment++;}
- else if(kind==='train'){requireThat(cr.xp>=30&&cr.level<5,'Нужно 30 опыта; максимальный уровень — 5');spend(s,15000,'Обучение: '+cr.name);for(const e of crewPeople(s,cr)){e.xp-=30;e.level=Math.min(5,e.level+1);}}
+ if(kind==='train'){requireThat(cr.xp>=30&&cr.level<5,'Нужно 30 опыта; максимальный уровень — 5');spend(s,15000,'Обучение: '+cr.name);for(const e of crewPeople(s,cr)){e.xp-=30;e.level=Math.min(5,e.level+1);}}
+ else return maintainVehicle(s,v.id,kind);refreshCrews(s);
+}
+export function maintainVehicle(s,id,kind){
+ requireThat(s.phase!=='report'&&s.campaign.status!=='lost','Обслуживание доступно до смены и во время работы');
+ const v=s.vehicles.find(v=>v.id===id);requireThat(v,'Автомобиль не найден');const crew=s.crews.find(c=>c.vehicle===id);requireThat(!crew||crew.status==='idle','Дождитесь возвращения автомобиля');
+ if(kind==='service'){requireThat(v.fuel<100||v.condition<100,'Автомобиль уже обслужен');spend(s,5000,'Топливо и ТО: автомобиль №'+(id+1));v.fuel=100;v.condition=100;}
+ else if(kind==='equipment'){requireThat(v.equipment<3,'Максимальное оснащение');spend(s,25000*v.equipment,'Оснащение: автомобиль №'+(id+1));v.equipment++;}
  else throw Error('Неизвестное действие');refreshCrews(s);
 }
+
 export function prevent(s,id){preparation(s);const h=s.homes[id];requireThat(h?.active,'Дом не обслуживается');requireThat(h.wear>0,'Сети в хорошем состоянии');spend(s,12000,'Профилактика: '+h.name);h.wear=clamp(h.wear-15);}
 export function renovate(s,id){preparation(s);const h=s.homes[id];requireThat(h?.active,'Дом не обслуживается');requireThat(h.wear>15,'Капитальный ремонт пока не требуется');spend(s,150000,'Капитальный ремонт: '+h.name);h.wear=clamp(h.wear-45);h.loyalty=clamp(h.loyalty+12);}
 export function contractReason(s,id){const h=s.homes[id];if(!h)return 'Дом не найден';if(h.active)return 'Договор уже действует';if(h.cooldown>s.day)return 'Повторные переговоры: день '+h.cooldown;const d=DISTRICTS[h.district];if(s.day<d.day)return 'Район откроется на '+d.day+' день';if(s.reputation<d.reputation)return 'Нужна репутация '+d.reputation;if(s.campaign.completed<d.completed)return 'Нужно выполнить '+d.completed+' работ';if(s.money<h.fee)return 'Недостаточно средств для запуска обслуживания';return '';}
@@ -178,7 +184,7 @@ export function decode(raw){
  for(const c of s.calls){
   valid(obj(c)&&int(c.id,1,s.sequence)&&!calls.has(c.id)&&int(c.type,0,TYPES.length-1)&&int(c.home,0,CITY_HOMES.length-1)&&c.priority===TYPES[c.type][2]&&['new','blocked','travel','diagnosis','repair','contractor','done'].includes(c.status));
   valid(Number.isSafeInteger(c.created)&&c.created<=s.minute&&Number.isSafeInteger(c.due)&&c.due>=c.created&&int(c.createdDay,1,s.day)&&typeof c.asked==='boolean'&&typeof c.diagnosed==='boolean'&&typeof c.contained==='boolean'&&typeof c.late==='boolean');
-  valid(c.crew===null||crews.has(c.crew));valid(c.dependsOn===null||int(c.dependsOn,1,c.id-1));valid(c.reserved===null||(obj(c.reserved)&&int(c.reserved.part,0,2)&&int(c.reserved.quantity,1,100)));
+  valid(c.origin===undefined||int(c.origin,0,DEPOT));valid(c.crew===null||crews.has(c.crew));valid(c.dependsOn===null||int(c.dependsOn,1,c.id-1));valid(c.reserved===null||(obj(c.reserved)&&int(c.reserved.part,0,2)&&int(c.reserved.quantity,1,100)));
   if(['new','blocked','contractor'].includes(c.status))valid(c.crew===null);if(c.status==='contractor')valid(int(c.remaining,1,45));if(c.status==='done')valid(int(c.completed,0,SHIFT)&&int(c.completedDay,1,s.day));calls.set(c.id,c);
  }
  for(const c of s.calls){if(c.dependsOn!==null)valid(calls.has(c.dependsOn)||c.status!=='blocked');if(['travel','diagnosis','repair'].includes(c.status)){const cr=crews.get(c.crew);valid(cr&&cr.job===c.id&&cr.status===c.status&&cr.service===TYPES[c.type][1]);}}

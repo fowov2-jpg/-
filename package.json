@@ -1,12 +1,12 @@
 {
   "name": "upravdom",
-  "version": "0.3.1-alpha",
+  "version": "0.3.2-alpha",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.js",
     "start": "node tools/serve.js",
-    "test:ui": "node tools/ui-smoke.cjs"
+    "test:ui": "node tools/ui-smoke.cjs && node tools/playability.cjs"
   },
   "engines": {
     "node": ">=20"

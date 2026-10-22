@@ -1,4 +1,5 @@
 import * as E from './engine.js';
+import {GameClock} from './game-clock.js';
 import {icon} from './icons.js';
 import {renderMap,loadArtwork} from './map.js';
 import {MARKERS,travelTime} from './roads.js';
@@ -14,6 +15,8 @@ const statuses={new:'Ожидает назначения',travel:'В пути',d
 let storage;try{storage=globalThis.localStorage;}catch{storage={getItem(){throw Error('Хранилище недоступно');},setItem(){throw Error('Хранилище недоступно');}};}
 const loaded=loadGame(storage);let state=loaded.state,loadError=loaded.blocked,saveError=false,settings=loadSettings(storage);
 let tab='map',filter='active',paused=true,speed=1,modal=null,imported=null,frame=0,lastDraw=0,lastTick=performance.now(),dirty=true;
+const gameClock=new GameClock(performance.now());
+let contractDistrict=null;
 const subpages={services:'crews',garage:'fleet',finance:'overview'};
 const view={zoom:1,x:0,y:0,district:0,focus:null,hits:[]},canvas=$('#map'),dialog=$('#dialog');
 const button=(action,text,extra='',cls='')=>`<button data-action="${action}" ${extra} class="${cls}">${text}</button>`;
@@ -23,8 +26,8 @@ const phaseText=()=>({prep:'Подготовка к смене',active:paused?'�
 const badge=c=>`<span class="badge priority-${c.priority}">${['','Обычный','Высокий','Критический'][c.priority]} приоритет</span>`;
 function save(){if(loadError)return;try{saveGame(storage,state);saveError=false;}catch{if(!saveError)toast('Не удалось сохранить. Проверьте свободное место и доступ к хранилищу.');saveError=true;}}
 function toast(text){const el=$('#toast');el.textContent=text;el.classList.add('visible');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('visible'),4200);const inline=$('#dialogError');if(dialog.open&&inline){inline.textContent=text;inline.hidden=false;}}
-function open(kind,id=null){modal={kind,id};renderDialog();}
-function close(){modal=null;dialog.close();lastTick=performance.now();dirty=true;draw();scheduleAnimation();}
+function open(kind,id=null){advanceClock();modal={kind,id};renderDialog();}
+function close(){gameClock.advance(performance.now(),false,speed);modal=null;dialog.close();lastTick=performance.now();dirty=true;draw();scheduleAnimation();}
 function shell(title,body,eyebrow='УК «УЮТ»'){return `<div class="dialogHead"><div><div class="eyebrow">${eyebrow}</div><h2 id="dialogTitle">${title}</h2></div>${button('close',icon('close'),'aria-label="Закрыть"','iconButton')}</div><div id="dialogError" class="notice warning" role="alert" hidden></div><div class="dialogBody">${body}</div>`;}
 function render(){
  const calls=active(),season=Math.floor((state.day-1)/7)%4,weather=[['snow','−2°','Снег'],['sun','+8°','Дождь'],['sun','+23°','Ясно'],['sun','+5°','Облачно']][season];
@@ -43,7 +46,7 @@ function renderMapUI(){
 }
 function pageHead(tag,title,description,action=''){return `<div class="pageHead"><div><div class="eyebrow">${tag}</div><h1>${title}</h1><p>${description}</p></div>${action}</div>`;}
 function metric(label,value,cls=''){return `<div class="metric"><small>${label}</small><strong class="${cls}">${value}</strong></div>`;}
-function renderPage(){if(tab==='calls'){renderCallsPage();return;}const p=$('#page'),scroll=p.scrollTop||0;p.innerHTML=managementPage(state,tab,subpages[tab],{button,icon,esc,rub,metric,vehicle,statuses});p.scrollTop=scroll;}
+function renderPage(){const p=$('#page'),scroll=p.scrollTop||0,values=[...(p.querySelectorAll?.('select')||[])].map(n=>[n.id,n.value]);if(tab==='calls')renderCallsPage();else p.innerHTML=managementPage(state,tab,subpages[tab],{button,icon,esc,rub,metric,vehicle,statuses,contractDistrict});for(const [id,value] of values){const select=$('#'+id);if(select)select.value=value;}p.scrollTop=scroll;}
 function renderCallsPage(){
  const p=$('#page');
   const list=state.calls.filter(c=>filter==='all'||(filter==='done'?c.status==='done':c.status!=='done')).sort((a,b)=>b.priority-a.priority||a.id-b.id);
@@ -60,7 +63,7 @@ function renderDialog(){
   title=t[0];eyebrow='ОБРАЩЕНИЕ №'+String(c.id).padStart(3,'0');
   body=`${badge(c)}<p class="dialogAddress">${icon('location')}${esc(state.homes[c.home].name)}</p><div class="quote">${icon('phone')}<p>«${esc(t[5])}»<small>Житель дома · ${formatMinute(Math.max(0,c.created))}</small></p></div>${c.asked?`<div class="notice">${icon('check')}<span>${esc(t[6])}<small>Обстоятельства уточнены. Диагностика займёт 4 минуты.</small></span></div>`:c.status!=='done'?button('question',icon('phone')+'Уточнить обстоятельства',`data-id="${id}"`,'subtle wide'):''}<div class="metrics">${metric(c.status==='contractor'?'Стоимость подрядчика':'Со склада',c.status==='contractor'?rub(t[4]*3):E.materials(state,c).quantity+' компл. '+E.PARTS[t[1]].short)}${metric(c.status==='done'?'Завершено':c.late?'Просрочено':'До срока',c.status==='done'?formatMinute(c.completed):Math.max(0,c.due-state.minute)+' мин',c.late?'danger':'')}</div><div class="jobStatus"><i class="liveDot ${c.status==='done'?'':'paused'}"></i><strong>${statuses[c.status]}</strong>${cr?`<span>${cr.remaining} мин на этапе</span>`:c.status==='contractor'?`<span>${c.remaining} мин осталось</span>`:''}</div>${c.status==='done'?'<p class="notice">'+icon('check')+'Работа принята. Износ дома снижен на 2 пункта.</p>':''}${c.status==='blocked'?`<div class="notice warning">Сначала завершите этап №${c.dependsOn}. После него откроется эта работа.</div>`:''}${c.status==='new'&&!c.contained?button('contain',icon('shield')+'Передать инструкции безопасности · +15 мин',`data-id="${id}"`,'subtle wide'):''}${c.status==='new'?`<div class="sectionHead"><h3>Назначить бригаду</h3><small>Комплекты резервируются на складе</small></div>${state.crews.map(cr=>{const reason=E.dispatchReason(state,c,cr);return button('dispatch',`<span class="serviceSquare" style="--service:${E.COLORS[cr.service]}">${icon(icons[cr.service])}</span><span class="grow"><strong>${short[cr.service]}</strong><small>${reason||'Готова · дорога '+travelTime(cr.home,c.home,VEHICLE_MODELS.find(m=>m.id===E.crewVehicle(state,cr).model).speed)+' мин'}</small></span>${icon('chevron')}`,`data-id="${id}" data-crew="${cr.id}" ${reason?'disabled':''}`,'assignButton');}).join('')}<div class="contractor">${button('outsource','Привлечь подрядчика <strong>'+rub(t[4]*3)+'</strong>',`data-id="${id}" ${state.phase!=='active'||state.money<t[4]*3?'disabled':''}`,'subtle wide')}<small>Выполнение за 45 минут. Ваши бригады остаются свободны.</small></div>`:''}`;
  }else if(kind==='settings'){
-  title='Настройки';eyebrow='УПРАВДОМ · 0.3.1-ALPHA';body=`<div class="settingsList">${[['sound','volume','Звуки диспетчерской','Сигналы новых обращений'],['motion','map','Анимация карты','Движение машин и подсветка маршрутов'],['labels','location','Адреса на карте','Подписи домов района']].map(([key,ico,name,description])=>button('setting',`${icon(ico)}<span class="grow"><strong>${name}</strong><small>${description}</small></span><span class="switch ${settings[key]?'on':''}"><i></i></span>`,`data-key="${key}" aria-pressed="${settings[key]}"`,'settingRow')).join('')}</div><div class="sectionHead"><h3>Ваша компания</h3><span class="green">${loadError?'Нужно восстановление':saveError?'Ошибка записи':'Автосохранение включено'}</span></div><p class="muted">Прогресс хранится на устройстве. При повреждении основного сохранения игра использует резервную копию.</p><div class="saveActions">${button('export',icon('download')+'Экспорт',loadError?'disabled':'','subtle')}${button('import',icon('upload')+'Импорт','','subtle')}</div>${button('help',icon('info')+'Как играть','','settingRow')}${button('reset','Начать новую компанию','','danger subtle wide')}<p class="versionNote">Управдом · УК «Уют»<br>Полностью офлайн. Без рекламы и покупок.<br>Версия 0.3.1-alpha</p>`;
+  title='Настройки';eyebrow='УПРАВДОМ · 0.3.2-ALPHA';body=`<div class="settingsList">${[['sound','volume','Звуки диспетчерской','Сигналы новых обращений'],['motion','map','Анимация карты','Движение машин и подсветка маршрутов'],['labels','location','Адреса на карте','Подписи домов района']].map(([key,ico,name,description])=>button('setting',`${icon(ico)}<span class="grow"><strong>${name}</strong><small>${description}</small></span><span class="switch ${settings[key]?'on':''}"><i></i></span>`,`data-key="${key}" aria-pressed="${settings[key]}"`,'settingRow')).join('')}</div><div class="sectionHead"><h3>Ваша компания</h3><span class="green">${loadError?'Нужно восстановление':saveError?'Ошибка записи':'Автосохранение включено'}</span></div><p class="muted">Прогресс хранится на устройстве. При повреждении основного сохранения игра использует резервную копию.</p><div class="saveActions">${button('export',icon('download')+'Экспорт',loadError?'disabled':'','subtle')}${button('import',icon('upload')+'Импорт','','subtle')}</div>${button('help',icon('info')+'Как играть','','settingRow')}${button('reset','Начать новую компанию','','danger subtle wide')}<p class="versionNote">Управдом · УК «Уют»<br>Полностью офлайн. Без рекламы и покупок.<br>Версия 0.3.2-alpha</p>`;
  }else if(kind==='help'){
   title='Порядок в каждом доме';eyebrow='ДОБРО ПОЖАЛОВАТЬ В «УЮТ»';body=`<div class="tutorialHero">${icon('home')}<h3>Вы — управляющий компанией</h3><p>3 млн ₽, три дома и три бригады.<br>За каждым обращением — чей-то дом.</p></div><ol class="tutorial"><li><strong>Подготовьте службы</strong><p>Проверьте запас комплектов на вкладке «Гараж → Склад». Обычная поставка приходит завтра, срочная — через 30 минут; до смены сразу. Заправьте машины.</p></li><li><strong>Начните смену на карте</strong><p>Откройте заявку, уточните обстоятельства и отправьте бригаду нужной специальности.</p></li><li><strong>Следите за сроками</strong><p>Критический — 65 минут, высокий — 110, обычный — 180. Инструкции жителю дают ещё 15 минут. В связанной аварии завершайте этапы по порядку. Подрядчик поможет, если люди заняты.</p></li><li><strong>Подведите итоги в 16:00</strong><p>Просрочки сокращают выплаты и доверие. При доверии ниже 25% жители расторгнут договор. Незавершённые работы перейдут на завтра.</p></li><li><strong>Развивайте компанию</strong><p>Наймите двух специалистов одного профиля, купите машину и сформируйте бригаду. В разделе «Финансы → Договоры» подключайте новые дома. Цели и условия районов — на вкладке «Развитие».</p></li></ol><div class="notice">${icon('pause')}<span>В вашем темпе<small>Пауза всегда доступна. Время не идёт в открытых карточках и в фоне. После загрузки игра на паузе.</small></span></div>${button('close','Всё понятно, за работу','','primary wide')}`;
  }else if(kind==='loadError'){
@@ -77,14 +80,16 @@ function downloadSave(){if(navigator.userAgent.includes('UpravdomAndroid/')){win
 function action(el){
  const a=el.dataset.action,id=Number(el.dataset.id);let changed=false,message='';
  try{
+  advanceClock();
   if(a==='tab'){tab=el.dataset.tab;$('#page').scrollTop=0;}
   else if(a==='toMap')tab='map';
   else if(a==='goCalls')tab='calls';
   else if(a==='filter')filter=el.dataset.filter;
-  else if(a==='subpage')subpages[tab]=el.dataset.sub;
-  else if(a==='contracts'){tab='finance';subpages.finance='contracts';close();}
+  else if(a==='subpage'){subpages[tab]=el.dataset.sub;$('#page').scrollTop=0;}
+  else if(a==='contracts'){tab='finance';subpages.finance='contracts';contractDistrict=el.dataset.district===undefined?null:Number(el.dataset.district);$('#page').scrollTop=0;close();}
+  else if(a==='contractDistrict'){contractDistrict=el.dataset.district==='all'?null:Number(el.dataset.district);$('#page').scrollTop=0;}
   else if(a==='focusDistrict'){view.district=id;view.focus=null;view.zoom=1;view.x=view.y=0;tab='map';close();}
-  else if(a==='start'){E.start(state);paused=false;lastTick=performance.now();changed=true;if(settings.sound)notifySound(true);}
+  else if(a==='start'){gameClock.reset(performance.now());E.start(state);paused=false;lastTick=performance.now();changed=true;if(settings.sound)notifySound(true);}
   else if(a==='pause'){paused=!paused;lastTick=performance.now();}
   else if(a==='speed'){speed=speed===1?2:speed===2?4:1;lastTick=performance.now();}
   else if(a==='call'){open('call',id);return;}
@@ -105,27 +110,28 @@ function action(el){
   else if(a==='expandWarehouse'){E.expandWarehouse(state);changed=true;message='Склад расширен';}
   else if(a==='dispatch'){E.dispatch(state,id,Number(el.dataset.crew));changed=true;message='Бригада отправлена. Маршрут построен.';}
   else if(a==='outsource'){E.outsource(state,id);changed=true;message='Подрядчик принял заявку';}
+  else if(a==='maintainVehicle'){E.maintainVehicle(state,id,el.dataset.kind);changed=true;message='Автомобиль обслужен';}
   else if(a==='maintain'){E.maintain(state,id,el.dataset.kind);changed=true;message='Готово. Служба подготовлена к работе.';}
   else if(a==='prevent'){E.prevent(state,id);changed=true;message='Профилактика завершена. Износ снижен.';}
-  else if(a==='next'){E.nextDay(state);changed=true;paused=true;close();}
+  else if(a==='next'){E.nextDay(state);gameClock.reset(performance.now());changed=true;paused=true;close();}
   else if(a==='zoomIn'){view.zoom=Math.min(2.7,view.zoom*1.2);dirty=true;draw();return;}
   else if(a==='zoomOut'){view.zoom=Math.max(1,view.zoom/1.2);dirty=true;draw();return;}
   else if(a==='center'){view.x=view.y=0;view.zoom=1;view.focus=null;dirty=true;draw();return;}
   else if(a==='focusHome'){focusHome(id);return;}
   else if(a==='close'){close();return;}
   else if(['report','settings','districts','help','reset'].includes(a)){open(a);return;}
-  else if(a==='confirmReset'){state=E.fresh();loadError=false;saveError=false;paused=true;speed=1;view.x=view.y=0;view.zoom=1;view.district=0;view.focus=null;changed=true;close();tab='map';}
+  else if(a==='confirmReset'){state=E.fresh();gameClock.reset(performance.now());loadError=false;saveError=false;paused=true;speed=1;view.x=view.y=0;view.zoom=1;view.district=0;view.focus=null;changed=true;close();tab='map';}
   else if(a==='setting'){const key=el.dataset.key;if(!Object.hasOwn(settings,key))return;settings[key]=!settings[key];try{saveSettings(storage,settings);}catch{toast('Настройки действуют до закрытия приложения');}if(key==='sound'&&settings.sound)notifySound();}
   else if(a==='export'){downloadSave();return;}
   else if(a==='import'){$('#importFile').click();return;}
-  else if(a==='confirmImport'){if(!imported)return;state=E.decode(E.encode(imported));imported=null;loadError=false;paused=true;changed=true;close();tab='map';message='Компания восстановлена';}
+  else if(a==='confirmImport'){if(!imported)return;state=E.decode(E.encode(imported));gameClock.reset(performance.now());imported=null;loadError=false;paused=true;changed=true;close();tab='map';message='Компания восстановлена';}
   if(changed)save();render();if(message)toast(message);
  }catch(e){toast(e.message);}
 }
 function draw(now=performance.now()){
  if(tab!=='map'||document.hidden)return;
  const running=!paused&&!dialog.open&&state.phase==='active';
- renderMap(canvas,state,view,{...settings,progress:running&&settings.motion?Math.min(speed,(now-lastTick)/1000*speed):0,now});dirty=false;
+ renderMap(canvas,state,view,{...settings,progress:gameClock.progress(now,running&&settings.motion,speed),now});dirty=false;
 }
 function shouldAnimate(){return tab==='map'&&!paused&&!document.hidden&&!dialog.open&&settings.motion&&state.phase==='active';}
 function scheduleAnimation(){if(!frame&&shouldAnimate())frame=requestAnimationFrame(animate);}
@@ -140,11 +146,16 @@ canvas.addEventListener('wheel',e=>{e.preventDefault();view.zoom=Math.max(1,Math
 document.addEventListener('click',e=>{const el=e.target.closest('button[data-action]');if(el&&!el.disabled)action(el);});
 dialog.addEventListener('cancel',e=>{e.preventDefault();close();});
 $('#importFile').addEventListener('change',async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;try{if(file.size>2000000)throw Error('Файл слишком большой. Максимум 2 МБ.');imported=E.decode(await file.text());open('importConfirm');}catch(err){toast('Не удалось импортировать: '+err.message);}});
-function background(){paused=true;lastTick=performance.now();pointers.clear();last=null;save();render();}
+function background(){advanceClock();paused=true;lastTick=performance.now();pointers.clear();last=null;save();render();}
 window.addEventListener('upravdom-pause',background);
 window.addEventListener('upravdom-export-result',event=>toast(event.detail?'Копия компании сохранена':'Не удалось записать файл. Выберите другую папку.'));
 document.addEventListener('visibilitychange',()=>{if(document.hidden)background();else{lastTick=performance.now();dirty=true;render();}});
 window.addEventListener('pagehide',()=>{paused=true;save();});window.addEventListener('resize',()=>{dirty=true;draw();});
-setInterval(()=>{lastTick=performance.now();if(!paused&&!document.hidden&&!dialog.open&&state.phase==='active'){const before=state.sequence;E.tick(state,speed);save();render();if(state.sequence>before&&settings.sound)notifySound(state.calls.filter(c=>c.id>before).some(c=>c.priority===3));if(state.phase==='report')open('report');}},1000);
+function advanceClock(){
+ const now=performance.now(),running=!paused&&!document.hidden&&!dialog.open&&state.phase==='active',minutes=gameClock.advance(now,running,speed);lastTick=now;
+ if(!minutes||!running)return false;const before=state.sequence;E.tick(state,minutes);if(state.phase==='report')gameClock.carry=0;save();if(state.sequence>before&&settings.sound)notifySound(state.calls.filter(c=>c.id>before).some(c=>c.priority===3));return true;
+}
+setInterval(()=>{if(advanceClock()){render();if(state.phase==='report')open('report');}},100);
+
 loadArtwork(()=>{dirty=true;draw();});render();scheduleAnimation();
 if(loadError)open('loadError');else if(loaded.recovered)toast('Основное сохранение повреждено. Компания восстановлена из резервной копии.');
