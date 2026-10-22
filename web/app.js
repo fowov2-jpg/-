@@ -8,7 +8,7 @@ import {notifySound} from './audio.js';
 import {vehicle} from './graphics.js';
 import {managementPage,domainDialog} from './management.js';
 import {DEPOT,DISTRICTS,VEHICLE_MODELS} from './content.js';
-import {SECTION_WIDTH,MAX_HOMES_PER_DISTRICT,DEFAULT_PREVIEW_HOMES,PREVIEW_LEVELS,boundsForHomes} from './district-generator.js';
+import {SECTION_WIDTH,SECTION_HEIGHT,MAX_HOMES_PER_DISTRICT,DEFAULT_PREVIEW_HOMES,PREVIEW_LEVELS,boundsForHomes} from './district-generator.js';
 import {cameraFor} from './map.js';
 const $=s=>document.querySelector(s),esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const rub=n=>Math.round(n===0?0:n).toLocaleString('ru-RU')+' ₽';
@@ -44,7 +44,7 @@ function renderMapUI(){
  if(call){const cr=state.crews.find(c=>c.job===call.id),service=E.TYPES[call.type][1];
   $('#mapTop').innerHTML=button('call',`<span class="incidentIcon" style="--service:${E.COLORS[service]}">${icon(icons[service])}</span><span class="incidentInfo">${badge(call)}<strong>${esc(E.TYPES[call.type][0])}</strong><small>${icon('location')}${esc(state.homes[call.home].name)}</small></span><span class="incidentAssignment"><small>${cr?'Назначена:':'Статус:'}</small><span>${cr?short[cr.service]:statuses[call.status]}</span>${cr?`<strong>${icon('truck')}${cr.status==='travel'?'ETA: '+cr.remaining+' мин':statuses[cr.status]}</strong>`:''}</span>${icon('chevron')}`,`data-id="${call.id}"`,'incident');
  }else $('#mapTop').innerHTML=`<div class="incident welcome"><span class="incidentIcon ready">${icon('shield')}</span><div class="incidentInfo"><span class="eyebrow">${view.district===null?'ГОРОД':esc(DISTRICTS[view.district].name.toUpperCase())+' РАЙОН'}</span><strong>${state.phase==='prep'?'Доброе утро, управляющий':'В районе всё спокойно'}</strong><small>${state.phase==='prep'?E.ownedHomes(state).length+' домов · '+state.employees.length+' специалистов · '+state.crews.length+' бригад':'Все обращения обработаны. Службы наготове.'}</small></div>${button('help',icon('info'),'aria-label="Как играть"','iconButton')}</div>`;
- $('#mapBottom').innerHTML=`<div class="districtExpansion" aria-label="Макет расширения района">${button('mapWest','←','aria-label="На секцию влево"')}${button('previewLess','−',`aria-label="Уменьшить макет" ${view.plannedHomes===PREVIEW_LEVELS[0]?'disabled':''}`)}<span>Макет ${view.plannedHomes}/${MAX_HOMES_PER_DISTRICT}</span>${button('previewMore','+',`aria-label="Добавить секции" ${view.plannedHomes===MAX_HOMES_PER_DISTRICT?'disabled':''}`)}${button('mapEast','→','aria-label="На секцию вправо"')}</div><div class="mapTools">${button('districts',`${icon('map')}<span>Все<br>районы</span>${icon('chevron')}`,'','districtButton')}<span class="mapLegend"><i></i>${view.district===null?'Весь город':DISTRICTS[view.district].name+' район'} · ${E.ownedHomes(state).length} договоров</span>${button('settings',icon('gear'),'aria-label="Настройки"','settingsButton')}</div><div class="shiftBar"><div class="shiftInfo"><span class="liveDot ${paused||state.phase!=='active'?'paused':''}"></span><div><strong>${phaseText()}</strong><small>${clock()} — 16:00 · репутация ${state.reputation}/100</small></div></div><div class="shiftControls">${state.phase==='prep'?button('start',`${icon('play')}<span>Начать смену</span>`,'','primary'):state.phase==='report'?button('report',`${icon('calls')}Итоги`,'','primary'):button('pause',icon(paused?'play':'pause'),`aria-label="${paused?'Продолжить':'Пауза'}"`,'iconButton')+button('speed',speed+'×','aria-label="Скорость игры"','speedButton')}</div><progress value="${state.minute}" max="480" aria-label="Прогресс смены"></progress></div>`;
+ $('#mapBottom').innerHTML=`<div class="districtExpansion" aria-label="Макет расширения района">${button('mapWest','←','aria-label="На секцию влево"')}${button('mapNorth','↑','aria-label="На секцию вверх"')}${button('mapSouth','↓','aria-label="На секцию вниз"')}${button('mapEast','→','aria-label="На секцию вправо"')}${button('previewLess','−',`aria-label="Уменьшить макет" ${view.plannedHomes===PREVIEW_LEVELS[0]?'disabled':''}`)}<span>Макет ${view.plannedHomes}/${MAX_HOMES_PER_DISTRICT}</span>${button('previewMore','+',`aria-label="Добавить секции" ${view.plannedHomes===MAX_HOMES_PER_DISTRICT?'disabled':''}`)}</div><div class="mapTools">${button('districts',`${icon('map')}<span>Все<br>районы</span>${icon('chevron')}`,'','districtButton')}<span class="mapLegend"><i></i>${view.district===null?'Весь город':DISTRICTS[view.district].name+' район'} · ${E.ownedHomes(state).length} договоров</span>${button('settings',icon('gear'),'aria-label="Настройки"','settingsButton')}</div><div class="shiftBar"><div class="shiftInfo"><span class="liveDot ${paused||state.phase!=='active'?'paused':''}"></span><div><strong>${phaseText()}</strong><small>${clock()} — 16:00 · репутация ${state.reputation}/100</small></div></div><div class="shiftControls">${state.phase==='prep'?button('start',`${icon('play')}<span>Начать смену</span>`,'','primary'):state.phase==='report'?button('report',`${icon('calls')}Итоги`,'','primary'):button('pause',icon(paused?'play':'pause'),`aria-label="${paused?'Продолжить':'Пауза'}"`,'iconButton')+button('speed',speed+'×','aria-label="Скорость игры"','speedButton')}</div><progress value="${state.minute}" max="480" aria-label="Прогресс смены"></progress></div>`;
 }
 function pageHead(tag,title,description,action=''){return `<div class="pageHead"><div><div class="eyebrow">${tag}</div><h1>${title}</h1><p>${description}</p></div>${action}</div>`;}
 function metric(label,value,cls=''){return `<div class="metric"><small>${label}</small><strong class="${cls}">${value}</strong></div>`;}
@@ -124,11 +124,17 @@ function action(el){
     view.plannedHomes=PREVIEW_LEVELS[Math.max(0,Math.min(PREVIEW_LEVELS.length-1,index+step))];
     view.x=view.y=0;view.focus=null;render();return;
    }
-   else if(a==='mapWest'||a==='mapEast'){
-    const bounds=boundsForHomes(view.plannedHomes),rect=canvas.getBoundingClientRect(),camera=cameraFor(rect.width,rect.height,view);
-    const current=(rect.width/2-camera.x)/camera.scale;
-    const target=Math.max(bounds.minX+SECTION_WIDTH/2,Math.min(bounds.maxX-SECTION_WIDTH/2,current+(a==='mapEast'?1:-1)*SECTION_WIDTH));
-    view.focus=[target,750+(view.district??0)*1500];view.x=view.y=0;dirty=true;draw();return;
+   else if(['mapWest','mapEast','mapNorth','mapSouth'].includes(a)){
+    const bounds=boundsForHomes(view.plannedHomes),rect=canvas.getBoundingClientRect();
+    const camera=cameraFor(rect.width,rect.height,view);
+    const currentX=(rect.width/2-camera.x)/camera.scale;
+    const currentY=(rect.height/2-camera.y)/camera.scale;
+    const dx=a==='mapWest'?-SECTION_WIDTH:a==='mapEast'?SECTION_WIDTH:0;
+    const dy=a==='mapNorth'?-SECTION_HEIGHT:a==='mapSouth'?SECTION_HEIGHT:0;
+    const targetX=Math.max(bounds.minX+SECTION_WIDTH/2,Math.min(bounds.maxX-SECTION_WIDTH/2,currentX+dx));
+    const targetY=Math.max(bounds.minY+SECTION_HEIGHT/2,Math.min(bounds.maxY-SECTION_HEIGHT/2,currentY+dy));
+    view.focus=[targetX,targetY+(view.district??0)*SECTION_HEIGHT];
+    view.x=view.y=0;dirty=true;draw();return;
    }
   else if(a==='focusHome'){focusHome(id);return;}
   else if(a==='close'){close();return;}
