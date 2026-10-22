@@ -21,7 +21,16 @@ export const BUILDINGS=Object.freeze([
  {id:6,x:2.25,y:13.30,name:'ул. Молодёжная, 6'},
  {id:7,x:5.65,y:13.30,name:'ул. Лесная, 7'}
 ]);
-export const STOPS=Object.freeze([[0,4],[5.65,0],[0,5.55],[4.5,8]]); // 3 = road-side service depot
+// Curbside stopping points, one per managed building and the shared service depot.
+export const STOPS=Object.freeze([[2.25,0],[5.65,0],[0,5.55],[4.5,8]]);
+// A real parked position per crew; these are slightly back from the live lane.
+export const PARKING_BAYS=Object.freeze([[4.50,7.64],[6.05,7.64],[7.60,7.64]]);
+// The walking leg begins where the van stops, ends at the building entrance.
+export const ENTRANCES=Object.freeze([
+ {home:0,door:[2.25,1.28],curb:STOPS[0]},
+ {home:1,door:[5.65,1.28],curb:STOPS[1]},
+ {home:2,door:[.70,5.55],curb:STOPS[2]}
+]);
 export const COURTYARDS=Object.freeze([
  {kind:'playground',x:3.3,y:9.3,w:2.55,h:2.25},
  {kind:'sports',x:9.0,y:9.2,w:2.60,h:2.10}
@@ -51,21 +60,33 @@ export function buildingIntersectsRoad(b){
   (f.y1>r.at-ROAD_WIDTH/2&&f.y0<r.at+ROAD_WIDTH/2&&
    f.x1>r.from&&f.x0<r.to));
 }
-// Routes cannot cut through lawns or facades; all turns occur on defined roads.
+// All streets are axis-aligned. Route changes direction only at public intersections.
 export function route(from,to){
- const a=STOPS[from]||STOPS[0], b=STOPS[to]||STOPS[0];
+ const a=STOPS[from]||STOPS[3],b=STOPS[to]||STOPS[3];
  if(from===to){
-  const mid=a[0]===0?[0,a[1]+.40]:[a[0]+.40,a[1]];
-  return [a,mid,a]; // Nearby service access on the same road.
+  const mid=a[1]===0?[a[0]+.4,0]:a[0]===0?[0,a[1]+.4]:[a[0]+.4,8];
+  return [a,mid,a];
  }
  if(from===3||to===3){
-  // Depot joins the public road at y=8, with turns only at real intersections.
-  if(to===3)return [...route(3,from)].reverse();
-  const base=[a,[0,8]];
-  if(b[0]===0)return [...base,b];
-  return [...base,[0,0],b];
+  if(to===3)return route(3,from).slice().reverse();
+  const via=[a,[0,8]];
+  if(b[0]===0)return [...via,b];
+  return [...via,[0,0],b];
  }
  if(a[1]===0&&b[1]===0)return [a,b];
  if(a[0]===0&&b[0]===0)return [a,b];
  return [a,[0,0],b];
+}
+// The initial path comes out of the correct marked bay, then joins public streets.
+export function crewRoute(crew,to){
+ const from=Number.isInteger(crew.home)?crew.home:3;
+ const ordinary=route(from,to);
+ if(from!==3)return ordinary;
+ const bay=PARKING_BAYS[crew.id]||PARKING_BAYS[0];
+ const lane=[bay[0],8];
+ const mid=ordinary[0];
+ const path=[bay,lane];
+ if(lane[0]!==mid[0]||lane[1]!==mid[1])path.push(mid);
+ path.push(...ordinary.slice(1));
+ return path;
 }
