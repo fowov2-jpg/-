@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {fresh,start,dispatch,tick} from '../web/engine.js';
-import {renderMap} from '../web/map.js';
+import {renderMap,useFoliageSprite} from '../web/map.js';
 
 function fakeCanvas(width=412,height=800){
  const stats={paths:0,text:0,gradients:0};
@@ -56,4 +56,9 @@ test('Animated travel and seasonal changes remain visual only',()=>{
  s.day=15;
  renderMap(canvas,s,view);
  assert.equal(s.day,15,'Warm-season render also leaves day unchanged');
+});
+
+test('Winter uses snow-aware tree rendering rather than green foliage PNGs',()=>{
+ assert.equal(useFoliageSprite(true),false);
+ assert.equal(useFoliageSprite(false),true);
 });
