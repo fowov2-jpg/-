@@ -1,15 +1,13 @@
 import * as E from './engine.js';
 import {GameClock} from './game-clock.js';
 import {icon} from './icons.js';
-import {renderMap,loadArtwork} from './map.js';
+import {renderMap,loadArtwork,transformCamera} from './map.js';
 import {MARKERS,travelTime} from './roads.js';
 import {loadGame,saveGame,loadSettings,saveSettings,SAVE_KEY,BACKUP_KEY} from './storage.js';
 import {notifySound} from './audio.js';
 import {vehicle} from './graphics.js';
 import {managementPage,domainDialog} from './management.js';
 import {DEPOT,DISTRICTS,VEHICLE_MODELS} from './content.js';
-import {SECTION_WIDTH,SECTION_HEIGHT,MAX_HOMES_PER_DISTRICT,DEFAULT_PREVIEW_HOMES,PREVIEW_LEVELS,boundsForHomes} from './district-generator.js';
-import {cameraFor} from './map.js';
 const $=s=>document.querySelector(s),esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const rub=n=>Math.round(n===0?0:n).toLocaleString('ru-RU')+' ₽';
 const icons=['water','bolt','tool'],short=['Сантехники','Электрики','Ремонтная бригада'];
@@ -20,7 +18,7 @@ let tab='map',filter='active',paused=true,speed=1,modal=null,imported=null,frame
 const gameClock=new GameClock(performance.now());
 let contractDistrict=null;
 const subpages={services:'crews',garage:'fleet',finance:'overview'};
-const view={zoom:1,x:0,y:0,district:0,focus:null,hits:[],plannedHomes:DEFAULT_PREVIEW_HOMES},canvas=$('#map'),dialog=$('#dialog'),importInput=$('#importFile');
+const view={zoom:1,x:0,y:0,district:0,focus:null,hits:[]},canvas=$('#map'),dialog=$('#dialog'),importInput=$('#importFile');
 const button=(action,text,extra='',cls='')=>`<button data-action="${action}" ${extra} class="${cls}">${text}</button>`;
 const active=()=>state.calls.filter(c=>c.status!=='done');
 const clock=()=>{const t=480+state.minute;return `${String(Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`;};
@@ -43,8 +41,8 @@ function renderMapUI(){
  const call=active().sort((a,b)=>b.priority-a.priority||(a.status==='new'?-1:0)-(b.status==='new'?-1:0)||a.due-b.due)[0];
  if(call){const cr=state.crews.find(c=>c.job===call.id),service=E.TYPES[call.type][1];
   $('#mapTop').innerHTML=button('call',`<span class="incidentIcon" style="--service:${E.COLORS[service]}">${icon(icons[service])}</span><span class="incidentInfo">${badge(call)}<strong>${esc(E.TYPES[call.type][0])}</strong><small>${icon('location')}${esc(state.homes[call.home].name)}</small></span><span class="incidentAssignment"><small>${cr?'Назначена:':'Статус:'}</small><span>${cr?short[cr.service]:statuses[call.status]}</span>${cr?`<strong>${icon('truck')}${cr.status==='travel'?'ETA: '+cr.remaining+' мин':statuses[cr.status]}</strong>`:''}</span>${icon('chevron')}`,`data-id="${call.id}"`,'incident');
- }else $('#mapTop').innerHTML=`<div class="incident welcome"><span class="incidentIcon ready">${icon('shield')}</span><div class="incidentInfo"><span class="eyebrow">${view.district===null?'ГОРОД':esc(DISTRICTS[view.district].name.toUpperCase())+' РАЙОН'}</span><strong>${state.phase==='prep'?'Доброе утро, управляющий':'В районе всё спокойно'}</strong><small>${state.phase==='prep'?E.ownedHomes(state).length+' домов · '+state.employees.length+' специалистов · '+state.crews.length+' бригад':'Все обращения обработаны. Службы наготове.'}</small></div>${button('help',icon('info'),'aria-label="Как играть"','iconButton')}</div>`;
- $('#mapBottom').innerHTML=`<div class="districtExpansion" aria-label="Макет расширения района">${button('mapWest','←','aria-label="На секцию влево"')}${button('mapNorth','↑','aria-label="На секцию вверх"')}${button('mapSouth','↓','aria-label="На секцию вниз"')}${button('mapEast','→','aria-label="На секцию вправо"')}${button('previewLess','−',`aria-label="Уменьшить макет" ${view.plannedHomes===PREVIEW_LEVELS[0]?'disabled':''}`)}<span>Макет ${view.plannedHomes}/${MAX_HOMES_PER_DISTRICT}</span>${button('previewMore','+',`aria-label="Добавить секции" ${view.plannedHomes===MAX_HOMES_PER_DISTRICT?'disabled':''}`)}</div><div class="mapTools">${button('districts',`${icon('map')}<span>Все<br>районы</span>${icon('chevron')}`,'','districtButton')}<span class="mapLegend"><i></i>${view.district===null?'Весь город':DISTRICTS[view.district].name+' район'} · ${E.ownedHomes(state).length} договоров</span>${button('settings',icon('gear'),'aria-label="Настройки"','settingsButton')}</div><div class="shiftBar"><div class="shiftInfo"><span class="liveDot ${paused||state.phase!=='active'?'paused':''}"></span><div><strong>${phaseText()}</strong><small>${clock()} — 16:00 · репутация ${state.reputation}/100</small></div></div><div class="shiftControls">${state.phase==='prep'?button('start',`${icon('play')}<span>Начать смену</span>`,'','primary'):state.phase==='report'?button('report',`${icon('calls')}Итоги`,'','primary'):button('pause',icon(paused?'play':'pause'),`aria-label="${paused?'Продолжить':'Пауза'}"`,'iconButton')+button('speed',speed+'×','aria-label="Скорость игры"','speedButton')}</div><progress value="${state.minute}" max="480" aria-label="Прогресс смены"></progress></div>`;
+ }else $('#mapTop').innerHTML=`<div class="incident welcome mapWelcomeCompact"><span class="incidentIcon ready">${icon('shield')}</span><div class="incidentInfo"><span class="eyebrow">${view.district===null?'ГОРОД':esc(DISTRICTS[view.district].name.toUpperCase())+' РАЙОН'}</span><strong>${state.phase==='prep'?'Компания готова к смене':'В районе спокойно'}</strong><small>${state.phase==='prep'?E.ownedHomes(state).length+' домов · '+state.employees.length+' специалистов · '+state.crews.length+' бригад':'Все обращения обработаны. Службы наготове.'}</small></div>${button('help',icon('info'),'aria-label="Как играть"','iconButton')}</div>`;
+ $('#mapBottom').innerHTML=`<div class="mapTools">${button('districts',`${icon('map')}<span>Все<br>районы</span>${icon('chevron')}`,'','districtButton')}<span class="mapLegend"><i></i>${view.district===null?'Весь город':DISTRICTS[view.district].name+' район'} · ${E.ownedHomes(state).length} договоров</span>${button('settings',icon('gear'),'aria-label="Настройки"','settingsButton')}</div><div class="shiftBar"><div class="shiftInfo"><span class="liveDot ${paused||state.phase!=='active'?'paused':''}"></span><div><strong>${phaseText()}</strong><small>${clock()} — 16:00 · репутация ${state.reputation}/100</small></div></div><div class="shiftControls">${state.phase==='prep'?button('start',`${icon('play')}<span>Начать смену</span>`,'','primary'):state.phase==='report'?button('report',`${icon('calls')}Итоги`,'','primary'):button('pause',icon(paused?'play':'pause'),`aria-label="${paused?'Продолжить':'Пауза'}"`,'iconButton')+button('speed',speed+'×','aria-label="Скорость игры"','speedButton')}</div><progress value="${state.minute}" max="480" aria-label="Прогресс смены"></progress></div>`;
 }
 function pageHead(tag,title,description,action=''){return `<div class="pageHead"><div><div class="eyebrow">${tag}</div><h1>${title}</h1><p>${description}</p></div>${action}</div>`;}
 function metric(label,value,cls=''){return `<div class="metric"><small>${label}</small><strong class="${cls}">${value}</strong></div>`;}
@@ -116,26 +114,6 @@ function action(el){
   else if(a==='maintain'){E.maintain(state,id,el.dataset.kind);changed=true;message='Готово. Служба подготовлена к работе.';}
   else if(a==='prevent'){E.prevent(state,id);changed=true;message='Профилактика завершена. Износ снижен.';}
   else if(a==='next'){E.nextDay(state);gameClock.reset(performance.now());changed=true;paused=true;close();}
-  else if(a==='zoomIn'){view.zoom=Math.min(2.7,view.zoom*1.2);dirty=true;draw();return;}
-  else if(a==='zoomOut'){view.zoom=Math.max(1,view.zoom/1.2);dirty=true;draw();return;}
-  else if(a==='center'){view.x=view.y=0;view.zoom=1;view.focus=null;dirty=true;draw();return;}
-   else if(a==='previewMore'||a==='previewLess'){
-    const step=a==='previewMore'?1:-1,index=PREVIEW_LEVELS.indexOf(view.plannedHomes);
-    view.plannedHomes=PREVIEW_LEVELS[Math.max(0,Math.min(PREVIEW_LEVELS.length-1,index+step))];
-    view.x=view.y=0;view.focus=null;render();return;
-   }
-   else if(['mapWest','mapEast','mapNorth','mapSouth'].includes(a)){
-    const bounds=boundsForHomes(view.plannedHomes),rect=canvas.getBoundingClientRect();
-    const camera=cameraFor(rect.width,rect.height,view);
-    const currentX=(rect.width/2-camera.x)/camera.scale;
-    const currentY=(rect.height/2-camera.y)/camera.scale;
-    const dx=a==='mapWest'?-SECTION_WIDTH:a==='mapEast'?SECTION_WIDTH:0;
-    const dy=a==='mapNorth'?-SECTION_HEIGHT:a==='mapSouth'?SECTION_HEIGHT:0;
-    const targetX=Math.max(bounds.minX+SECTION_WIDTH/2,Math.min(bounds.maxX-SECTION_WIDTH/2,currentX+dx));
-    const targetY=Math.max(bounds.minY+SECTION_HEIGHT/2,Math.min(bounds.maxY-SECTION_HEIGHT/2,currentY+dy));
-    view.focus=[targetX,targetY+(view.district??0)*SECTION_HEIGHT];
-    view.x=view.y=0;dirty=true;draw();return;
-   }
   else if(a==='focusHome'){focusHome(id);return;}
   else if(a==='close'){close();return;}
   else if(['report','settings','districts','help','reset'].includes(a)){open(a);return;}
@@ -155,17 +133,59 @@ function draw(now=performance.now()){
 function shouldAnimate(){return tab==='map'&&!paused&&!document.hidden&&!dialog.open&&settings.motion&&state.phase==='active';}
 function scheduleAnimation(){if(!frame&&shouldAnimate())frame=requestAnimationFrame(animate);}
 function animate(now){frame=0;if(!shouldAnimate())return;if(now-lastDraw>50){draw(now);lastDraw=now;}frame=requestAnimationFrame(animate);}
-const pointers=new Map();let drag=0,pinch=0,last=null,gesture=false;
-canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);pointers.set(e.pointerId,[e.clientX,e.clientY]);last=[e.clientX,e.clientY];if(pointers.size===1){drag=0;gesture=false;}if(pointers.size>=2){gesture=true;const [a,b]=[...pointers.values()];pinch=Math.hypot(a[0]-b[0],a[1]-b[1]);}});
-canvas.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;const old=pointers.get(e.pointerId);pointers.set(e.pointerId,[e.clientX,e.clientY]);if(pointers.size>=2){const [a,b]=[...pointers.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1]);if(pinch>0)view.zoom=Math.max(1,Math.min(2.7,view.zoom*d/pinch));pinch=d;}else{const dx=e.clientX-old[0],dy=e.clientY-old[1];view.x+=dx;view.y+=dy;drag+=Math.abs(dx)+Math.abs(dy);}last=[e.clientX,e.clientY];dirty=true;draw();});
-canvas.addEventListener('pointerup',e=>{if(!pointers.has(e.pointerId))return;if(drag<8&&!gesture&&pointers.size===1){const r=canvas.getBoundingClientRect(),p=[e.clientX-r.left,e.clientY-r.top],hit=view.hits.find(h=>Math.hypot(h.point[0]-p[0],h.point[1]-p[1])<(h.radius||30))||view.pick?.(p);if(hit)open(hit.call!==undefined?'call':'home',hit.call??hit.home);}pointers.delete(e.pointerId);last=pointers.size?[...pointers.values()][0]:null;});
-function releasePointer(e){pointers.delete(e.pointerId);if(!pointers.size){last=null;gesture=false;}}
-canvas.addEventListener('pointercancel',releasePointer);canvas.addEventListener('lostpointercapture',releasePointer);
-canvas.addEventListener('wheel',e=>{e.preventDefault();view.zoom=Math.max(1,Math.min(2.7,view.zoom*(e.deltaY<0?1.1:.9)));dirty=true;draw();},{passive:false});
+// Mobile-first controls: one-finger drag, two-finger zoom and translate.
+// The point beneath the gesture stays under the fingers, even after focusing a home.
+const pointers=new Map();let drag=0,gesture=false;
+canvas.addEventListener('pointerdown',e=>{
+ if(e.cancelable)e.preventDefault();
+ canvas.setPointerCapture?.(e.pointerId);
+ pointers.set(e.pointerId,[e.clientX,e.clientY]);
+ if(pointers.size===1){drag=0;gesture=false;}
+ else gesture=true;
+});
+canvas.addEventListener('pointermove',e=>{
+ if(!pointers.has(e.pointerId))return;
+ if(e.cancelable)e.preventDefault();
+ const previous=[...pointers.values()].map(p=>[...p]);
+ const last=pointers.get(e.pointerId);
+ pointers.set(e.pointerId,[e.clientX,e.clientY]);
+ const rect=canvas.getBoundingClientRect();
+ if(pointers.size>=2){
+  gesture=true;
+  const old=previous.slice(0,2),next=[...pointers.values()].slice(0,2);
+  const d0=Math.hypot(old[0][0]-old[1][0],old[0][1]-old[1][1]);
+  const d1=Math.hypot(next[0][0]-next[1][0],next[0][1]-next[1][1]);
+  const origin=[(old[0][0]+old[1][0])/2-rect.left,(old[0][1]+old[1][1])/2-rect.top];
+  const destination=[(next[0][0]+next[1][0])/2-rect.left,(next[0][1]+next[1][1])/2-rect.top];
+  transformCamera(rect.width,rect.height,view,...origin,...destination,d0>0?d1/d0:1);
+ }else{
+  const dx=e.clientX-last[0],dy=e.clientY-last[1];
+  view.x+=dx;view.y+=dy;drag+=Math.abs(dx)+Math.abs(dy);
+ }
+ dirty=true;draw();
+});
+canvas.addEventListener('pointerup',e=>{
+ if(!pointers.has(e.pointerId))return;
+ if(drag<8&&!gesture&&pointers.size===1){
+  const rect=canvas.getBoundingClientRect(),p=[e.clientX-rect.left,e.clientY-rect.top];
+  const hit=view.hits.find(h=>Math.hypot(h.point[0]-p[0],h.point[1]-p[1])<(h.radius||30))||view.pick?.(p);
+  if(hit)open(hit.call!==undefined?'call':'home',hit.call??hit.home);
+ }
+ pointers.delete(e.pointerId);
+});
+const releasePointer=e=>{pointers.delete(e.pointerId);if(!pointers.size){drag=0;gesture=false;}};
+canvas.addEventListener('pointercancel',releasePointer);
+canvas.addEventListener('lostpointercapture',releasePointer);
+canvas.addEventListener('wheel',e=>{
+ e.preventDefault();
+ const rect=canvas.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;
+ transformCamera(rect.width,rect.height,view,x,y,x,y,e.deltaY<0?1.12:1/1.12);
+ dirty=true;draw();
+},{passive:false});
 document.addEventListener('click',e=>{const el=e.target.closest('button[data-action]');if(el&&!el.disabled)action(el);});
 dialog.addEventListener('cancel',e=>{e.preventDefault();close();});
 importInput.addEventListener('change',async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;try{if(file.size>2000000)throw Error('Файл слишком большой. Максимум 2 МБ.');imported=E.decode(await file.text());open('importConfirm');}catch(err){toast('Не удалось импортировать: '+err.message);}});
-function background(){advanceClock();paused=true;lastTick=performance.now();pointers.clear();last=null;save();render();}
+function background(){advanceClock();paused=true;lastTick=performance.now();pointers.clear();drag=0;gesture=false;save();render();}
 window.addEventListener('upravdom-pause',background);
 window.addEventListener('upravdom-import',event=>{try{if(typeof event.detail!=='string')throw Error('Не удалось прочитать файл. Выберите JSON размером до 2 МБ.');imported=E.decode(event.detail);open('importConfirm');}catch(err){toast('Не удалось импортировать: '+err.message);}});
 window.addEventListener('upravdom-export-result',event=>toast(event.detail?'Копия компании сохранена':'Не удалось записать файл. Выберите другую папку.'));
