@@ -35,3 +35,14 @@ dialog{width:min(500px,calc(100% - 24px));max-height:calc(100dvh - 40px);overflo
 
 #app{height:var(--native-viewport-height,100dvh)}
 .districtFilters{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}.districtFilters button{min-height:36px;padding:6px 10px;font-size:11px}.districtFilters [aria-pressed=true]{border-color:var(--green);color:var(--green)}
+
+/* Touch-first dispatcher map. The map has no navigation widgets. */
+#map{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;overscroll-behavior:contain}
+#mapView{overscroll-behavior:contain}
+#mapTop .mapWelcomeCompact{min-height:0;padding:8px 10px;gap:9px;border-radius:12px;align-items:center}
+#mapTop .mapWelcomeCompact .incidentIcon{width:31px;height:33px;border-radius:8px}
+#mapTop .mapWelcomeCompact .incidentIcon svg{width:21px;height:21px}
+#mapTop .mapWelcomeCompact .incidentInfo{min-width:0}
+#mapTop .mapWelcomeCompact .incidentInfo>strong{font-size:13px;line-height:1.25}
+#mapTop .mapWelcomeCompact .incidentInfo>small{font-size:9px;line-height:1.35}
+#mapTop .mapWelcomeCompact .eyebrow{font-size:9px}

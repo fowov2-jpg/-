@@ -14,12 +14,25 @@ const addressPoints=[[225,235],[670,365],[820,860],[135,570]];
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 // Cover the viewport at every zoom, including drags beyond the edges and focus near a corner.
 export function cameraFor(width,height,view){
- const scale=Math.max(width/WORLD.width,height/WORLD.height)*clamp(view.zoom,1,2.7),district=view.district??0;
+ const scale=Math.max(width/WORLD.width,height/WORLD.height)*clamp(view.zoom,1,4),district=view.district??0;
  const center=view.focus?[view.focus[0],view.focus[1]-district*DISTRICT_HEIGHT]:[500,750];
  const initialX=width/2-center[0]*scale,initialY=height/2-center[1]*scale;
  const x=clamp(initialX+view.x,width-WORLD.width*scale,0),y=clamp(initialY+view.y,height-WORLD.height*scale,0);
- view.x=x-initialX;view.y=y-initialY;view.zoom=clamp(view.zoom,1,2.7);
+ view.x=x-initialX;view.y=y-initialY;view.zoom=clamp(view.zoom,1,4);
  return {scale,x,y,district,left:x,top:y,right:x+WORLD.width*scale,bottom:y+WORLD.height*scale};
+}
+// Keep the location beneath the fingers fixed while scaling or moving the map.
+// Coordinates are viewport CSS pixels, independent of WebView devicePixelRatio.
+export function transformCamera(width,height,view,fromX,fromY,toX,toY,ratio=1){
+ if(!Number.isFinite(ratio)||ratio<=0)throw Error('Неверный масштаб');
+ const before=cameraFor(width,height,view);
+ const worldX=(fromX-before.x)/before.scale,worldY=(fromY-before.y)/before.scale;
+ view.zoom=clamp(view.zoom*ratio,1,4);
+ const center=view.focus?[view.focus[0],view.focus[1]-(view.district??0)*DISTRICT_HEIGHT]:[500,750];
+ const scale=Math.max(width/WORLD.width,height/WORLD.height)*view.zoom;
+ view.x=toX-worldX*scale-(width/2-center[0]*scale);
+ view.y=toY-worldY*scale-(height/2-center[1]*scale);
+ return cameraFor(width,height,view);
 }
 function contextFor(canvas){
  let result=contexts.get(canvas);if(result)return result;
