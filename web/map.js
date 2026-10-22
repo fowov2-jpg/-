@@ -27,12 +27,17 @@ function contextFor(canvas){
  const nodes=CITY_HOMES.map(home=>{const node=document.createElement('button');node.className='mapAddress';node.dataset.action='home';node.dataset.id=home.id;node.textContent=home.name;labels.appendChild(node);return node;});
  result={ctx:canvas.getContext('2d'),nodes};contexts.set(canvas,result);return result;
 }
+function parkingPoint(state,vehicleId){
+ const bay=Math.max(0,state.vehicles.findIndex(v=>v.id===vehicleId)),point=route(DEPOT,DEPOT)[0];
+ point[0]+=(bay%3-1)*72;point[1]+=-100+Math.floor(bay/3)*50+(bay%3-1)*28;return point;
+}
 export function vehiclePose(state,cr,progress=0){
  const call=state.calls.find(c=>c.id===cr.job),moving=cr.status==='travel'&&call,path=moving?route(cr.home,call.home):route(cr.home,cr.home);
+ if(moving&&cr.home===DEPOT)path.unshift(parkingPoint(state,cr.vehicle));
  const loc=onRoute(path,moving?(cr.total-cr.remaining+progress)/cr.total:1),vehicle=state.vehicles.find(v=>v.id===cr.vehicle);
  const last=call||state.calls.filter(c=>c.crew===cr.id&&c.status==='done').at(-1);
  if(!moving&&last?.origin!==undefined){const arrival=route(last.origin,cr.home);if(arrival.length>1)loc.angle=onRoute(arrival,1).angle;}
- if(cr.status==='idle'&&cr.home===DEPOT){const bay=vehicle.id;loc.point[0]+=(bay%3-1)*72;loc.point[1]+=-100+Math.floor(bay/3)*50+(bay%3-1)*28;loc.angle=-2.55;}
+ if(cr.status==='idle'&&cr.home===DEPOT){loc.point=parkingPoint(state,cr.vehicle);loc.angle=-2.55;}
  return {...loc,path,moving:!!moving,model:vehicle.model};
 }
 export function renderMap(canvas,state,view,{labels=true,motion=true,progress=0,now=0}={}){

@@ -18,7 +18,7 @@ let tab='map',filter='active',paused=true,speed=1,modal=null,imported=null,frame
 const gameClock=new GameClock(performance.now());
 let contractDistrict=null;
 const subpages={services:'crews',garage:'fleet',finance:'overview'};
-const view={zoom:1,x:0,y:0,district:0,focus:null,hits:[]},canvas=$('#map'),dialog=$('#dialog');
+const view={zoom:1,x:0,y:0,district:0,focus:null,hits:[]},canvas=$('#map'),dialog=$('#dialog'),importInput=$('#importFile');
 const button=(action,text,extra='',cls='')=>`<button data-action="${action}" ${extra} class="${cls}">${text}</button>`;
 const active=()=>state.calls.filter(c=>c.status!=='done');
 const clock=()=>{const t=480+state.minute;return `${String(Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`;};
@@ -57,7 +57,7 @@ function formatMinute(minute){return `${String(Math.floor((minute+480)/60)).padS
 function empty(ico,title,text){return `<div class="empty"><span>${icon(ico)}</span><h2>${title}</h2><p>${text}</p>${button('toMap','Перейти на карту','','subtle')}</div>`;}
 function callCard(c){const service=E.TYPES[c.type][1],cr=state.crews.find(cr=>cr.job===c.id);return `<button class="callCard" data-action="call" data-id="${c.id}" style="--service:${E.COLORS[service]}"><span class="callCardIcon">${icon(c.status==='done'?'check':icons[service])}</span><span class="grow"><span class="row">${badge(c)}<small>№${String(c.id).padStart(3,'0')}</small></span><strong>${esc(E.TYPES[c.type][0])}</strong><span class="address">${icon('location')}${esc(state.homes[c.home].name)}</span><span class="callCardFooter"><span class="${c.late?'danger':''}">${c.status==='done'?'Работа принята':c.late?'Срок превышен':Math.max(0,c.due-state.minute)+' мин до срока'}</span><span>${cr?short[cr.service]:statuses[c.status]}</span></span></span>${icon('chevron')}</button>`;}
 function renderDialog(){
- if(!modal)return;const {kind,id}=modal;const domain=domainDialog(state,kind,id,{button,icon,esc,rub,metric});if(domain){dialog.innerHTML=shell(esc(domain.title),domain.body);if(!dialog.open)dialog.showModal();return;}let title='',body='',eyebrow='УК «УЮТ»';
+ if(!modal)return;const {kind,id}=modal;const domain=domainDialog(state,kind,id,{button,icon,esc,rub,metric});if(domain){dialog.innerHTML=shell(esc(domain.title),domain.body);dialog.append?.(importInput);if(!dialog.open)dialog.showModal();return;}let title='',body='',eyebrow='УК «УЮТ»';
  if(kind==='call'){
   const c=state.calls.find(c=>c.id===id);if(!c){close();return;}const t=E.TYPES[c.type],cr=state.crews.find(cr=>cr.job===c.id);
   title=t[0];eyebrow='ОБРАЩЕНИЕ №'+String(c.id).padStart(3,'0');
@@ -73,7 +73,7 @@ function renderDialog(){
  }else if(kind==='importConfirm'){
   title='Загрузить компанию?';body=`<p>Будет восстановлена компания из файла. Текущий прогресс заменится после подтверждения.</p><div class="metrics">${metric('День',imported.day)}${metric('Бюджет',rub(imported.money))}</div><div class="saveActions">${button('close','Отмена','','subtle')}${button('confirmImport','Восстановить','','primary')}</div>`;
  }
- dialog.innerHTML=shell(esc(title),body,eyebrow);if(!dialog.open)dialog.showModal();
+ dialog.innerHTML=shell(esc(title),body,eyebrow);dialog.append?.(importInput);if(!dialog.open)dialog.showModal();
 }
 function focusHome(id){tab='map';view.zoom=1.4;view.x=view.y=0;view.focus=MARKERS[id];view.district=state.homes[id].district;close();render();}
 function downloadSave(){if(navigator.userAgent.includes('UpravdomAndroid/')){window.location.href='upravdom://export?data='+encodeURIComponent(E.encode(state));return;}const blob=new Blob([E.encode(state)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`upravdom-day-${state.day}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Копия компании подготовлена');}
@@ -123,7 +123,7 @@ function action(el){
   else if(a==='confirmReset'){state=E.fresh();gameClock.reset(performance.now());loadError=false;saveError=false;paused=true;speed=1;view.x=view.y=0;view.zoom=1;view.district=0;view.focus=null;changed=true;close();tab='map';}
   else if(a==='setting'){const key=el.dataset.key;if(!Object.hasOwn(settings,key))return;settings[key]=!settings[key];try{saveSettings(storage,settings);}catch{toast('Настройки действуют до закрытия приложения');}if(key==='sound'&&settings.sound)notifySound();}
   else if(a==='export'){downloadSave();return;}
-  else if(a==='import'){$('#importFile').click();return;}
+  else if(a==='import'){importInput.click();return;}
   else if(a==='confirmImport'){if(!imported)return;state=E.decode(E.encode(imported));gameClock.reset(performance.now());imported=null;loadError=false;paused=true;changed=true;close();tab='map';message='Компания восстановлена';}
   if(changed)save();render();if(message)toast(message);
  }catch(e){toast(e.message);}
@@ -145,7 +145,7 @@ canvas.addEventListener('pointercancel',releasePointer);canvas.addEventListener(
 canvas.addEventListener('wheel',e=>{e.preventDefault();view.zoom=Math.max(1,Math.min(2.7,view.zoom*(e.deltaY<0?1.1:.9)));dirty=true;draw();},{passive:false});
 document.addEventListener('click',e=>{const el=e.target.closest('button[data-action]');if(el&&!el.disabled)action(el);});
 dialog.addEventListener('cancel',e=>{e.preventDefault();close();});
-$('#importFile').addEventListener('change',async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;try{if(file.size>2000000)throw Error('Файл слишком большой. Максимум 2 МБ.');imported=E.decode(await file.text());open('importConfirm');}catch(err){toast('Не удалось импортировать: '+err.message);}});
+importInput.addEventListener('change',async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;try{if(file.size>2000000)throw Error('Файл слишком большой. Максимум 2 МБ.');imported=E.decode(await file.text());open('importConfirm');}catch(err){toast('Не удалось импортировать: '+err.message);}});
 function background(){advanceClock();paused=true;lastTick=performance.now();pointers.clear();last=null;save();render();}
 window.addEventListener('upravdom-pause',background);
 window.addEventListener('upravdom-export-result',event=>toast(event.detail?'Копия компании сохранена':'Не удалось записать файл. Выберите другую папку.'));

@@ -28,6 +28,10 @@ test('Depot parking spaces remain fixed when another crew leaves and all vehicle
  const s=E.fresh(),before=vehiclePose(s,s.crews[1]);E.start(s);E.dispatch(s,1,0);assert.deepEqual(vehiclePose(s,s.crews[1]),before);
  for(let id=0;id<12;id++){const v=s.vehicles[1];v.id=id;const cr={...s.crews[1],vehicle:id};const p=vehiclePose({...s,vehicles:[v]},cr);assert.ok(p.point[1]>0&&p.point[1]<1500);}
 });
+test('Departure starts in the parking bay and repeated vehicle replacement cannot move bays beyond the district',()=>{
+ const s=E.fresh(),parked=vehiclePose(s,s.crews[0]).point;E.start(s);E.dispatch(s,1,0);assert.deepEqual(vehiclePose(s,s.crews[0]).point,parked);
+ const other=E.fresh();other.vehicles[0].id=103;other.crews[0].vehicle=103;const position=vehiclePose(other,other.crews[0]).point;assert.ok(position[0]>0&&position[0]<1000&&position[1]>0&&position[1]<1500);
+});
 test('Vehicle arrival keeps the incoming heading through diagnosis, repair and completion',()=>{
  const s=E.fresh();E.start(s);E.dispatch(s,1,0);const arrival=onRoute(route(DEPOT,0),1).angle;E.tick(s,s.crews[0].total);
  assert.equal(vehiclePose(s,s.crews[0]).angle,arrival);E.tick(s,100);assert.equal(vehiclePose(s,s.crews[0]).angle,arrival);assert.equal(vehiclePose(E.decode(E.encode(s)),s.crews[0]).angle,arrival);
