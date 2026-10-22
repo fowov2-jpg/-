@@ -3,10 +3,12 @@ import {icon} from './icons.js';
 import {renderMap} from './map.js';
 const $=s=>document.querySelector(s),rub=n=>Math.round(n).toLocaleString('ru-RU')+' ₽', serviceIcons=['water','bolt','tool'];
 const status={new:'Ожидает назначения',travel:'В пути',diagnosis:'Диагностика',repair:'Ремонт',done:'Выполнено',contractor:'Подрядчик',idle:'Свободна'};
-let state,saveError=false;try{state=E.decode(localStorage.getItem('upravdom.v1'));}catch{state=E.fresh();}
+let state,saveError=false,loadError=false;
+try{const raw=localStorage.getItem('upravdom.v1');state=raw===null?E.fresh():E.decode(raw);}
+catch{state=E.fresh();loadError=true;}
 let tab='map',filter='active',paused=true,speed=1,selected=null,homeSelected=null;
 const view={zoom:1,x:0,y:0,hits:[]};const canvas=$('#map');
-function save(){try{localStorage.setItem('upravdom.v1',E.encode(state));}catch{if(!saveError){toast('Не удалось сохранить: проверьте доступное место');saveError=true;}}}
+function save(){if(loadError)return;try{localStorage.setItem('upravdom.v1',E.encode(state));}catch{if(!saveError){toast('Не удалось сохранить: проверьте доступное место');saveError=true;}}}
 function toast(text){$('#toast').textContent=text;$('#toast').style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').style.display='none',3200);}
 function time(){const t=480+state.minute;return `${String(Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`;}
 function phaseText(){return {prep:'Подготовка к смене',active:paused?'Смена на паузе':'Смена идёт',report:'Смена завершена'}[state.phase];}
@@ -66,7 +68,7 @@ function action(el){const a=el.dataset.action,id=Number(el.dataset.id);try{
  else if(a==='next'){E.nextDay(state);paused=true;close();}
  else if(a==='help'){openDialog(shell('Добро пожаловать в «Уют»',`<div class="stack"><p>Вы управляете тремя домами и тремя коммунальными бригадами.</p><p><b>1.</b> Перед сменой проверьте топливо и состояние машин в «Службах».</p><p><b>2.</b> Начните смену. Откройте заявку, уточните обстоятельства и отправьте подходящую бригаду.</p><p><b>3.</b> Следите за сроками. Если все заняты, можно привлечь подрядчика.</p><p><b>4.</b> В 16:00 появится отчёт. Договорные платежи поступают в конце смены.</p><p class="muted">Карта перемещается пальцем, масштабируется двумя пальцами или кнопками. При открытом окне, сворачивании приложения и выходе время не идёт. Прогресс сохраняется автоматически.</p></div>`));return;}
  else if(a==='reset'){openDialog(shell('Начать заново?',`<p>Текущая компания и её сохранение будут заменены. Это действие нельзя отменить.</p><div class="actions" style="margin-top:20px">${button('confirmReset','Начать новую игру','','danger')} ${button('close','Отмена')}</div>`));return;}
- else if(a==='confirmReset'){state=E.fresh();paused=true;close();tab='map';}
+ else if(a==='confirmReset'){state=E.fresh();loadError=false;saveError=false;paused=true;close();tab='map';}
  save();render();
  }catch(e){toast(e.message);}}
  document.addEventListener('click',e=>{const el=e.target.closest('button[data-action]');if(el&&!el.disabled)action(el);});
@@ -80,3 +82,5 @@ function action(el){const a=el.dataset.action,id=Number(el.dataset.id);try{
  canvas.addEventListener('pointercancel',e=>{pointers.delete(e.pointerId);last=null;});canvas.addEventListener('wheel',e=>{e.preventDefault();view.zoom=Math.max(.65,Math.min(2.4,view.zoom*(e.deltaY<0?1.1:.9)));draw();},{passive:false});
  setInterval(()=>{if(!paused&&!document.hidden&&!$('#dialog').open&&state.phase==='active'){E.tick(state,speed);save();render();if(state.phase==='report')showReport();}},1000);
  render();
+ if(loadError)openDialog(shell('Не удалось загрузить компанию',`<p>Сохранение недоступно или повреждено. Автосохранение отключено, чтобы сохранить прежние данные.</p><p class="muted" style="margin:12px 0">Попробуйте перезапустить приложение. Если продолжите играть сейчас, новый прогресс не сохранится. Для сброса старых данных выберите «Новая компания».</p><div class="actions">${button('reset','Новая компания','','danger')} ${button('close','Закрыть')}</div>`));
+
