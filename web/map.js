@@ -1,25 +1,36 @@
 import {COLORS,TYPES} from './engine.js';
 import {CITY_HOMES,DEPOT} from './content.js';
 import {WORLD,DISTRICT_HEIGHT,MARKERS,route,onRoute,isTransfer} from './roads.js';
+import {TILE_WIDTH,TILE_HEIGHT,GRID_BOUNDS,visibleTiles} from './city-grid.js';
 export {route} from './roads.js';
 const art=[],contexts=new WeakMap();let atlas=null,requested=false;
-const sources=['neighborhood.webp','central.webp','riverside.webp'];
+// The original top-down seam tile is packaged in the downloadable source ZIP.
+// Do not ship a release without web/assets/seamless-neighborhood.webp.
 export function loadArtwork(onLoad){
  if(requested)return;requested=true;
- sources.forEach((name,d)=>{const image=new Image();art[d]=image;image.onload=onLoad;image.onerror=()=>{if(d){art[d]=art[0];onLoad();}};image.src=new URL('./assets/'+name,import.meta.url).href;});
- atlas=new Image();atlas.onload=onLoad;atlas.src=new URL('./assets/fleet-atlas.webp',import.meta.url).href;
+ const picture=new Image();art[0]=art[1]=art[2]=picture;
+ picture.onload=onLoad;picture.onerror=onLoad;
+ picture.src=new URL('./assets/seamless-neighborhood.webp',import.meta.url).href;
+ atlas=new Image();atlas.onload=onLoad;atlas.onerror=onLoad;
+ atlas.src=new URL('./assets/fleet-atlas.webp',import.meta.url).href;
 }
 const titles=['Сантехники','Электрики','Ремонтная бригада'],modelRows={van:0,express:1,truck:2};
-const addressPoints=[[225,235],[670,365],[820,860],[135,570]];
+
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 // Cover the viewport at every zoom, including drags beyond the edges and focus near a corner.
 export function cameraFor(width,height,view){
- const scale=Math.max(width/WORLD.width,height/WORLD.height)*clamp(view.zoom,1,4),district=view.district??0;
- const center=view.focus?[view.focus[0],view.focus[1]-district*DISTRICT_HEIGHT]:[500,750];
+ const baseScale=Math.max(width/WORLD.width,height/WORLD.height);
+ const minZoom=Math.max(.12,width/((GRID_BOUNDS.maxX-GRID_BOUNDS.minX)*baseScale),
+  height/((GRID_BOUNDS.maxY-GRID_BOUNDS.minY)*baseScale));
+ const zoom=clamp(view.zoom,minZoom,4),scale=baseScale*zoom,district=view.district??0;
+ const center=view.focus?[view.focus[0],view.focus[1]-district*DISTRICT_HEIGHT]:[WORLD.width/2,WORLD.height/2];
  const initialX=width/2-center[0]*scale,initialY=height/2-center[1]*scale;
- const x=clamp(initialX+view.x,width-WORLD.width*scale,0),y=clamp(initialY+view.y,height-WORLD.height*scale,0);
- view.x=x-initialX;view.y=y-initialY;view.zoom=clamp(view.zoom,1,4);
- return {scale,x,y,district,left:x,top:y,right:x+WORLD.width*scale,bottom:y+WORLD.height*scale};
+ const x=clamp(initialX+view.x,width-GRID_BOUNDS.maxX*scale,-GRID_BOUNDS.minX*scale);
+ const y=clamp(initialY+view.y,height-GRID_BOUNDS.maxY*scale,-GRID_BOUNDS.minY*scale);
+ view.x=x-initialX;view.y=y-initialY;view.zoom=zoom;
+ return {scale,x,y,district,left:x+GRID_BOUNDS.minX*scale,top:y+GRID_BOUNDS.minY*scale,
+  right:x+GRID_BOUNDS.maxX*scale,bottom:y+GRID_BOUNDS.maxY*scale,
+  width:(GRID_BOUNDS.maxX-GRID_BOUNDS.minX)*scale,height:(GRID_BOUNDS.maxY-GRID_BOUNDS.minY)*scale};
 }
 // Keep the location beneath the fingers fixed while scaling or moving the map.
 // Coordinates are viewport CSS pixels, independent of WebView devicePixelRatio.
@@ -27,8 +38,8 @@ export function transformCamera(width,height,view,fromX,fromY,toX,toY,ratio=1){
  if(!Number.isFinite(ratio)||ratio<=0)throw Error('Неверный масштаб');
  const before=cameraFor(width,height,view);
  const worldX=(fromX-before.x)/before.scale,worldY=(fromY-before.y)/before.scale;
- view.zoom=clamp(view.zoom*ratio,1,4);
- const center=view.focus?[view.focus[0],view.focus[1]-(view.district??0)*DISTRICT_HEIGHT]:[500,750];
+ view.zoom=clamp(view.zoom*ratio,.12,4);
+ const center=view.focus?[view.focus[0],view.focus[1]-(view.district??0)*DISTRICT_HEIGHT]:[WORLD.width/2,WORLD.height/2];
  const scale=Math.max(width/WORLD.width,height/WORLD.height)*view.zoom;
  view.x=toX-worldX*scale-(width/2-center[0]*scale);
  view.y=toY-worldY*scale-(height/2-center[1]*scale);
@@ -61,7 +72,13 @@ export function renderMap(canvas,state,view,{labels=true,motion=true,progress=0,
  view.project=p=>[p[0]*scale+ox,(p[1]-offset)*scale+oy];view.scale=scale;view.hits=[];view.pick=null;view.mode='illustrated';canvas.dataset.coverage=JSON.stringify(camera);
  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,rect.width,rect.height);
  const picture=art[district]?.complete&&art[district].naturalWidth?art[district]:art[0];
- if(picture?.complete&&picture.naturalWidth){ctx.drawImage(picture,ox,oy,WORLD.width*scale,WORLD.height*scale);canvas.dataset.renderer='illustrated';}else{canvas.dataset.renderer='loading';ctx.fillStyle='#0b242b';ctx.fillRect(0,0,rect.width,rect.height);}
+ if(picture?.complete&&picture.naturalWidth){
+  for(const tile of visibleTiles(ox,oy,scale,rect.width,rect.height)){
+   ctx.drawImage(picture,ox+tile.col*TILE_WIDTH*scale,oy+tile.row*TILE_HEIGHT*scale,
+    TILE_WIDTH*scale+.35,TILE_HEIGHT*scale+.35);
+  }
+  canvas.dataset.renderer='illustrated';canvas.dataset.mapMode='seamless-8x8';
+ }else{canvas.dataset.renderer='loading';ctx.fillStyle='#0b242b';ctx.fillRect(0,0,rect.width,rect.height);}
  canvas.dataset.vehicles=atlas?.complete&&atlas.naturalWidth?'ready':'loading';
  function visible(p,margin=70){return p[0]>-margin&&p[0]<rect.width+margin&&p[1]>-margin&&p[1]<rect.height+margin;}
  function local(p){return p[1]>=offset&&p[1]<=offset+WORLD.height;}
@@ -75,9 +92,9 @@ export function renderMap(canvas,state,view,{labels=true,motion=true,progress=0,
   const call=state.calls.find(c=>c.id===cr.job);if(cr.status==='travel'&&call)line(route(cr.home,call.home),COLORS[cr.service]);
  }
  for(const home of state.homes){
-  const node=nodes[home.id],belongs=home.district===district,p=view.project([addressPoints[home.id%4][0],addressPoints[home.id%4][1]+offset]);
+  const node=nodes[home.id],belongs=home.district===district,p=view.project([home.x,home.y-68]);
   node.hidden=!labels||!belongs||!visible(p,0);const half=(node.offsetWidth||110)/2+6;node.style.left=clamp(p[0],half,rect.width-half)+'px';node.style.top=clamp(p[1],15,rect.height-15)+'px';node.classList.toggle('owned',home.active);node.title=home.active?'Доверие жителей '+home.loyalty+'%':'Новый договор';
-  if(belongs)view.hits.push({point:view.project(MARKERS[home.id]),home:home.id,radius:40});
+  if(belongs&&visible(view.project(MARKERS[home.id]),45))view.hits.push({point:view.project(MARKERS[home.id]),home:home.id,radius:40});
  }
  const poses=[],captionBoxes=[];
  const obstacles=state.calls.filter(c=>c.status!=='done'&&state.homes[c.home].district===district).map(c=>{const p=view.project(MARKERS[c.home]);return {x:p[0]-30,y:p[1]-30,w:60,h:70};});
@@ -112,8 +129,14 @@ export function renderMap(canvas,state,view,{labels=true,motion=true,progress=0,
  }
 }
 function drawVehicle(ctx,p,angle,row,scale,color){
- if(!atlas?.complete||!atlas.naturalWidth)return;
- const direction=angle>=0?(angle<Math.PI/2?0:1):(angle< -Math.PI/2?2:3),w=atlas.naturalWidth/4,h=atlas.naturalHeight/3,drawW=clamp(82*scale,30,86),drawH=drawW*h/w;
- ctx.drawImage(atlas,direction*w,row*h,w,h,p[0]-drawW/2,p[1]-drawH/2,drawW,drawH);
- ctx.fillStyle=color;ctx.strokeStyle='#eaf4ef';ctx.lineWidth=.8;ctx.beginPath();ctx.arc(p[0],p[1]-drawH*.1,2.2,0,Math.PI*2);ctx.fill();ctx.stroke();
+ const length=clamp(54*scale,19,44),width=length*.47;
+ ctx.save();ctx.translate(p[0],p[1]);ctx.rotate(angle+Math.PI/2);
+ ctx.shadowColor='#04182080';ctx.shadowBlur=5;ctx.shadowOffsetY=2;
+ ctx.fillStyle='#e5edf0';ctx.strokeStyle='#263944';ctx.lineWidth=1.5;
+ ctx.beginPath();ctx.roundRect(-width/2,-length/2,width,length,3);ctx.fill();ctx.stroke();
+ ctx.shadowBlur=0;ctx.shadowOffsetY=0;
+ ctx.fillStyle='#739bb0';ctx.fillRect(-width*.34,-length*.32,width*.68,length*.22);
+ ctx.fillStyle=color;ctx.fillRect(-width*.42,-length*.02,width*.84,Math.max(2,length*.16));
+ ctx.fillStyle='#172a35';ctx.fillRect(-width*.36,length*.22,width*.72,length*.09);
+ ctx.restore();
 }
