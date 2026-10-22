@@ -55,5 +55,16 @@ jobs:
             echo "Sprites unchanged"
           else
             git commit -m "art: generate Blender apartment and vehicle sprites"
-            git push origin HEAD:feature/reference-map-ui-v02
+            for attempt in 1 2 3 4; do
+              # GitHub branch may have moved during Blender rendering.
+              git fetch origin feature/reference-map-ui-v02
+              git rebase FETCH_HEAD
+              if git push origin HEAD:feature/reference-map-ui-v02; then
+                echo "Published generated sprite assets"
+                exit 0
+              fi
+              sleep 2
+            done
+            echo "Unable to publish updated assets after retries"
+            exit 1
           fi
