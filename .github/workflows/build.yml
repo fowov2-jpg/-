@@ -98,8 +98,8 @@ jobs:
           script: |
             gradle -p android connectedDebugAndroidTest --no-daemon
             mkdir -p test-results/android
-            adb pull /sdcard/Android/data/ru.uyut.upravdom/files/verification test-results/android/
-            for mode in threebutton gestural; do echo "UPRAVDOM_ANDROID_PREVIEW_${mode} $(base64 -w0 test-results/android/verification/${mode}.jpg)"; done
+            adb pull /sdcard/Pictures/UpravdomVerification test-results/android/
+            for mode in threebutton gestural; do echo "UPRAVDOM_ANDROID_PREVIEW_${mode} $(base64 -w0 test-results/android/UpravdomVerification/${mode}.jpg)"; done
       - uses: actions/upload-artifact@v4
         if: always()
         with:

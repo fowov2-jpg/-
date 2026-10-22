@@ -10,7 +10,7 @@ export function loadArtwork(onLoad){
  atlas=new Image();atlas.onload=onLoad;atlas.src=new URL('./assets/fleet-atlas.webp',import.meta.url).href;
 }
 const titles=['Сантехники','Электрики','Ремонтная бригада'],modelRows={van:0,express:1,truck:2};
-const addressPoints=[[225,235],[730,365],[820,860],[135,570]];
+const addressPoints=[[225,235],[670,365],[820,860],[135,570]];
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 // Cover the viewport at every zoom, including drags beyond the edges and focus near a corner.
 export function cameraFor(width,height,view){

@@ -10,8 +10,11 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
-import java.io.File;
-import java.io.FileOutputStream;
+import android.content.ContentValues;
+import android.content.Context;
+import android.net.Uri;
+import android.provider.MediaStore;
+import java.io.OutputStream;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -66,15 +69,25 @@ public class ScreenInsetsTest {
         assertTrue("Bottom controls leave HTML viewport", layout.getDouble("navBottom") <= layout.getDouble("viewport") + 1);
         assertTrue("Header leaves HTML viewport", layout.getDouble("headTop") >= 0);
         assertTrue("Money overlaps clock", layout.getBoolean("separate"));
-        AtomicReference<File> output = new AtomicReference<>();
-        activity.getScenario().onActivity(a -> output.set(new File(a.getExternalFilesDir(null), "verification")));
-        File dir = output.get();assertTrue(dir.isDirectory() || dir.mkdirs());
         Bitmap shot = InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
         assertNotNull(shot);
-        try (FileOutputStream out = new FileOutputStream(new File(dir, mode + ".png"))) { shot.compress(Bitmap.CompressFormat.PNG,100,out); }
+        saveShared(shot, mode + ".png", Bitmap.CompressFormat.PNG, 100);
         Bitmap preview = Bitmap.createScaledBitmap(shot, 412, Math.round(shot.getHeight() * 412f / shot.getWidth()), true);
-        try (FileOutputStream out = new FileOutputStream(new File(dir, mode + ".jpg"))) { preview.compress(Bitmap.CompressFormat.JPEG,78,out); }
+        saveShared(preview, mode + ".jpg", Bitmap.CompressFormat.JPEG, 78);
         preview.recycle();shot.recycle();
+    }
+    // Shared MediaStore images survive the test runner uninstalling the target APK.
+    private void saveShared(Bitmap image, String name, Bitmap.CompressFormat format, int quality) throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Images.Media.DISPLAY_NAME, name);
+        values.put(MediaStore.Images.Media.MIME_TYPE, name.endsWith(".png") ? "image/png" : "image/jpeg");
+        values.put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/UpravdomVerification");
+        Uri destination = context.getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+        assertNotNull(destination);
+        try (OutputStream output = context.getContentResolver().openOutputStream(destination)) {
+            assertNotNull(output);assertTrue(image.compress(format, quality, output));
+        }
     }
     @Test public void systemPanelsNeverCoverGameControls() throws Exception {
         verify("threebutton");
