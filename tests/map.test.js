@@ -2,10 +2,10 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import * as E from '../web/engine.js';
 import {route,vehiclePosition} from '../web/map.js';
-import {BUILDINGS,STOPS,ROADS,COURTYARDS,TREES,footprint,onRoad,buildingIntersectsRoad} from '../web/district.js';
+import {BUILDINGS,STOPS,PARKING_BAYS,ENTRANCES,ROADS,COURTYARDS,TREES,crewRoute,footprint,onRoad,buildingIntersectsRoad} from '../web/district.js';
 
 test('Road network uses orthogonal service routes',()=>{
- assert.deepEqual(route(0,2),[[0,4],[0,5.55]]);
+ assert.deepEqual(route(0,2),[[2.25,0],[0,0],[0,5.55]]);
  const local=route(1,1);
  assert.equal(local.length,3);
  assert.deepEqual(local[0],local.at(-1));
@@ -17,7 +17,7 @@ test('Van position uses real dispatch job and progress',()=>{
  const s=E.fresh();E.start(s);
  E.dispatch(s,2,1);
  const cr=s.crews[1];
- assert.deepEqual(vehiclePosition(cr,s),STOPS[3]); // Fresh crews wait at the depot.
+ assert.deepEqual(vehiclePosition(cr,s),PARKING_BAYS[1]); // Each crew starts in its own marked bay.
  E.tick(s,20);
  assert.deepEqual(vehiclePosition(cr,s),STOPS[1]);
  assert.equal(cr.status,'diagnosis');
@@ -27,7 +27,7 @@ test('Van interpolates travel path without modifying game state',()=>{
  const call=E.spawn(s,1,2);
  E.dispatch(s,call.id,0);
  const cr=s.crews[0],before=JSON.stringify(s);
- assert.deepEqual(vehiclePosition(cr,s),STOPS[3]);
+ assert.deepEqual(vehiclePosition(cr,s),PARKING_BAYS[0]);
  cr.remaining=cr.total/2;
  const p=vehiclePosition(cr,s);
  assert.ok(onRoad(p),'Service van remains on asphalt');
@@ -83,4 +83,39 @@ test('Fresh crews use the public-road depot without changing active saved assign
  legacy.day=2;
  const played=E.decode(E.encode(legacy));
  assert.ok(played.crews.every(c=>c.home===0),'Played saves keep actual crew locations');
+});
+
+test('Each crew starts at its own parking bay and does not teleport upon dispatch',()=>{
+ const state=E.fresh();E.start(state);
+ for(let i=0;i<3;i++){
+  const crew=state.crews[i];
+  assert.deepEqual(vehiclePosition(crew,state),PARKING_BAYS[i]);
+  const path=crewRoute(crew,i);
+  assert.deepEqual(path[0],PARKING_BAYS[i]);
+  assert.deepEqual(path[1],[PARKING_BAYS[i][0],8],'First move joins the travel lane');
+  assert.deepEqual(path.at(-1),STOPS[i]);
+  for(let j=1;j<path.length;j++){
+   const p=path[j-1],q=path[j];
+   assert.ok(p[0]===q[0]||p[1]===q[1],'Route is orthogonal');
+   for(let n=0;n<=16;n++){
+    const t=n/16;
+    assert.ok(onRoad([p[0]*(1-t)+q[0]*t,p[1]*(1-t)+q[1]*t]),
+      'Vehicle exits a parking bay onto public road, not through a courtyard');
+   }
+  }
+ }
+});
+test('Managed front doors connect to the exact vehicle dropoffs',()=>{
+ assert.equal(ENTRANCES.length,3);
+ for(let i=0;i<ENTRANCES.length;i++){
+  const entry=ENTRANCES[i];
+  assert.equal(entry.home,i);
+  assert.deepEqual(entry.curb,STOPS[i]);
+  assert.ok(onRoad(entry.curb));
+  const b=BUILDINGS.find(x=>x.managed===i);
+  assert.ok(b);
+  const f=footprint(b);
+  assert.ok(entry.door[0]>=f.x0&&entry.door[0]<=f.x1);
+  assert.ok(entry.door[1]>=f.y0&&entry.door[1]<=f.y1);
+ }
 });
