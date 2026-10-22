@@ -18,9 +18,7 @@ export const BUILDINGS=Object.freeze([
  {id:3,x:5.65,y:5.55,name:'ул. Садовая, 10'},
  {id:4,x:10.90,y:2.65,name:'ул. Центральная, 3'},
  {id:5,x:10.90,y:5.55,name:'ул. Садовая, 16'},
- {id:6,x:2.25,y:13.30,name:'ул. Молодёжная, 6'},
- {id:7,x:5.65,y:13.30,name:'ул. Лесная, 7'},
- {id:8,x:11.80,y:13.20,name:'ул. Лесная, 9'}
+ {id:6,x:2.25,y:13.30,name:'ул. Молодёжная, 6'}
 ]);
 // Curbside stopping points, one per managed building and the shared service depot.
 export const STOPS=Object.freeze([[2.25,0],[5.65,0],[0,5.55],[4.5,8]]);
