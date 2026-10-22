@@ -3,7 +3,7 @@ Usage: blender -b -t 2 --python tools/render_sprites.py -- --output web/assets/r
 No stock meshes, fonts, private references, network services or runtime dependencies.
 """
 import bpy, math, os, sys, random
-from mathutils import Vector
+from mathutils import Vector, Matrix
 from math import radians
 
 OUTPUT = "web/assets/rendered"
@@ -261,7 +261,16 @@ def vehicle(i):
         for yy in [-.53,.69]:
             box("Pickup protection frame",(.09,yy,1.56),(.085,.08,.58),chrome,.02)
         box("Pickup frame horizontal",(.07,.08,1.85),(.10,1.26,.10),chrome)
-    render(["van_water.png","van_electric.png","van_repair.png"][i])
+    prefix=["van_water","van_electric","van_repair"][i]
+    render(prefix+".png")
+    # Four orthographic driving directions; rotate 3D geometry, never the flat PNG.
+    # The camera and light remain fixed for consistent cast shadows and materials.
+    original=[(obj,obj.matrix_world.copy()) for obj in bpy.context.scene.objects if obj.type=='MESH']
+    for bearing,angle in [('north',-90),('west',180),('south',90)]:
+        transform=Matrix.Rotation(radians(angle),4,'Z')
+        for obj,matrix in original: obj.matrix_world=transform @ matrix
+        render(prefix+"_"+bearing+".png")
+    for obj,matrix in original: obj.matrix_world=matrix
 
 def tree_sprite(kind):
     clear(); common(5.6,1.62)
