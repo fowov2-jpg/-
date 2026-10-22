@@ -123,6 +123,14 @@ public class ScreenInsetsTest {
         String saved=evaluate("JSON.parse(localStorage.getItem('upravdom.v1')).minute");SystemClock.sleep(1200);assertEquals("Background resumed simulation",saved,evaluate("JSON.parse(localStorage.getItem('upravdom.v1')).minute"));
         tap("#mapBottom [data-action=settings]");
         for(String action:new String[]{"export","import"}){
+            // Android Back may dismiss both DocumentsUI and the underlying HTML
+            // settings dialog; reopen settings before testing the next picker.
+            if (!"true".equals(evaluate("!!document.querySelector('dialog[open] [data-action="+action+"]')"))) {
+                tap("#mapBottom [data-action=settings]");
+            }
+            assertEquals("Settings dialog closed before "+action,"true",
+                    evaluate("!!document.querySelector('dialog[open] [data-action="+action+"]')"));
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
             tap("dialog [data-action="+action+"]");SystemClock.sleep(700);
             String foreground="no accessibility window";boolean picker=false;
             for(int wait=0;wait<40;wait++){
