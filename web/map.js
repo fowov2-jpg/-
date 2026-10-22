@@ -1,9 +1,8 @@
 import {COLORS,TYPES} from './engine.js';
 import {CITY_HOMES,DEPOT} from './content.js';
-import {SECTION_WIDTH,SECTION_HEIGHT,DEFAULT_PREVIEW_HOMES,boundsForHomes,generateDistrictHomes} from './district-generator.js';
 import {WORLD,DISTRICT_HEIGHT,MARKERS,route,onRoute,isTransfer} from './roads.js';
 export {route} from './roads.js';
-const art=[],contexts=new WeakMap(),plans=new Map();let atlas=null,requested=false;
+const art=[],contexts=new WeakMap();let atlas=null,requested=false;
 const sources=['neighborhood.webp','central.webp','riverside.webp'];
 export function loadArtwork(onLoad){
  if(requested)return;requested=true;
@@ -13,22 +12,27 @@ export function loadArtwork(onLoad){
 const titles=['Сантехники','Электрики','Ремонтная бригада'],modelRows={van:0,express:1,truck:2};
 const addressPoints=[[225,235],[670,365],[820,860],[135,570]];
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-// Clamp the camera to the entire horizontal district, not just one picture.
+// Cover the viewport at every zoom, including drags beyond the edges and focus near a corner.
 export function cameraFor(width,height,view){
- const bounds=boundsForHomes(view.plannedHomes??DEFAULT_PREVIEW_HOMES);
- const scale=Math.max(width/WORLD.width,height/WORLD.height)*clamp(view.zoom,1,2.7),district=view.district??0;
+ const scale=Math.max(width/WORLD.width,height/WORLD.height)*clamp(view.zoom,1,4),district=view.district??0;
  const center=view.focus?[view.focus[0],view.focus[1]-district*DISTRICT_HEIGHT]:[500,750];
  const initialX=width/2-center[0]*scale,initialY=height/2-center[1]*scale;
- const x=clamp(initialX+view.x,width-bounds.maxX*scale,-bounds.minX*scale);
- const y=clamp(initialY+view.y,height-bounds.maxY*scale,-bounds.minY*scale);
- view.x=x-initialX;view.y=y-initialY;view.zoom=clamp(view.zoom,1,2.7);
- return {scale,x,y,district,left:x+bounds.minX*scale,top:y+bounds.minY*scale,
-  right:x+bounds.maxX*scale,bottom:y+bounds.maxY*scale,...bounds};
+ const x=clamp(initialX+view.x,width-WORLD.width*scale,0),y=clamp(initialY+view.y,height-WORLD.height*scale,0);
+ view.x=x-initialX;view.y=y-initialY;view.zoom=clamp(view.zoom,1,4);
+ return {scale,x,y,district,left:x,top:y,right:x+WORLD.width*scale,bottom:y+WORLD.height*scale};
 }
-function plannedHomes(district,count){
- const key=district+':'+count;
- if(!plans.has(key))plans.set(key,generateDistrictHomes(district,count));
- return plans.get(key);
+// Keep the location beneath the fingers fixed while scaling or moving the map.
+// Coordinates are viewport CSS pixels, independent of WebView devicePixelRatio.
+export function transformCamera(width,height,view,fromX,fromY,toX,toY,ratio=1){
+ if(!Number.isFinite(ratio)||ratio<=0)throw Error('Неверный масштаб');
+ const before=cameraFor(width,height,view);
+ const worldX=(fromX-before.x)/before.scale,worldY=(fromY-before.y)/before.scale;
+ view.zoom=clamp(view.zoom*ratio,1,4);
+ const center=view.focus?[view.focus[0],view.focus[1]-(view.district??0)*DISTRICT_HEIGHT]:[500,750];
+ const scale=Math.max(width/WORLD.width,height/WORLD.height)*view.zoom;
+ view.x=toX-worldX*scale-(width/2-center[0]*scale);
+ view.y=toY-worldY*scale-(height/2-center[1]*scale);
+ return cameraFor(width,height,view);
 }
 function contextFor(canvas){
  let result=contexts.get(canvas);if(result)return result;
@@ -57,25 +61,7 @@ export function renderMap(canvas,state,view,{labels=true,motion=true,progress=0,
  view.project=p=>[p[0]*scale+ox,(p[1]-offset)*scale+oy];view.scale=scale;view.hits=[];view.pick=null;view.mode='illustrated';canvas.dataset.coverage=JSON.stringify(camera);
  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,rect.width,rect.height);
  const picture=art[district]?.complete&&art[district].naturalWidth?art[district]:art[0];
- if(picture?.complete&&picture.naturalWidth){
-  // Mirror alternate rows and columns so adjacent pixels line up in both
-  // axes. Paint only tiles intersecting the viewport (never a giant bitmap).
-  const firstColumn=Math.max(camera.minTileX,Math.floor(-ox/(SECTION_WIDTH*scale))-1);
-  const lastColumn=Math.min(camera.maxTileX,Math.floor((rect.width-ox)/(SECTION_WIDTH*scale))+1);
-  const firstRow=Math.max(camera.minTileY,Math.floor(-oy/(SECTION_HEIGHT*scale))-1);
-  const lastRow=Math.min(camera.maxTileY,Math.floor((rect.height-oy)/(SECTION_HEIGHT*scale))+1);
-  const w=SECTION_WIDTH*scale,h=SECTION_HEIGHT*scale;
-  for(let row=firstRow;row<=lastRow;row++)for(let column=firstColumn;column<=lastColumn;column++){
-   const left=ox+column*w,top=oy+row*h;
-   const flipX=Math.abs(column)%2===1,flipY=Math.abs(row)%2===1;
-   if(flipX||flipY){
-    ctx.save();ctx.translate(left+(flipX?w:0),top+(flipY?h:0));
-    ctx.scale(flipX?-1:1,flipY?-1:1);ctx.drawImage(picture,0,0,w,h);ctx.restore();
-   }else ctx.drawImage(picture,left,top,w,h);
-  }
-  canvas.dataset.renderer='illustrated';
- }else{canvas.dataset.renderer='loading';ctx.fillStyle='#0b242b';ctx.fillRect(0,0,rect.width,rect.height);}
- canvas.dataset.plannedHomes=String(view.plannedHomes??DEFAULT_PREVIEW_HOMES);
+ if(picture?.complete&&picture.naturalWidth){ctx.drawImage(picture,ox,oy,WORLD.width*scale,WORLD.height*scale);canvas.dataset.renderer='illustrated';}else{canvas.dataset.renderer='loading';ctx.fillStyle='#0b242b';ctx.fillRect(0,0,rect.width,rect.height);}
  canvas.dataset.vehicles=atlas?.complete&&atlas.naturalWidth?'ready':'loading';
  function visible(p,margin=70){return p[0]>-margin&&p[0]<rect.width+margin&&p[1]>-margin&&p[1]<rect.height+margin;}
  function local(p){return p[1]>=offset&&p[1]<=offset+WORLD.height;}
@@ -91,19 +77,7 @@ export function renderMap(canvas,state,view,{labels=true,motion=true,progress=0,
  for(const home of state.homes){
   const node=nodes[home.id],belongs=home.district===district,p=view.project([addressPoints[home.id%4][0],addressPoints[home.id%4][1]+offset]);
   node.hidden=!labels||!belongs||!visible(p,0);const half=(node.offsetWidth||110)/2+6;node.style.left=clamp(p[0],half,rect.width-half)+'px';node.style.top=clamp(p[1],15,rect.height-15)+'px';node.classList.toggle('owned',home.active);node.title=home.active?'Доверие жителей '+home.loyalty+'%':'Новый договор';
-  if(belongs&&visible(view.project(MARKERS[home.id]),45))view.hits.push({point:view.project(MARKERS[home.id]),home:home.id,radius:40});
- }
- // Preview-only houses are distinct from gameplay contracts and cannot be clicked.
- if(labels){
-  ctx.font='600 10px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
-  for(const home of plannedHomes(district,view.plannedHomes??DEFAULT_PREVIEW_HOMES)){
-   if(!home.planned)continue;
-   const p=view.project([home.x,home.y]);if(!visible(p,40))continue;
-   const label='План №'+(home.slot+1),w=ctx.measureText(label).width+14;
-   ctx.fillStyle='#09242edb';ctx.strokeStyle='#d6bf82bb';ctx.lineWidth=1;
-   ctx.beginPath();ctx.roundRect(p[0]-w/2,p[1]-12,w,24,5);ctx.fill();ctx.stroke();
-   ctx.fillStyle='#f7dfaa';ctx.fillText(label,p[0],p[1]);
-  }
+  if(belongs)view.hits.push({point:view.project(MARKERS[home.id]),home:home.id,radius:40});
  }
  const poses=[],captionBoxes=[];
  const obstacles=state.calls.filter(c=>c.status!=='done'&&state.homes[c.home].district===district).map(c=>{const p=view.project(MARKERS[c.home]);return {x:p[0]-30,y:p[1]-30,w:60,h:70};});
