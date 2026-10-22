@@ -34,6 +34,17 @@ export const COURTYARDS=Object.freeze([
  {kind:'playground',x:3.3,y:9.3,w:2.55,h:2.25},
  {kind:'sports',x:9.0,y:9.2,w:2.60,h:2.10}
 ]);
+// Authored planting beds fill empty lawns without obstructing streets or courts.
+export const GARDEN_BEDS=Object.freeze([
+ {x:6.30,y:9.30,w:1.00,h:.60},
+ {x:6.85,y:11.65,w:.55,h:.75},
+ {x:9.00,y:12.40,w:1.20,h:.70},
+ {x:11.85,y:9.50,w:1.15,h:.70},
+ {x:12.10,y:11.80,w:1.45,h:.75},
+ {x:12.40,y:14.10,w:1.50,h:.70},
+ {x:10.00,y:15.10,w:1.20,h:.70},
+ {x:13.10,y:8.90,w:.90,h:.60}
+]);
 export const TREES=Object.freeze([
  [1.25,4.20],[3.95,3.95],[7.10,4.65],[1.10,7.15],
  [6.90,6.80],[9.35,3.85],[12.80,4.30],[9.30,6.70],
