@@ -58,10 +58,18 @@ const fs=require('node:fs/promises');
     await page.locator(`[data-tab="${tab}"]`).click();if(tab==='garage')await page.locator('.segmented [data-action="subpage"][data-sub="fleet"]').click();if(tab==='finance')await page.locator('.segmented [data-action="subpage"][data-sub="overview"]').click();
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`${tab} overflows at ${width}`);
     assert.equal(await page.locator('nav button').count(),5);
+    if(tab==='map'){
+     const bounds=await page.locator('#map').boundingBox();
+     for(const id of [0,1,2,3]){const label=await page.locator(`.mapLabels [data-action="home"][data-id="${id}"]`).boundingBox();assert.ok(label&&label.x>=bounds.x&&label.x+label.width<=bounds.x+bounds.width,`Starting home ${id} clipped at ${width}`);}
+    }
     if(width===412){await page.screenshot({path:`test-results/screenshots/${tab}-412.png`,animations:'disabled'});if(process.env.CI&&['map','garage','services'].includes(tab)){const preview=await page.screenshot({type:'jpeg',quality:72,scale:'css',animations:'disabled'});console.log('UPRAVDOM_PREVIEW_'+tab.toUpperCase()+' '+preview.toString('base64'));}}
    }
   }
   await page.setViewportSize({width:412,height:915});
+  await page.locator('[data-tab="map"]').click();await page.locator('[data-action="rotate"]').click();await page.locator('[data-action="tilt"]').click();
+  await page.screenshot({path:'test-results/screenshots/rotated-city-412.png',animations:'disabled'});
+  for(let turn=0;turn<7;turn++)await page.locator('[data-action="rotate"]').click();await page.locator('[data-action="tilt"]').click();
+  await page.locator('.mapLabels [data-action="home"][data-id="0"]').click();await page.getByRole('heading',{name:'ул. Садовая, 12',exact:true}).waitFor();await page.getByRole('button',{name:'Закрыть',exact:true}).click();
   // Repair completion and end-of-shift report through the UI clock.
   await page.locator('[data-tab="map"]').click();
   await page.getByRole('button',{name:'Продолжить',exact:true}).click();await page.locator('[data-action="speed"]').click();await page.locator('[data-action="speed"]').click();await page.clock.runFor(15000);
