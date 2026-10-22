@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.webkit.ValueCallback;
 import android.widget.FrameLayout;
 import android.view.ViewGroup;
 import androidx.core.graphics.Insets;
@@ -12,7 +11,6 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
-import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -20,6 +18,8 @@ import androidx.webkit.WebViewAssetLoader;
 import androidx.webkit.WebViewClientCompat;
 import java.io.ByteArrayInputStream;
 import java.io.OutputStream;
+import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 
 /** Offline host. Local assets only; document transfers require the system picker. */
@@ -28,7 +28,6 @@ public class MainActivity extends Activity {
     private static final int EXPORT_FILE = 101;
     private static final String ORIGIN = "https://appassets.androidplatform.net/";
     private WebView web;
-    private ValueCallback<Uri[]> fileCallback;
     private String pendingExport;
 
     @Override public void onCreate(Bundle state) {
@@ -64,22 +63,6 @@ public class MainActivity extends Activity {
         web.getSettings().setAllowContentAccess(false);
         web.getSettings().setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         web.getSettings().setUserAgentString(web.getSettings().getUserAgentString() + " UpravdomAndroid/0.3.2");
-        web.setWebChromeClient(new WebChromeClient() {
-            @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback,
-                    FileChooserParams params) {
-                if (fileCallback != null) fileCallback.onReceiveValue(null);
-                fileCallback = callback;
-                Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                picker.addCategory(Intent.CATEGORY_OPENABLE);
-                picker.setType("*/*");
-                picker.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/json", "text/plain"});
-                try { startActivityForResult(picker, IMPORT_FILE); }
-                catch (android.content.ActivityNotFoundException e) {
-                    fileCallback.onReceiveValue(null); fileCallback = null;
-                }
-                return true;
-            }
-        });
         WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
                 .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this)).build();
         web.setWebViewClient(new WebViewClientCompat() {
@@ -95,6 +78,16 @@ public class MainActivity extends Activity {
             }
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri url = request.getUrl();
+                if ("upravdom".equals(url.getScheme()) && "import".equals(url.getHost())
+                        && request.isForMainFrame() && view.getUrl() != null && view.getUrl().startsWith(ORIGIN)) {
+                    Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                    picker.addCategory(Intent.CATEGORY_OPENABLE);
+                    picker.setType("*/*");
+                    picker.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/json", "text/plain"});
+                    try { startActivityForResult(picker, IMPORT_FILE); }
+                    catch (android.content.ActivityNotFoundException e) { importResult(null); }
+                    return true;
+                }
                 if ("upravdom".equals(url.getScheme()) && "export".equals(url.getHost())
                         && request.isForMainFrame() && view.getUrl() != null && view.getUrl().startsWith(ORIGIN)) {
                     String content = url.getQueryParameter("data");
@@ -128,10 +121,25 @@ public class MainActivity extends Activity {
     }
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
-        if (request == IMPORT_FILE && fileCallback != null) {
-            fileCallback.onReceiveValue(result == RESULT_OK && data != null && data.getData() != null
-                    ? new Uri[]{data.getData()} : null);
-            fileCallback = null;
+        if (request == IMPORT_FILE) {
+            if (result == RESULT_OK && data != null && data.getData() != null) {
+                Uri document = data.getData();
+                new Thread(() -> {
+                    String raw = null;
+                    try (InputStream input = getContentResolver().openInputStream(document);
+                            ByteArrayOutputStream bytes = new ByteArrayOutputStream()) {
+                        if (input == null) throw new java.io.IOException("Document unavailable");
+                        byte[] buffer = new byte[8192];int count;
+                        while ((count = input.read(buffer)) != -1) {
+                            if (bytes.size() + count > 2000000) throw new java.io.IOException("Document too large");
+                            bytes.write(buffer, 0, count);
+                        }
+                        raw = new String(bytes.toByteArray(), StandardCharsets.UTF_8);
+                    } catch (java.io.IOException | SecurityException e) { /* Preserve current company. */ }
+                    final String content = raw;
+                    runOnUiThread(() -> { if (!isFinishing() && !isDestroyed()) importResult(content); });
+                }, "company-import").start();
+            }
         } else if (request == EXPORT_FILE) {
             if (result == RESULT_OK && data != null && data.getData() != null && pendingExport != null) {
                 try (OutputStream output = getContentResolver().openOutputStream(data.getData())) {
@@ -142,6 +150,10 @@ public class MainActivity extends Activity {
             }
             pendingExport = null;
         }
+    }
+    private void importResult(String raw) {
+        if (web != null) web.evaluateJavascript("window.dispatchEvent(new CustomEvent('upravdom-import',{detail:"
+                + (raw == null ? "null" : org.json.JSONObject.quote(raw)) + "}));", null);
     }
     private void exportResult(boolean success) {
         if (web != null) web.evaluateJavascript("window.dispatchEvent(new CustomEvent('upravdom-export-result',{detail:"
@@ -163,7 +175,6 @@ public class MainActivity extends Activity {
         });
     }
     @Override protected void onDestroy() {
-        if (fileCallback != null) { fileCallback.onReceiveValue(null); fileCallback = null; }
         web.destroy(); super.onDestroy();
     }
 }

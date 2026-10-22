@@ -138,6 +138,19 @@ public class ScreenInsetsTest {
             assertEquals("Picker cancellation changed progress",saved,evaluate("JSON.parse(localStorage.getItem('upravdom.v1')).minute"));
         }
         tap("dialog [data-action=close]");
+        // Exercise the same URI result that DocumentsUI returns, including native file reading.
+        String raw = new org.json.JSONTokener(evaluate("localStorage.getItem('upravdom.v1')")).nextValue().toString();
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        ContentValues values=new ContentValues();values.put(MediaStore.Downloads.DISPLAY_NAME,"upravdom-verification.json");values.put(MediaStore.Downloads.MIME_TYPE,"application/json");values.put(MediaStore.Downloads.RELATIVE_PATH,"Download");
+        Uri document=context.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,values);assertNotNull(document);
+        try {
+            try(OutputStream output=context.getContentResolver().openOutputStream(document)){assertNotNull(output);output.write(raw.getBytes(java.nio.charset.StandardCharsets.UTF_8));}
+            activity.getScenario().onActivity(a->a.onActivityResult(100,android.app.Activity.RESULT_OK,new android.content.Intent().setData(document)));
+            boolean confirmation=false;
+            for(int wait=0;wait<50;wait++){if("true".equals(evaluate("!!document.querySelector('dialog[open] [data-action=confirmImport]')"))){confirmation=true;break;}SystemClock.sleep(100);}
+            assertTrue("Native file contents did not reach import confirmation",confirmation);tap("dialog [data-action=confirmImport]");
+            assertEquals("Native import changed saved simulation time",saved,evaluate("JSON.parse(localStorage.getItem('upravdom.v1')).minute"));
+        }finally{context.getContentResolver().delete(document,null,null);}
     }
     @Test public void systemPanelsNeverCoverGameControls() throws Exception {
         verify("threebutton");

@@ -123,7 +123,7 @@ function action(el){
   else if(a==='confirmReset'){state=E.fresh();gameClock.reset(performance.now());loadError=false;saveError=false;paused=true;speed=1;view.x=view.y=0;view.zoom=1;view.district=0;view.focus=null;changed=true;close();tab='map';}
   else if(a==='setting'){const key=el.dataset.key;if(!Object.hasOwn(settings,key))return;settings[key]=!settings[key];try{saveSettings(storage,settings);}catch{toast('Настройки действуют до закрытия приложения');}if(key==='sound'&&settings.sound)notifySound();}
   else if(a==='export'){downloadSave();return;}
-  else if(a==='import'){importInput.click();return;}
+  else if(a==='import'){if(navigator.userAgent.includes('UpravdomAndroid/'))window.location.href='upravdom://import';else importInput.click();return;}
   else if(a==='confirmImport'){if(!imported)return;state=E.decode(E.encode(imported));gameClock.reset(performance.now());imported=null;loadError=false;paused=true;changed=true;close();tab='map';message='Компания восстановлена';}
   if(changed)save();render();if(message)toast(message);
  }catch(e){toast(e.message);}
@@ -148,6 +148,7 @@ dialog.addEventListener('cancel',e=>{e.preventDefault();close();});
 importInput.addEventListener('change',async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;try{if(file.size>2000000)throw Error('Файл слишком большой. Максимум 2 МБ.');imported=E.decode(await file.text());open('importConfirm');}catch(err){toast('Не удалось импортировать: '+err.message);}});
 function background(){advanceClock();paused=true;lastTick=performance.now();pointers.clear();last=null;save();render();}
 window.addEventListener('upravdom-pause',background);
+window.addEventListener('upravdom-import',event=>{try{if(typeof event.detail!=='string')throw Error('Не удалось прочитать файл. Выберите JSON размером до 2 МБ.');imported=E.decode(event.detail);open('importConfirm');}catch(err){toast('Не удалось импортировать: '+err.message);}});
 window.addEventListener('upravdom-export-result',event=>toast(event.detail?'Копия компании сохранена':'Не удалось записать файл. Выберите другую папку.'));
 document.addEventListener('visibilitychange',()=>{if(document.hidden)background();else{lastTick=performance.now();dirty=true;render();}});
 window.addEventListener('pagehide',()=>{paused=true;save();});window.addEventListener('resize',()=>{dirty=true;draw();});
