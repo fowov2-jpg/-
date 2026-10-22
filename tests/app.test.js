@@ -8,7 +8,6 @@ import {STAFF,vehicle} from '../web/graphics.js';
 import {MARKERS,travelTime} from '../web/roads.js';
 import {managementPage,domainDialog} from '../web/management.js';
 import {DEPOT,DISTRICTS,VEHICLE_MODELS} from '../web/content.js';
-import {SECTION_WIDTH,SECTION_HEIGHT,MAX_HOMES_PER_DISTRICT,DEFAULT_PREVIEW_HOMES,PREVIEW_LEVELS,boundsForHomes} from '../web/district-generator.js';
 import {cameraFor,transformCamera} from '../web/map.js';
 
 // Exercise the real startup and event handlers without a browser or Canvas.
@@ -24,7 +23,7 @@ function boot(raw=null,{unavailable=false,backup=null}={}){
  const document={hidden:false,querySelector:node,addEventListener:(name,fn)=>events.set('document:'+name,fn)};
  const window={addEventListener:(name,fn)=>events.set('window:'+name,fn)};
  const localStorage={getItem(key){if(unavailable)throw Error('Storage unavailable');return data.get(key)??null;},setItem(key,value){if(unavailable)throw Error('Storage unavailable');data.set(key,value);}};
- const dependencies={E,GameClock,performance:{now:()=>time},icon:()=>'',renderMap:()=>{},loadArtwork:()=>{},MARKERS,travelTime,loadGame,saveGame,loadSettings,saveSettings,SAVE_KEY,BACKUP_KEY,notifySound:()=>{},STAFF,vehicle,managementPage,domainDialog,DEPOT,DISTRICTS,VEHICLE_MODELS,SECTION_WIDTH,SECTION_HEIGHT,MAX_HOMES_PER_DISTRICT,DEFAULT_PREVIEW_HOMES,PREVIEW_LEVELS,boundsForHomes,cameraFor,transformCamera,document,window,globalThis:{localStorage},requestAnimationFrame:()=>1,setInterval:fn=>events.set('timer:tick',fn),setTimeout:()=>1,clearTimeout:()=>{}};
+ const dependencies={E,GameClock,performance:{now:()=>time},icon:()=>'',renderMap:()=>{},loadArtwork:()=>{},MARKERS,travelTime,loadGame,saveGame,loadSettings,saveSettings,SAVE_KEY,BACKUP_KEY,notifySound:()=>{},STAFF,vehicle,managementPage,domainDialog,DEPOT,DISTRICTS,VEHICLE_MODELS,cameraFor,transformCamera,document,window,globalThis:{localStorage},requestAnimationFrame:()=>1,setInterval:fn=>events.set('timer:tick',fn),setTimeout:()=>1,clearTimeout:()=>{}};
  new Function(...Object.keys(dependencies),source)(...Object.values(dependencies));
  return {data,node,emit:name=>{if(name==='timer:tick')time+=1000;return events.get(name)?.();},click:(action,attributes={})=>events.get('document:click')({target:{closest:()=>({dataset:{action,...attributes}})}})};
 }
