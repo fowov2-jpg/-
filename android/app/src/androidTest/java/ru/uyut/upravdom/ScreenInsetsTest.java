@@ -124,8 +124,13 @@ public class ScreenInsetsTest {
         tap("#mapBottom [data-action=settings]");
         for(String action:new String[]{"export","import"}){
             tap("dialog [data-action="+action+"]");SystemClock.sleep(700);
-            android.view.accessibility.AccessibilityNodeInfo root=InstrumentationRegistry.getInstrumentation().getUiAutomation().getRootInActiveWindow();assertNotNull(root);
-            assertTrue("System document picker did not open",root.getPackageName().toString().contains("documentsui"));root.recycle();
+            String foreground="no accessibility window";boolean picker=false;
+            for(int wait=0;wait<40;wait++){
+                android.view.accessibility.AccessibilityNodeInfo root=InstrumentationRegistry.getInstrumentation().getUiAutomation().getRootInActiveWindow();
+                if(root!=null){foreground=String.valueOf(root.getPackageName());picker=foreground.contains("documentsui");root.recycle();if(picker)break;}
+                SystemClock.sleep(250);
+            }
+            assertTrue("System document picker did not open for "+action+"; foreground="+foreground,picker);
             for(int back=0;back<3;back++){
                 InstrumentationRegistry.getInstrumentation().getUiAutomation().performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK);SystemClock.sleep(650);
                 AtomicReference<Boolean> focused=new AtomicReference<>(false);activity.getScenario().onActivity(a->focused.set(a.getWindow().getDecorView().hasWindowFocus()));if(focused.get())break;

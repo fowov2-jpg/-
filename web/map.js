@@ -61,7 +61,10 @@ export function renderMap(canvas,state,view,{labels=true,motion=true,progress=0,
   node.hidden=!labels||!belongs||!visible(p,0);const half=(node.offsetWidth||110)/2+6;node.style.left=clamp(p[0],half,rect.width-half)+'px';node.style.top=clamp(p[1],15,rect.height-15)+'px';node.classList.toggle('owned',home.active);node.title=home.active?'Доверие жителей '+home.loyalty+'%':'Новый договор';
   if(belongs)view.hits.push({point:view.project(MARKERS[home.id]),home:home.id,radius:40});
  }
- const poses=[];
+ const poses=[],captionBoxes=[];
+ const obstacles=state.calls.filter(c=>c.status!=='done'&&state.homes[c.home].district===district).map(c=>{const p=view.project(MARKERS[c.home]);return {x:p[0]-30,y:p[1]-30,w:60,h:70};});
+ for(const n of canvas.parentElement.querySelectorAll('#mapTop,.zoom button,#mapBottom,.mapAddress:not([hidden])')){const r=n.getBoundingClientRect();if(r.width&&r.height)obstacles.push({x:r.left-rect.left,y:r.top-rect.top,w:r.width,h:r.height});}
+ const overlap=(a,b)=>Math.max(0,Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x))*Math.max(0,Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y));
  for(const cr of state.crews){
   const loc=vehiclePose(state,cr,progress),moving=loc.moving;poses.push({id:cr.id,point:loc.point,angle:loc.angle,transfer:!!loc.transfer});if(loc.transfer||!local(loc.point))continue;
   const point=view.project(loc.point);if(!visible(point))continue;
@@ -69,11 +72,13 @@ export function renderMap(canvas,state,view,{labels=true,motion=true,progress=0,
   drawVehicle(ctx,point,angle,row,scale,COLORS[cr.service]);
   if(cr.status!=='idle'){
    const eta=moving?cr.remaining+' мин':cr.status==='diagnosis'?'Диагностика':'Ремонт',text=titles[cr.service]+' · '+eta;
-   ctx.font='600 10px system-ui';const w=ctx.measureText(text).width+20,lx=clamp(point[0]+16,5,rect.width-w-5),ly=clamp(point[1]-46,8,rect.height-30);
+   ctx.font='600 10px system-ui';const w=ctx.measureText(text).width+20;
+   const candidates=[-46,28,-78,60,-110,92].flatMap(dy=>[16,-w-16,-w/2].map(dx=>({x:clamp(point[0]+dx,5,rect.width-w-5),y:clamp(point[1]+dy,8,rect.height-30),w,h:24})));
+   const box=candidates.reduce((best,next)=>obstacles.reduce((n,o)=>n+overlap(next,o),0)<obstacles.reduce((n,o)=>n+overlap(best,o),0)?next:best),lx=box.x,ly=box.y;obstacles.push({...box,x:lx-3,y:ly-3,w:w+6,h:30});captionBoxes.push(box);
    ctx.fillStyle='#061e28f2';ctx.strokeStyle=COLORS[cr.service]+'aa';ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(lx,ly,w,24,6);ctx.fill();ctx.stroke();ctx.fillStyle=COLORS[cr.service];ctx.beginPath();ctx.arc(lx+7,ly+12,2.5,0,Math.PI*2);ctx.fill();ctx.fillStyle='#eff5ef';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(text,lx+14,ly+12);
   }
  }
- canvas.dataset.fleet=JSON.stringify(poses);
+ canvas.dataset.fleet=JSON.stringify(poses);canvas.dataset.captions=JSON.stringify(captionBoxes);
  const active=state.calls.filter(c=>c.status!=='done');
  for(const home of CITY_HOMES.filter(h=>h.district===district)){
   const calls=active.filter(c=>c.home===home.id).sort((a,b)=>(a.status==='blocked')-(b.status==='blocked')||b.priority-a.priority||a.due-b.due);if(!calls.length)continue;

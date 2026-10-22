@@ -7,7 +7,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
  await page.clock.install({time:new Date('2026-10-22T08:00:00Z')});await page.clock.pauseAt(new Date('2026-10-22T08:00:01Z'));
  await page.route('**/fixture',r=>r.fulfill({body:'<!doctype html><title>Test fixture</title>'}));
  async function load(s){E.decode(E.encode(s));await page.goto(origin+'/fixture');await page.evaluate(raw=>{localStorage.setItem('upravdom.v1',raw);localStorage.setItem('upravdom.backup.v1',raw);localStorage.setItem('upravdom.settings',JSON.stringify({sound:false,motion:false,labels:true}));},E.encode(s));await page.goto(origin);await page.waitForFunction(()=>document.querySelector('#map').dataset.vehicles==='ready'&&document.querySelector('#map').dataset.renderer==='illustrated');}
- const click=(action,attrs='')=>page.locator(`[data-action="${action}"]${attrs}`).click(),tab=t=>page.locator(`[data-tab="${t}"]`).click(),sub=t=>page.locator(`.segmented [data-sub="${t}"]`).click();
+ const click=(action,attrs='')=>page.locator(`[data-action="${action}"]${attrs}:visible`).click(),tab=t=>page.locator(`[data-tab="${t}"]`).click(),sub=t=>page.locator(`.segmented [data-sub="${t}"]`).click();
  async function check(name){assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,name+' overflow');assert.ok((await page.locator('#header').textContent()).includes('₽'));assert.equal(await page.locator('#nav button').count(),5);coverage.push(name);}
  async function close(){await page.getByRole('button',{name:'Закрыть',exact:true}).click();}
  async function resume(){await tab('map');await page.getByRole('button',{name:'Продолжить',exact:true}).click();}
@@ -21,6 +21,12 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   }
   await tab('map');await click('districts');await page.locator('[data-action="contracts"][data-district="1"]').click();assert.equal(await page.locator('.contractCard').count(),4);assert.ok((await page.locator('#page').textContent()).includes('Центральный район'));await click('contractDistrict','[data-district="all"]');assert.equal(await page.locator('.contractCard').count(),12);
   await tab('map');for(const d of [1,2,0]){await click('districts');await click('focusDistrict',`[data-id="${d}"]`);assert.equal(JSON.parse(await page.locator('#map').getAttribute('data-coverage')).district,d);await check('district '+d);}
+  const bounds=await page.locator('#map').boundingBox(),camera=()=>page.locator('#map').getAttribute('data-coverage').then(JSON.parse),baseScale=(await camera()).scale;
+  const touch=await page.context().newCDPSession(page),cx=bounds.x+bounds.width/2,cy=bounds.y+bounds.height/2;
+  await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:cx-35,y:cy,id:0},{x:cx+35,y:cy,id:1}]});
+  await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:cx-70,y:cy,id:0},{x:cx+70,y:cy,id:1}]});
+  await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});assert.ok((await camera()).scale>baseScale*1.5,'Two-finger zoom did not change scale');assert.equal(await page.locator('dialog').isVisible(),false,'Pinch opened a building card');
+  await click('center');await page.mouse.move(cx,cy);await page.mouse.wheel(0,-120);await page.waitForFunction(base=>JSON.parse(document.querySelector('#map').dataset.coverage).scale>base,baseScale);await click('center');await check('two finger zoom wheel and camera reset');
   await click('settings');for(const key of ['sound','motion','labels']){await click('setting',`[data-key="${key}"]`);await click('setting',`[data-key="${key}"]`);}await click('help');assert.ok((await page.locator('dialog').textContent()).includes('Развивайте компанию'));await close();
   await click('settings');await click('reset');await close();await check('reset cancelled');
   await tab('finance');await sub('contracts');await click('home','[data-id="0"]');await click('prevent','[data-id="0"]');assert.equal((await state()).homes[0].wear,25);await click('renovate','[data-id="0"]');assert.equal((await state()).homes[0].wear,0);await close();

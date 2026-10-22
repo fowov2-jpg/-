@@ -122,7 +122,7 @@ export function nextDay(s){
 }
 export function maintain(s,id,kind){
  const cr=s.crews.find(c=>c.id===id);requireThat(cr&&cr.status==='idle','Дождитесь освобождения бригады');const v=crewVehicle(s,cr);
- if(kind==='train'){requireThat(cr.xp>=30&&cr.level<5,'Нужно 30 опыта; максимальный уровень — 5');spend(s,15000,'Обучение: '+cr.name);for(const e of crewPeople(s,cr)){e.xp-=30;e.level=Math.min(5,e.level+1);}}
+ if(kind==='train'){preparation(s);requireThat(cr.xp>=30&&cr.level<5,'Нужно 30 опыта; максимальный уровень — 5');spend(s,15000,'Обучение: '+cr.name);for(const e of crewPeople(s,cr)){e.xp-=30;e.level=Math.min(5,e.level+1);}}
  else return maintainVehicle(s,v.id,kind);refreshCrews(s);
 }
 export function maintainVehicle(s,id,kind){
