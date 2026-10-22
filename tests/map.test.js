@@ -38,7 +38,7 @@ test('Van interpolates travel path without modifying game state',()=>{
 
 
 test('Curated blocks cannot intersect roads, playgrounds or other houses',()=>{
- assert.equal(BUILDINGS.length,9);
+ assert.equal(BUILDINGS.length,7);
  assert.equal(BUILDINGS.filter(b=>Number.isInteger(b.managed)).length,3);
  const overlap=(a,b)=>a.x0<b.x1&&a.x1>b.x0&&a.y0<b.y1&&a.y1>b.y0;
  for(const [i,b] of BUILDINGS.entries()){
@@ -139,4 +139,29 @@ test('Van model heading is taken from road segments, not a flat image rotation',
   travelled+=lengths[i];
  }
  assert.ok(new Set(heads).size>=3,'A trip involves visible vehicle turns');
+});
+
+test('Foreground buildings do not visually cover the playground or sport field',()=>{
+ // The painter uses x+y for its depth order. Test screen-space silhouettes,
+ // not just lot footprints: a tall PNG may cover a park on a different lot.
+ const project=(x,y)=>[500+(x-y)*49,100+(x+y)*27];
+ const bbox=points=>({
+  x0:Math.min(...points.map(p=>p[0])),x1:Math.max(...points.map(p=>p[0])),
+  y0:Math.min(...points.map(p=>p[1])),y1:Math.max(...points.map(p=>p[1]))
+ });
+ const overlap=(a,b)=>Math.max(0,Math.min(a.x1,b.x1)-Math.max(a.x0,b.x0)) *
+  Math.max(0,Math.min(a.y1,b.y1)-Math.max(a.y0,b.y0));
+ for(const court of COURTYARDS){
+  const park=bbox([
+   project(court.x,court.y),project(court.x+court.w,court.y),
+   project(court.x+court.w,court.y+court.h),project(court.x,court.y+court.h)
+  ]);
+  for(const building of BUILDINGS){
+   if(building.x+building.y<=court.x+court.y+.8)continue;
+   const p=project(building.x,building.y);
+   const sprite={x0:p[0]-112,x1:p[0]+112,y0:p[1]-165,y1:p[1]};
+   assert.ok(overlap(sprite,park)<150,
+    'Building '+building.id+' covers '+court.kind+' even though lots do not overlap');
+  }
+ }
 });
