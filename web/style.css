@@ -32,3 +32,5 @@ dialog{width:min(500px,calc(100% - 24px));max-height:calc(100dvh - 40px);overflo
 .headerClock>small{white-space:nowrap;max-width:none;font-size:11px;color:#b0c3ca}
 .zoom{top:106px;bottom:172px}.zoom button{height:40px;min-height:40px}.zoom button:last-child{margin-top:auto}
 @media(max-height:650px){.zoom{top:92px;bottom:140px}.zoom button{height:36px;min-height:36px}}
+
+#app{height:var(--native-viewport-height,100dvh)}

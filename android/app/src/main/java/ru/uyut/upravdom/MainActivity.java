@@ -42,6 +42,9 @@ public class MainActivity extends Activity {
         host.setBackgroundColor(0xff081820);
         web = new WebView(this);
         web.setTag("game-webview");
+        web.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+            if (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop) syncViewport();
+        });
         web.setBackgroundColor(0xff081820);
         host.addView(web, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
@@ -80,6 +83,11 @@ public class MainActivity extends Activity {
         WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
                 .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this)).build();
         web.setWebViewClient(new WebViewClientCompat() {
+            @Override public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                syncViewport();
+                view.postDelayed(() -> syncViewport(), 120);
+            }
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 WebResourceResponse response = loader.shouldInterceptRequest(request.getUrl());
                 return response != null ? response : new WebResourceResponse("text/plain", "UTF-8", 403,
@@ -108,6 +116,15 @@ public class MainActivity extends Activity {
             }
         });
         web.loadUrl(ORIGIN + "assets/index.html");
+    }
+    private void syncViewport() {
+        if (web == null || web.getHeight() <= 0) return;
+        // Android WebView may retain an old CSS vh after switching system navigation modes.
+        // Use the measured native content height so bottom labels cannot be clipped by the actual surface.
+        int height = web.getHeight();
+        web.evaluateJavascript("(function(){var r=document.documentElement;if(!r)return;"
+                + "r.style.setProperty('--native-viewport-height',(" + height
+                + "/(window.devicePixelRatio||1))+'px');window.dispatchEvent(new Event('resize'));})()", null);
     }
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);

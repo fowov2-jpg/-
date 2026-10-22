@@ -18,6 +18,7 @@ import java.io.OutputStream;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.json.JSONObject;
 import org.junit.Rule;
 import org.junit.Test;
@@ -51,6 +52,7 @@ public class ScreenInsetsTest {
         command.close();
         SystemClock.sleep(1800);
         waitForPage();
+        AtomicInteger nativeHeight = new AtomicInteger();
         activity.getScenario().onActivity(a -> {
             View decor = a.getWindow().getDecorView();
             Insets bars = WindowInsetsCompat.toWindowInsetsCompat(decor.getRootWindowInsets(), decor)
@@ -58,15 +60,18 @@ public class ScreenInsetsTest {
             View web = decor.findViewWithTag("game-webview");
             int[] position = new int[2], root = new int[2];
             web.getLocationOnScreen(position);decor.getLocationOnScreen(root);
+            nativeHeight.set(web.getHeight());
             assertTrue("HTML is behind status bar", position[1] - root[1] >= bars.top);
             assertTrue("HTML is behind navigation bar", position[1] - root[1] + web.getHeight() <= decor.getHeight() - bars.bottom);
             assertTrue("Status inset was not exercised", bars.top > 0);
             assertTrue("Navigation inset was not exercised", bars.bottom > 0);
         });
-        String value = evaluate("JSON.stringify((()=>{const nav=document.querySelector('#nav').getBoundingClientRect(),head=document.querySelector('#header').getBoundingClientRect(),money=document.querySelector('.headerBudget').getBoundingClientRect(),clock=document.querySelector('.headerClock').getBoundingClientRect();return {navBottom:nav.bottom,viewport:innerHeight,headTop:head.top,separate:money.right<=clock.left+1,buttons:[...document.querySelectorAll('#nav button')].length};})())");
+        String value = evaluate("JSON.stringify((()=>{const nav=document.querySelector('#nav').getBoundingClientRect(),head=document.querySelector('#header').getBoundingClientRect(),money=document.querySelector('.headerBudget').getBoundingClientRect(),clock=document.querySelector('.headerClock').getBoundingClientRect();return {navBottom:nav.bottom,ratio:devicePixelRatio,viewport:innerHeight,captionBottom:Math.max(...[...document.querySelectorAll('#nav button>span:last-child')].map(n=>n.getBoundingClientRect().bottom)),headTop:head.top,separate:money.right<=clock.left+1,buttons:[...document.querySelectorAll('#nav button')].length};})())");
         JSONObject layout = new JSONObject(new org.json.JSONTokener(value).nextValue().toString());
         assertEquals(5, layout.getInt("buttons"));
         assertTrue("Bottom controls leave HTML viewport", layout.getDouble("navBottom") <= layout.getDouble("viewport") + 1);
+        assertTrue("Navigation extends past the native WebView surface", layout.getDouble("navBottom") * layout.getDouble("ratio") <= nativeHeight.get() + 2);
+        assertTrue("Navigation captions are clipped by the native surface", layout.getDouble("captionBottom") * layout.getDouble("ratio") <= nativeHeight.get() + 2);
         assertTrue("Header leaves HTML viewport", layout.getDouble("headTop") >= 0);
         assertTrue("Money overlaps clock", layout.getBoolean("separate"));
         Bitmap shot = InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
