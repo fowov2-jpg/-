@@ -90,11 +90,11 @@ jobs:
       - uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
-          target: google_apis
+          target: default
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
+          emulator-options: -no-window -gpu swiftshader_indirect -memory 2048 -noaudio -no-boot-anim -camera-back none -no-snapshot
           script: |
             gradle -p android connectedDebugAndroidTest --no-daemon
             mkdir -p test-results/android

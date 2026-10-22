@@ -55,6 +55,7 @@ public class ScreenInsetsTest {
         AtomicInteger nativeHeight = new AtomicInteger();
         activity.getScenario().onActivity(a -> {
             View decor = a.getWindow().getDecorView();
+            assertTrue("Game is covered by a system window or ANR dialog", decor.hasWindowFocus());
             Insets bars = WindowInsetsCompat.toWindowInsetsCompat(decor.getRootWindowInsets(), decor)
                     .getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
             View web = decor.findViewWithTag("game-webview");
@@ -74,6 +75,9 @@ public class ScreenInsetsTest {
         assertTrue("Navigation captions are clipped by the native surface", layout.getDouble("captionBottom") * layout.getDouble("ratio") <= nativeHeight.get() + 2);
         assertTrue("Header leaves HTML viewport", layout.getDouble("headTop") >= 0);
         assertTrue("Money overlaps clock", layout.getBoolean("separate"));
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        SystemClock.sleep(800);
+        activity.getScenario().onActivity(a -> assertTrue("System dialog appeared before capture", a.getWindow().getDecorView().hasWindowFocus()));
         Bitmap shot = InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
         assertNotNull(shot);
         saveShared(shot, mode + ".png", Bitmap.CompressFormat.PNG, 100);
