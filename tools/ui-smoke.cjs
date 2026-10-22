@@ -82,12 +82,12 @@ const fs=require('node:fs/promises');
   }
   await page.locator('[data-action="center"]').click();
   const camera=()=>page.locator('#map').getAttribute('data-coverage').then(JSON.parse);
-  const origin=await camera();
+  const baseCamera=await camera();
   await page.locator('[data-action="mapNorth"]').click();
-  assert.ok((await camera()).y>origin.y,'Up arrow did not move camera north');
+  assert.ok((await camera()).y>baseCamera.y,'Up arrow did not move camera north');
   await page.locator('[data-action="mapSouth"]').click();
   await page.locator('[data-action="mapWest"]').click();
-  assert.ok((await camera()).x>origin.x,'Left arrow did not move camera west');
+  assert.ok((await camera()).x>baseCamera.x,'Left arrow did not move camera west');
   await page.locator('[data-action="mapEast"]').click();
   await page.locator('[data-action="previewMore"]').click();
   assert.equal(await page.locator('#map').getAttribute('data-planned-homes'),'48');
