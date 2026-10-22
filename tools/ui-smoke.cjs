@@ -16,7 +16,7 @@ const fs=require('node:fs/promises');
   const origin=`http://127.0.0.1:${server.address().port}`;
   await page.route('**/save-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><title>Storage fixture</title>'}));
   await page.goto(origin);await page.locator('[data-action="start"]').waitFor();
-  await page.waitForFunction(()=>document.querySelector('#map').dataset.renderer==='3d');
+  await page.waitForFunction(()=>document.querySelector('#map').dataset.renderer==='illustrated'&&document.querySelector('#map').dataset.vehicles==='ready');
   await page.locator('[data-tab="services"]').click();await page.locator('.segmented [data-action="subpage"][data-sub="hire"]').click();
   const candidateIds=await page.evaluate(()=>JSON.parse(localStorage.getItem('upravdom.v1')||'null')?.candidates?.filter(c=>c.service===0).map(c=>c.id)||[100,101]);
   for(const id of candidateIds)await page.locator(`[data-action="hire"][data-id="${id}"]`).click();
@@ -58,6 +58,9 @@ const fs=require('node:fs/promises');
     await page.locator(`[data-tab="${tab}"]`).click();if(tab==='garage')await page.locator('.segmented [data-action="subpage"][data-sub="fleet"]').click();if(tab==='finance')await page.locator('.segmented [data-action="subpage"][data-sub="overview"]').click();
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`${tab} overflows at ${width}`);
     assert.equal(await page.locator('nav button').count(),5);
+    const layout=await page.evaluate(()=>{const m=document.querySelector('.headerBudget').getBoundingClientRect(),c=document.querySelector('.headerClock').getBoundingClientRect(),n=document.querySelector('#nav').getBoundingClientRect();return {separate:m.right<=c.left+1,bottom:n.bottom,height:innerHeight,inside:[...document.querySelectorAll('#nav button')].every(b=>{const r=b.getBoundingClientRect();return r.top>=n.top&&r.bottom<=innerHeight+1;})};});
+    assert.ok(layout.separate,`Money and clock overlap at ${width}`);assert.ok(layout.bottom<=layout.height+1&&layout.inside,`Bottom controls leave viewport at ${width}`);
+
     if(tab==='map'){
      const bounds=await page.locator('#map').boundingBox();
      for(const id of [0,1,2,3]){const label=await page.locator(`.mapLabels [data-action="home"][data-id="${id}"]`).boundingBox();assert.ok(label&&label.x>=bounds.x&&label.x+label.width<=bounds.x+bounds.width,`Starting home ${id} clipped at ${width}`);}
@@ -66,9 +69,14 @@ const fs=require('node:fs/promises');
    }
   }
   await page.setViewportSize({width:412,height:915});
-  await page.locator('[data-tab="map"]').click();await page.locator('[data-action="rotate"]').click();await page.locator('[data-action="tilt"]').click();
-  await page.screenshot({path:'test-results/screenshots/rotated-city-412.png',animations:'disabled'});
-  for(let turn=0;turn<7;turn++)await page.locator('[data-action="rotate"]').click();await page.locator('[data-action="tilt"]').click();
+  await page.locator('[data-tab="map"]').click();
+  for(let zoom=0;zoom<8;zoom++)await page.locator('[data-action="zoomOut"]').click();
+  const bounds=await page.locator('#map').boundingBox();
+  for(const delta of [-1,1]){
+   await page.mouse.move(bounds.x+bounds.width/2,bounds.y+bounds.height/2);await page.mouse.down();await page.mouse.move(bounds.x+(delta<0?4:bounds.width-4),bounds.y+(delta<0?4:bounds.height-4),{steps:8});await page.mouse.up();
+   const coverage=await page.locator('#map').getAttribute('data-coverage').then(JSON.parse);assert.ok(coverage.left<=0&&coverage.top<=0&&coverage.right>=bounds.width-1&&coverage.bottom>=bounds.height-1,'Map edge exposed');
+  }
+  await page.locator('[data-action="center"]').click();
   await page.locator('.mapLabels [data-action="home"][data-id="0"]').click();await page.getByRole('heading',{name:'ул. Садовая, 12',exact:true}).waitFor();await page.getByRole('button',{name:'Закрыть',exact:true}).click();
   // Repair completion and end-of-shift report through the UI clock.
   await page.locator('[data-tab="map"]').click();
@@ -99,6 +107,6 @@ const fs=require('node:fs/promises');
   await page.locator('#importFile').setInputFiles('test-results/exported-company.json');
   await page.getByRole('button',{name:'Восстановить',exact:true}).click();
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('upravdom.v1')).version),3);
-  assert.deepEqual(errors,[]);console.log('UI smoke passed: 3D city, hiring, vehicle purchase, crew assembly, contract expansion, warehouse orders, 5 sections, 4 widths, full shift, backup and import/export.');
+  assert.deepEqual(errors,[]);console.log('UI smoke passed: detailed district artwork, realistic vehicle atlas, constrained map camera, hiring, vehicle purchase, crew assembly, contract expansion, warehouse orders, 5 sections, 4 widths, full shift, backup and import/export.');
  }catch(error){if(browser){const pages=browser.contexts().flatMap(context=>context.pages());if(pages[0]){await fs.mkdir('test-results/screenshots',{recursive:true});await pages[0].screenshot({path:'test-results/screenshots/failure.png',animations:'disabled'}).catch(()=>{});if(process.env.CI){const preview=await pages[0].screenshot({type:'jpeg',quality:72,scale:'css',animations:'disabled'}).catch(()=>null);if(preview)console.log('UPRAVDOM_PREVIEW_FAILURE '+preview.toString('base64'));}}}throw error;}finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -60,11 +60,51 @@ jobs:
       - run: gradle -p android assembleDebug assembleRelease lintDebug lintRelease --no-daemon
       - uses: actions/upload-artifact@v4
         with:
-          name: upravdom-0.3.0-alpha-debug-apk
+          name: upravdom-0.3.1-alpha-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
-          name: upravdom-0.3.0-alpha-unsigned-release
+          name: upravdom-0.3.1-alpha-unsigned-release
           path: android/app/build/outputs/apk/release/app-release-unsigned.apk
           if-no-files-found: error
+
+  android-device:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
+          script: |
+            gradle -p android connectedDebugAndroidTest --no-daemon
+            mkdir -p test-results/android
+            adb pull /sdcard/Android/data/ru.uyut.upravdom/files/verification test-results/android/
+            for mode in threebutton gestural; do echo "UPRAVDOM_ANDROID_PREVIEW_${mode} $(base64 -w0 test-results/android/verification/${mode}.jpg)"; done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: upravdom-android-screen-verification
+          path: |
+            test-results/android/
+            android/app/build/reports/androidTests/
+            android/app/build/outputs/androidTest-results/

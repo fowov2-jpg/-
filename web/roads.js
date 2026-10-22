@@ -1,17 +1,21 @@
 import {CITY_HOMES,DEPOT} from './content.js';
-export const WORLD={width:1000,height:1650};
+// These survey points follow the asphalt in the detailed 1000 × 1500 district artwork.
+export const WORLD={width:1000,height:1500};
+export const DISTRICT_HEIGHT=1500;
 export const MARKERS=CITY_HOMES.map(h=>[h.x,h.y]);
-export const LABELS=CITY_HOMES.map(h=>[h.name,h.x,h.y-65,h.id]);
-export const ROAD_X=[150,500,850],ROAD_Y=[200,650,1100,1550];
-const nodes=[],links=[],pointIndex=new Map();
-const add=(x,y)=>{const key=x+','+y;if(!pointIndex.has(key)){pointIndex.set(key,nodes.length);nodes.push([x,y]);}return pointIndex.get(key);};
-const stops=CITY_HOMES.map(h=>{const x=ROAD_X.reduce((a,b)=>Math.abs(h.x-a)<Math.abs(h.x-b)?a:b);return add(x,h.y);});
-stops[DEPOT]=add(500,650);
-for(const x of ROAD_X)for(const y of ROAD_Y)add(x,y);
-for(const x of ROAD_X){const points=nodes.map((p,i)=>({p,i})).filter(v=>v.p[0]===x).sort((a,b)=>a.p[1]-b.p[1]);for(let i=1;i<points.length;i++)links.push([points[i-1].i,points[i].i]);}
-for(const y of ROAD_Y){const points=nodes.map((p,i)=>({p,i})).filter(v=>v.p[1]===y).sort((a,b)=>a.p[0]-b.p[0]);for(let i=1;i<points.length;i++)links.push([points[i-1].i,points[i].i]);}
+export const LABELS=CITY_HOMES.map(h=>[h.name,h.x,h.y-75,h.id]);
+const localNodes=[[265,375],[360,430],[510,505],[690,600],[805,670],[735,800],[665,935],[620,1000],[675,1070],[735,1120],[635,1270],[480,1405],[395,1500],[775,530],[770,1070],[675,1340],[480,1040],[300,910],[140,800]];
+const localLinks=[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],[9,10],[10,11],[11,12],[3,13],[8,14],[10,15],[8,16],[16,17],[17,18]];
+const nodes=[],links=[],stops=[],transfers=new Set(),key=(a,b)=>a.join(',')+'|'+b.join(',');
+for(let d=0;d<3;d++){
+ const base=nodes.length;nodes.push(...localNodes.map(([x,y])=>[x,y+d*DISTRICT_HEIGHT]));links.push(...localLinks.map(([a,b])=>[a+base,b+base]));
+ [0,13,14,18].forEach((n,i)=>{stops[d*4+i]=base+n;});
+ if(d){const a=base-localNodes.length+12,b=base;links.push([a,b]);transfers.add(key(nodes[a],nodes[b]));transfers.add(key(nodes[b],nodes[a]));}
+}
+stops[DEPOT]=15;
 export const distance=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
-export const roadSegments=links.map(([a,b])=>[nodes[a],nodes[b]]);
+export const isTransfer=(a,b)=>transfers.has(key(a,b));
+export const roadSegments=links.filter(([a,b])=>!isTransfer(nodes[a],nodes[b])).map(([a,b])=>[nodes[a],nodes[b]]);
 export function stopAt(home){const p=nodes[stops[home]];if(!p)throw Error('Неизвестная точка маршрута');return [...p];}
 export function route(from,to){
  const start=stops[from],end=stops[to];if(start===undefined||end===undefined)throw Error('Неизвестная точка маршрута');
@@ -22,4 +26,4 @@ export function route(from,to){
  const path=[end];while(path[0]!==start){if(prev[path[0]]===undefined)throw Error('Дорога недоступна');path.unshift(prev[path[0]]);}return path.map(i=>[...nodes[i]]);
 }
 export function travelTime(from,to,speed=1){const p=route(from,to);return Math.max(3,Math.ceil(p.slice(1).reduce((sum,b,i)=>sum+distance(p[i],b),0)/(95*speed)));}
-export function onRoute(path,progress){const lengths=path.slice(1).map((b,i)=>distance(path[i],b));let left=lengths.reduce((a,b)=>a+b,0)*Math.max(0,Math.min(1,progress));for(let i=0;i<lengths.length;i++){if(left<=lengths[i]){const t=lengths[i]?left/lengths[i]:0;return {point:path[i].map((n,j)=>n+(path[i+1][j]-n)*t),angle:Math.atan2(path[i+1][1]-path[i][1],path[i+1][0]-path[i][0])};}left-=lengths[i];}return {point:path.at(-1),angle:0};}
+export function onRoute(path,progress){const lengths=path.slice(1).map((b,i)=>distance(path[i],b));let left=lengths.reduce((a,b)=>a+b,0)*Math.max(0,Math.min(1,progress));for(let i=0;i<lengths.length;i++){if(left<=lengths[i]){const t=lengths[i]?left/lengths[i]:0;return {point:path[i].map((n,j)=>n+(path[i+1][j]-n)*t),angle:Math.atan2(path[i+1][1]-path[i][1],path[i+1][0]-path[i][0]),...(isTransfer(path[i],path[i+1])?{transfer:true}:{})};}left-=lengths[i];}return {point:path.at(-1),angle:0};}
