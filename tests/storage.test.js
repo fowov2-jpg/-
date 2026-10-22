@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import * as E from '../web/engine.js';
+import * as Legacy from '../web/legacy-engine.js';
 import {loadGame,saveGame,SAVE_KEY,BACKUP_KEY,loadSettings} from '../web/storage.js';
 function store(entries=[]){const data=new Map(entries);return {data,getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value)};}
 test('First launch and primary save round-trip',()=>{const storage=store(),loaded=loadGame(storage);assert.equal(loaded.blocked,false);saveGame(storage,loaded.state);assert.deepEqual(loadGame(storage).state,loaded.state);assert.ok(storage.data.has(BACKUP_KEY));});
@@ -9,5 +10,5 @@ test('Valid backup recovers when primary key is missing',()=>{const storage=stor
 test('Both corrupt saves and inaccessible storage block autosaving',()=>{const storage=store([[SAVE_KEY,'bad'],[BACKUP_KEY,'also bad']]);assert.equal(loadGame(storage).blocked,true);assert.equal(storage.getItem(SAVE_KEY),'bad');assert.equal(loadGame({getItem(){throw Error('Denied');}}).blocked,true);});
 test('Failed primary write keeps a valid backup',()=>{const base=E.fresh(),storage=store([[SAVE_KEY,E.encode(base)]]);storage.setItem=(key,value)=>{if(key===SAVE_KEY)throw Error('Quota');storage.data.set(key,value);};const next=E.fresh();E.start(next);assert.throws(()=>saveGame(storage,next));assert.deepEqual(E.decode(storage.getItem(BACKUP_KEY)),base);assert.deepEqual(loadGame(storage).state,base);});
 test('Invalid in-memory state never replaces either saved copy',()=>{const storage=store(),s=E.fresh();saveGame(storage,s);const previous=[...storage.data];s.crews[0].job=99;assert.throws(()=>saveGame(storage,s));assert.deepEqual([...storage.data],previous);});
-test('Old schema migrates without changing crew, budget or calls',()=>{const s=E.fresh();E.start(s);E.dispatch(s,1,0);s.version=1;const restored=E.decode(E.encode(s));assert.equal(restored.version,2);assert.equal(restored.money,s.money);assert.deepEqual(restored.calls,s.calls);assert.deepEqual(restored.crews,s.crews);});
+test('Old schema migrates without changing crew, budget or calls',()=>{const s=Legacy.fresh();Legacy.start(s);Legacy.dispatch(s,1,0);s.version=1;const restored=E.decode(E.encode(s));assert.equal(restored.version,3);assert.equal(restored.money,s.money);assert.equal(restored.calls[0].id,s.calls[0].id);assert.equal(restored.crews[0].job,s.crews[0].job);assert.equal(restored.crews[0].remaining,s.crews[0].remaining);});
 test('Settings accept only known boolean values',()=>{const storage=store([['upravdom.settings','{"sound":false,"motion":"yes","labels":true,"extra":true}']]);assert.deepEqual(loadSettings(storage),{sound:false,motion:true,labels:true});});

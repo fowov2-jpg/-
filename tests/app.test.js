@@ -5,6 +5,8 @@ import * as E from '../web/engine.js';
 import {loadGame,saveGame,loadSettings,saveSettings,SAVE_KEY,BACKUP_KEY} from '../web/storage.js';
 import {STAFF,vehicle} from '../web/graphics.js';
 import {MARKERS,travelTime} from '../web/roads.js';
+import {managementPage,domainDialog} from '../web/management.js';
+import {DEPOT,DISTRICTS,VEHICLE_MODELS} from '../web/content.js';
 
 // Exercise the real startup and event handlers without a browser or Canvas.
 const source=readFileSync(new URL('../web/app.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'');
@@ -18,7 +20,7 @@ function boot(raw=null,{unavailable=false,backup=null}={}){
  const document={hidden:false,querySelector:node,addEventListener:(name,fn)=>events.set('document:'+name,fn)};
  const window={addEventListener:(name,fn)=>events.set('window:'+name,fn)};
  const localStorage={getItem(key){if(unavailable)throw Error('Storage unavailable');return data.get(key)??null;},setItem(key,value){if(unavailable)throw Error('Storage unavailable');data.set(key,value);}};
- const dependencies={E,icon:()=>'',renderMap:()=>{},loadArtwork:()=>{},MARKERS,travelTime,loadGame,saveGame,loadSettings,saveSettings,SAVE_KEY,BACKUP_KEY,notifySound:()=>{},STAFF,vehicle,document,window,globalThis:{localStorage},requestAnimationFrame:()=>1,setInterval:fn=>events.set('timer:tick',fn),setTimeout:()=>1,clearTimeout:()=>{}};
+ const dependencies={E,icon:()=>'',renderMap:()=>{},loadArtwork:()=>{},MARKERS,travelTime,loadGame,saveGame,loadSettings,saveSettings,SAVE_KEY,BACKUP_KEY,notifySound:()=>{},STAFF,vehicle,managementPage,domainDialog,DEPOT,DISTRICTS,VEHICLE_MODELS,document,window,globalThis:{localStorage},requestAnimationFrame:()=>1,setInterval:fn=>events.set('timer:tick',fn),setTimeout:()=>1,clearTimeout:()=>{}};
  new Function(...Object.keys(dependencies),source)(...Object.values(dependencies));
  return {data,node,emit:name=>events.get(name)?.(),click:(action,attributes={})=>events.get('document:click')({target:{closest:()=>({dataset:{action,...attributes}})}})};
 }
