@@ -1,6 +1,6 @@
 import {COLORS,TYPES} from './engine.js';
 import {drawGameSprite} from './assets.js';
-import {BUILDINGS,ROADS,COURTYARDS,TREES,STREET_PROPS,STOPS,PARKING_BAYS,ENTRANCES,route as districtRoute,crewRoute} from './district.js';
+import {BUILDINGS,ROADS,COURTYARDS,GARDEN_BEDS,TREES,STREET_PROPS,STOPS,PARKING_BAYS,ENTRANCES,route as districtRoute,crewRoute} from './district.js';
 import {drawApartment,drawTree,drawVan,drawStreetFurniture,drawPlayground,drawSportCourt} from './scenery.js';
 
 // Shared geometry determines roads, landmarks and interactive stops.
@@ -154,6 +154,23 @@ export function renderMap(canvas,state,view){
  }
  for(const p of COURTYARDS){
   tile(p.x-.10,p.y-.10,p.w+.20,p.h+.20,winter?'#97a49c':'#86a186');
+ }
+ // Small landscaped beds provide visual relief on previously empty lawns.
+ // Their geometry is authored in district.js and checked for road clearance.
+ for(const [i,bed] of GARDEN_BEDS.entries()){
+  const {x,y,w,h}=bed;
+  tile(x,y,w,h,winter?'#829188':'#8d9276','#b5b9a0');
+  tile(x+.08,y+.08,w-.16,h-.16,winter?'#627b72':'#456d4e');
+  const count=Math.max(4,Math.round(w*h*9));
+  for(let j=0;j<count;j++){
+   const bx=x+.14+(w-.28)*noise(i*43+j*11+7);
+   const by=y+.14+(h-.28)*noise(i*37+j*17+19);
+   const p=iso(bx,by);
+   dot(p[0]+2,p[1]+2,4,'#193a3177');
+   dot(p[0],p[1]-2,4.3,winter?'#718d80':['#365d42','#527e4b','#637e42'][j%3]);
+   dot(p[0]-2,p[1]-4,2.1,winter?'#a5b5a6':'#85a15d');
+   if(j%4===0)dot(p[0]+1,p[1]-5,1.5,winter?'#e7ebe2':'#edbe75');
+  }
  }
  // A sparse road network encloses the blocks rather than cutting through them.
  for(const r of ROADS){
