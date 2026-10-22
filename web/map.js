@@ -1,6 +1,6 @@
 import {COLORS,TYPES} from './engine.js';
 import {CITY_HOMES,DEPOT} from './content.js';
-import {SECTION_WIDTH,DEFAULT_PREVIEW_HOMES,boundsForHomes,generateDistrictHomes} from './district-generator.js';
+import {SECTION_WIDTH,SECTION_HEIGHT,DEFAULT_PREVIEW_HOMES,boundsForHomes,generateDistrictHomes} from './district-generator.js';
 import {WORLD,DISTRICT_HEIGHT,MARKERS,route,onRoute,isTransfer} from './roads.js';
 export {route} from './roads.js';
 const art=[],contexts=new WeakMap(),plans=new Map();let atlas=null,requested=false;
@@ -19,10 +19,11 @@ export function cameraFor(width,height,view){
  const scale=Math.max(width/WORLD.width,height/WORLD.height)*clamp(view.zoom,1,2.7),district=view.district??0;
  const center=view.focus?[view.focus[0],view.focus[1]-district*DISTRICT_HEIGHT]:[500,750];
  const initialX=width/2-center[0]*scale,initialY=height/2-center[1]*scale;
- const x=clamp(initialX+view.x,width-bounds.maxX*scale,-bounds.minX*scale),y=clamp(initialY+view.y,height-WORLD.height*scale,0);
+ const x=clamp(initialX+view.x,width-bounds.maxX*scale,-bounds.minX*scale);
+ const y=clamp(initialY+view.y,height-bounds.maxY*scale,-bounds.minY*scale);
  view.x=x-initialX;view.y=y-initialY;view.zoom=clamp(view.zoom,1,2.7);
- return {scale,x,y,district,left:x+bounds.minX*scale,top:y,right:x+bounds.maxX*scale,
-  bottom:y+WORLD.height*scale,...bounds};
+ return {scale,x,y,district,left:x+bounds.minX*scale,top:y+bounds.minY*scale,
+  right:x+bounds.maxX*scale,bottom:y+bounds.maxY*scale,...bounds};
 }
 function plannedHomes(district,count){
  const key=district+':'+count;
@@ -57,16 +58,20 @@ export function renderMap(canvas,state,view,{labels=true,motion=true,progress=0,
  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,rect.width,rect.height);
  const picture=art[district]?.complete&&art[district].naturalWidth?art[district]:art[0];
  if(picture?.complete&&picture.naturalWidth){
-  // Mirror alternate sections: neighboring WebP edge pixels line up without seams.
-  // Only visible sections are painted; a 999-home district never allocates a giant bitmap.
-  const first=Math.max(camera.minTile,Math.floor(-ox/(SECTION_WIDTH*scale))-1);
-  const last=Math.min(camera.maxTile,Math.floor((rect.width-ox)/(SECTION_WIDTH*scale))+1);
-  const w=SECTION_WIDTH*scale,h=WORLD.height*scale;
-  for(let tile=first;tile<=last;tile++){
-   const left=ox+tile*w;
-   if(Math.abs(tile)%2){
-    ctx.save();ctx.translate(left+w,0);ctx.scale(-1,1);ctx.drawImage(picture,0,oy,w,h);ctx.restore();
-   }else ctx.drawImage(picture,left,oy,w,h);
+  // Mirror alternate rows and columns so adjacent pixels line up in both
+  // axes. Paint only tiles intersecting the viewport (never a giant bitmap).
+  const firstColumn=Math.max(camera.minTileX,Math.floor(-ox/(SECTION_WIDTH*scale))-1);
+  const lastColumn=Math.min(camera.maxTileX,Math.floor((rect.width-ox)/(SECTION_WIDTH*scale))+1);
+  const firstRow=Math.max(camera.minTileY,Math.floor(-oy/(SECTION_HEIGHT*scale))-1);
+  const lastRow=Math.min(camera.maxTileY,Math.floor((rect.height-oy)/(SECTION_HEIGHT*scale))+1);
+  const w=SECTION_WIDTH*scale,h=SECTION_HEIGHT*scale;
+  for(let row=firstRow;row<=lastRow;row++)for(let column=firstColumn;column<=lastColumn;column++){
+   const left=ox+column*w,top=oy+row*h;
+   const flipX=Math.abs(column)%2===1,flipY=Math.abs(row)%2===1;
+   if(flipX||flipY){
+    ctx.save();ctx.translate(left+(flipX?w:0),top+(flipY?h:0));
+    ctx.scale(flipX?-1:1,flipY?-1:1);ctx.drawImage(picture,0,0,w,h);ctx.restore();
+   }else ctx.drawImage(picture,left,top,w,h);
   }
   canvas.dataset.renderer='illustrated';
  }else{canvas.dataset.renderer='loading';ctx.fillStyle='#0b242b';ctx.fillRect(0,0,rect.width,rect.height);}
