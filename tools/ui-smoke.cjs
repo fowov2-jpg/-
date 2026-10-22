@@ -12,21 +12,21 @@ const fs=require('node:fs/promises');
   const page=await browser.newPage({viewport:{width:412,height:915},deviceScaleFactor:2});
   await page.clock.install({time:new Date('2026-10-22T08:00:00Z')});
   await page.clock.pauseAt(new Date('2026-10-22T08:00:01Z'));
-  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));page.on('console',message=>{if(message.type()==='error'&&/THREE|shader|WebGL/i.test(message.text()))errors.push(message.text());});
   const origin=`http://127.0.0.1:${server.address().port}`;
   await page.route('**/save-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><title>Storage fixture</title>'}));
   await page.goto(origin);await page.locator('[data-action="start"]').waitFor();
   await page.waitForFunction(()=>document.querySelector('#map').dataset.renderer==='3d');
-  await page.locator('[data-tab="services"]').click();await page.locator('[data-action="subpage"][data-sub="hire"]').click();
+  await page.locator('[data-tab="services"]').click();await page.locator('.segmented [data-action="subpage"][data-sub="hire"]').click();
   const candidateIds=await page.evaluate(()=>JSON.parse(localStorage.getItem('upravdom.v1')||'null')?.candidates?.filter(c=>c.service===0).map(c=>c.id)||[100,101]);
   for(const id of candidateIds)await page.locator(`[data-action="hire"][data-id="${id}"]`).click();
-  await page.locator('[data-tab="garage"]').click();await page.locator('[data-action="subpage"][data-sub="buy"]').click();await page.locator('[data-action="buyVehicle"][data-model="van"]').click();
-  await page.locator('[data-tab="services"]').click();await page.locator('[data-action="subpage"][data-sub="crews"]').click();await page.locator('[data-action="newCrew"]').click();
+  await page.locator('[data-tab="garage"]').click();await page.locator('.segmented [data-action="subpage"][data-sub="buy"]').click();await page.locator('[data-action="buyVehicle"][data-model="van"]').click();
+  await page.locator('[data-tab="services"]').click();await page.locator('.segmented [data-action="subpage"][data-sub="crews"]').click();await page.locator('[data-action="newCrew"]').click();
   await page.locator('#crew-person-1').selectOption('6');await page.locator('#crew-person-2').selectOption('7');await page.locator('#crew-vehicle').selectOption('3');await page.locator('[data-action="formCrew"]').click();
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('upravdom.v1')).crews.length),4);
-  await page.locator('[data-tab="finance"]').click();await page.locator('[data-action="subpage"][data-sub="contracts"]').click();await page.locator('[data-action="acceptContract"][data-id="3"]').click();
+  await page.locator('[data-tab="finance"]').click();await page.locator('.segmented [data-action="subpage"][data-sub="contracts"]').click();await page.locator('[data-action="acceptContract"][data-id="3"]').click();
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('upravdom.v1')).homes.filter(h=>h.active).length),4);
-  await page.locator('[data-tab="garage"]').click();await page.locator('[data-action="subpage"][data-sub="stock"]').click();await page.locator('#stock-qty-0').selectOption('10');await page.locator('[data-action="orderParts"][data-part="0"][data-express="false"]').click();
+  await page.locator('[data-tab="garage"]').click();await page.locator('.segmented [data-action="subpage"][data-sub="stock"]').click();await page.locator('#stock-qty-0').selectOption('10');await page.locator('[data-action="orderParts"][data-part="0"][data-express="false"]').click();
   const expectedMoney=await page.evaluate(()=>JSON.parse(localStorage.getItem('upravdom.v1')).money);
   await page.locator('[data-tab="map"]').click();
 
@@ -55,7 +55,7 @@ const fs=require('node:fs/promises');
   for(const width of [360,412,560,1200]){
    await page.setViewportSize({width,height:915});
    for(const tab of ['map','calls','services','finance','garage']){
-    await page.locator(`[data-tab="${tab}"]`).click();if(tab==='garage')await page.locator('[data-action="subpage"][data-sub="fleet"]').click();if(tab==='finance')await page.locator('[data-action="subpage"][data-sub="overview"]').click();
+    await page.locator(`[data-tab="${tab}"]`).click();if(tab==='garage')await page.locator('.segmented [data-action="subpage"][data-sub="fleet"]').click();if(tab==='finance')await page.locator('.segmented [data-action="subpage"][data-sub="overview"]').click();
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`${tab} overflows at ${width}`);
     assert.equal(await page.locator('nav button').count(),5);
     if(width===412){await page.screenshot({path:`test-results/screenshots/${tab}-412.png`,animations:'disabled'});if(process.env.CI&&['map','garage','services'].includes(tab)){const preview=await page.screenshot({type:'jpeg',quality:72,scale:'css',animations:'disabled'});console.log('UPRAVDOM_PREVIEW_'+tab.toUpperCase()+' '+preview.toString('base64'));}}
@@ -92,5 +92,5 @@ const fs=require('node:fs/promises');
   await page.getByRole('button',{name:'Восстановить',exact:true}).click();
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('upravdom.v1')).version),3);
   assert.deepEqual(errors,[]);console.log('UI smoke passed: 3D city, hiring, vehicle purchase, crew assembly, contract expansion, warehouse orders, 5 sections, 4 widths, full shift, backup and import/export.');
- }catch(error){if(browser){const pages=browser.contexts().flatMap(context=>context.pages());if(pages[0]){await fs.mkdir('test-results/screenshots',{recursive:true});await pages[0].screenshot({path:'test-results/screenshots/failure.png',animations:'disabled'}).catch(()=>{});}}throw error;}finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
+ }catch(error){if(browser){const pages=browser.contexts().flatMap(context=>context.pages());if(pages[0]){await fs.mkdir('test-results/screenshots',{recursive:true});await pages[0].screenshot({path:'test-results/screenshots/failure.png',animations:'disabled'}).catch(()=>{});if(process.env.CI){const preview=await pages[0].screenshot({type:'jpeg',quality:72,scale:'css',animations:'disabled'}).catch(()=>null);if(preview)console.log('UPRAVDOM_PREVIEW_FAILURE '+preview.toString('base64'));}}}throw error;}finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});

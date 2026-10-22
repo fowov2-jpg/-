@@ -79,12 +79,12 @@ function makeVan(service,civil=false){
  box(group,1.8,1.5,civil?3.6:4.6,0,1,0,civil?color:white);box(group,1.75,.7,civil?2:2.8,0,1.8,civil?-.2:-.4,civil?color:white);box(group,1.82,.5,1.1,0,1.75,1.1,glass);
  if(!civil){box(group,1.83,.65,2.9,0,1.2,-.5,color);box(group,1.86,.08,1.4,0,2.3,-.7,white);}
  for(const x of [-.9,.9])for(const z of [-1.3,1.25]){const wheel=mesh(new T.CylinderGeometry(.4,.4,.22,10),tire,group,x,.48,z);wheel.rotation.z=Math.PI/2;}
- box(group,1.5,.15,.1,0,.95,civil?1.82:2.32,plain('#ffe9b3',{emissive:'#846c2d',emissiveIntensity:.3}));return group;
+ box(group,1.5,.15,.1,0,.95,civil?1.82:2.32,plain('#ffe9b3',{emissive:'#846c2d',emissiveIntensity:.3}));group.traverse(child=>{if(child.isMesh)child.castShadow=false;});const shadow=new T.Mesh(new T.PlaneGeometry(2.5,civil?4.3:5.3),new T.MeshBasicMaterial({color:'#14271a',transparent:true,opacity:.2,depthWrite:false}));shadow.rotation.x=-Math.PI/2;shadow.position.set(.15,.26,.15);group.add(shadow);return group;
 }
 function markerTexture(service){return canvasTexture(96,96,c=>{const color=COLORS[service];const gradient=c.createRadialGradient(48,48,16,48,48,47);gradient.addColorStop(0,color);gradient.addColorStop(.55,color+'cc');gradient.addColorStop(1,color+'00');c.fillStyle=gradient;c.fillRect(0,0,96,96);c.fillStyle=color;c.beginPath();c.arc(48,48,25,0,7);c.fill();c.strokeStyle='#fff';c.lineWidth=2;c.stroke();c.fillStyle='#fff';c.strokeStyle='#fff';c.lineWidth=4;c.lineCap='round';c.beginPath();if(service===0){c.moveTo(48,30);c.bezierCurveTo(40,42,36,49,37,54);c.bezierCurveTo(39,69,62,67,60,52);c.bezierCurveTo(58,45,52,36,48,30);c.fill();}else if(service===1){c.moveTo(52,29);c.lineTo(34,52);c.lineTo(45,52);c.lineTo(42,68);c.lineTo(62,44);c.lineTo(51,44);c.closePath();c.fill();}else{c.moveTo(36,35);c.lineTo(61,61);c.moveTo(60,35);c.lineTo(35,62);c.moveTo(55,32);c.lineTo(64,41);c.stroke();}});}
 function createContext(canvas){
  const gl=canvas.getContext('webgl2',{antialias:true,alpha:false});if(!gl)return {fallback:true};
- const renderer=new T.WebGLRenderer({canvas,context:gl,antialias:true,alpha:false,preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio||1,1.5));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.22;
+ const renderer=new T.WebGLRenderer({canvas,context:gl,antialias:true,alpha:false,preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio||1,1.5));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.22;
  const scene=new T.Scene();scene.background=new T.Color('#b2c3ac');scene.fog=new T.Fog('#b2c3ac',400,800);
  const camera=new T.OrthographicCamera(-100,100,100,-100,.1,1200),sun=new T.DirectionalLight('#fff1ce',3.2);sun.position.set(-100,180,70);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-230;sun.shadow.camera.right=230;sun.shadow.camera.top=230;sun.shadow.camera.bottom=-230;sun.shadow.camera.near=1;sun.shadow.camera.far=500;sun.shadow.bias=-.0005;sun.shadow.normalBias=.1;scene.add(sun,new T.HemisphereLight('#d9e8ea','#726d4c',2.2));
  const ground=box(scene,420,.2,600,0,-.18,0,plain('#80935b'));ground.castShadow=false;
@@ -118,7 +118,16 @@ export function renderMap(canvas,state,view,{labels=true,motion=true,progress=0,
  for(const [id,car] of cars)if(!existing.has(id)){scene.remove(car);cars.delete(id);}
  for(const t of context.traffic){const location=onRoute(t.path,(t.offset+(motion?now/100000:0))%1);t.car.position.copy(pos(...location.point));t.car.rotation.y=Math.PI/2-location.angle;}
  const routeKey=state.crews.filter(c=>c.status==='travel').map(c=>c.id+':'+c.home+':'+c.job).join('|');if(context.routeKey!==routeKey){context.routeKey=routeKey;if(context.routes){scene.remove(context.routes);context.routes.children.forEach(line=>{line.geometry.dispose();line.material.dispose();});}context.routes=new T.Group();scene.add(context.routes);
- for(const cr of state.crews.filter(c=>c.status==='travel')){const call=state.calls.find(c=>c.id===cr.job),points=route(cr.home,call.home).map(p=>pos(...p,.38));if(points.length>1){const line=new T.Line(new T.BufferGeometry().setFromPoints(points),new T.LineBasicMaterial({color:COLORS[cr.service],linewidth:3,depthTest:false}));line.renderOrder=5;context.routes.add(line);}}
+ for(const cr of state.crews.filter(c=>c.status==='travel')){
+  const call=state.calls.find(c=>c.id===cr.job),points=route(cr.home,call.home).map(p=>pos(...p,.4));
+  const color=new T.MeshBasicMaterial({color:COLORS[cr.service],toneMapped:false}),glow=new T.MeshBasicMaterial({color:COLORS[cr.service],transparent:true,opacity:.24,toneMapped:false,depthWrite:false}),dash=new T.MeshBasicMaterial({color:'#fff5d7',toneMapped:false});
+  for(let j=1;j<points.length;j++){
+   const a=points[j-1],b=points[j],length=a.distanceTo(b);if(length<.01)continue;
+   const center=a.clone().add(b).multiplyScalar(.5),angle=Math.atan2(b.x-a.x,b.z-a.z);
+   for(const [width,material,height] of [[1.8,glow,0],[.5,color,.02]]){const strip=new T.Mesh(new T.BoxGeometry(width,.02,length),material);strip.position.copy(center);strip.position.y+=height;strip.rotation.y=angle;context.routes.add(strip);}
+   for(let offset=1.5;offset<length;offset+=3){const marker=new T.Mesh(new T.BoxGeometry(.18,.025,Math.min(1.1,length-offset)),dash);marker.position.copy(a).lerp(b,offset/length);marker.position.y+=.04;marker.rotation.y=angle;context.routes.add(marker);}
+  }
+ }
  }
  view.pick=p=>{context.raycaster.setFromCamera(new T.Vector2(p[0]/rect.width*2-1,-p[1]/rect.height*2+1),camera);const hit=context.raycaster.intersectObjects(context.interactive)[0];return hit?{home:hit.object.userData.home}:null;};
  renderer.render(scene,camera);

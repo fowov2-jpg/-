@@ -27,7 +27,13 @@ jobs:
         with:
           node-version: '22'
       - run: npm install --no-save --package-lock=false playwright@1.62.1
-      - run: npx playwright install --with-deps chromium
+      - name: Select browser
+        run: |
+          if command -v google-chrome >/dev/null; then
+            echo "CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          else
+            npx playwright install --with-deps chromium
+          fi
       - run: npm run test:ui
       - uses: actions/upload-artifact@v4
         if: always()
