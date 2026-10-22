@@ -12,25 +12,36 @@ const mix=(a,b,t)=>a+(b-a)*t;
 const noise=n=>((Math.sin(n*127.1+78.233)*43758.5453)%1+1)%1;
 
 export const route=districtRoute;
-export function vehiclePosition(crew,state){
+function bearingFromSegment(a,b){
+ if(b[0]>a[0]+.00001)return 'east';
+ if(b[0]<a[0]-.00001)return 'west';
+ if(b[1]>a[1]+.00001)return 'south';
+ return 'north';
+}
+// The direction and movement are both evaluated from the *same* road polyline.
+export function vehiclePose(crew,state){
  const start=crew.home===3?(PARKING_BAYS[crew.id]||PARKING_BAYS[0]):(stops[crew.home]||stops[3]);
- if(crew.status!=='travel')return start;
+ if(crew.status!=='travel')return {point:start,heading:crew.home===2?'south':'east'};
  const call=state.calls.find(c=>c.id===crew.job);
- if(!call)return start;
+ if(!call)return {point:start,heading:'east'};
  const points=crewRoute(crew,call.home);
  const lengths=points.slice(1).map((p,i)=>Math.hypot(p[0]-points[i][0],p[1]-points[i][1]));
- const total=lengths.reduce((a,b)=>a+b,0);
- let remain=total*(1-Math.max(0,Math.min(1,crew.remaining/Math.max(1,crew.total))));
+ const total=lengths.reduce((n,d)=>n+d,0);
+ let travelled=total*(1-Math.max(0,Math.min(1,crew.remaining/Math.max(1,crew.total))));
  for(let i=0;i<lengths.length;i++){
-  const length=lengths[i];
-  if(remain<=length||i===lengths.length-1){
-   const t=length?Math.min(1,remain/length):0;
-   return [mix(points[i][0],points[i+1][0],t),mix(points[i][1],points[i+1][1],t)];
+  const distance=lengths[i];
+  if(travelled<=distance||i===lengths.length-1){
+   const ratio=distance?Math.min(1,travelled/distance):0;
+   return {
+    point:[mix(points[i][0],points[i+1][0],ratio),mix(points[i][1],points[i+1][1],ratio)],
+    heading:bearingFromSegment(points[i],points[i+1])
+   };
   }
-  remain-=length;
+  travelled-=distance;
  }
- return points[points.length-1];
+ return {point:points.at(-1),heading:'east'};
 }
+export function vehiclePosition(crew,state){return vehiclePose(crew,state).point;}
 
 export function renderMap(canvas,state,view){
  const rect=canvas.getBoundingClientRect();
@@ -98,9 +109,10 @@ export function renderMap(canvas,state,view){
   if(drawGameSprite(ctx,canvas,treeType,p[0]-35,p[1]-82,70,94))return;
   drawTree(ctx,iso,x,y,i,winter);
  }
- function car(x,y,rotation,color,service=false,serviceIndex=0){
+ function car(x,y,rotation,color,service=false,serviceIndex=0,heading='east'){
   const p=iso(x,y,0);
-  const asset=['van_water','van_electric','van_repair'][serviceIndex]||'van_water';
+  const base=['van_water','van_electric','van_repair'][serviceIndex]||'van_water';
+  const asset=heading==='east'?base:base+'_'+heading;
   // Ground-contact anchor: PNG tires end at the road coordinate, not mid-air.
   ctx.save();ctx.fillStyle='#071a2399';ctx.beginPath();
   ctx.ellipse(p[0]+4,p[1],24,7,-.17,0,Math.PI*2);ctx.fill();ctx.restore();
@@ -201,10 +213,10 @@ export function renderMap(canvas,state,view){
       drawSportCourt(ctx,iso,c.x,c.y,winter)}))
  ];
  for(const cr of state.crews){
-  const pos=vehiclePosition(cr,state);
-  const [vx,vy]=pos;
+  const pose=vehiclePose(cr,state);
+  const [vx,vy]=pose.point;
   scene.push({depth:vx+vy+.05,draw:()=>
-   car(vx,vy,0,COLORS[cr.service],true,cr.service)});
+   car(vx,vy,0,COLORS[cr.service],true,cr.service,pose.heading)});
   if(cr.status==='travel'){
    crewLabels.push({point:iso(vx,vy,42),
     label:['Сантехники','Электрики','Ремонтники'][cr.service]+' · '+cr.remaining+' мин'});
