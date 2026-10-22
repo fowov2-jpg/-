@@ -1,0 +1,37 @@
+name: Mobile UI smoke
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/reference-map-ui-v02
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser tooling
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Test game UI and capture map
+        run: |
+          npm start > /tmp/upravdom-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" || true' EXIT
+          for attempt in {1..30}; do
+            if curl -fsS http://localhost:4173 >/dev/null; then break; fi
+            sleep 1
+          done
+          node tools/ui-smoke.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mobile-map-ui-screenshots
+          path: artifacts/*.png
+          if-no-files-found: warn
