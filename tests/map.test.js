@@ -38,7 +38,7 @@ test('Van interpolates travel path without modifying game state',()=>{
 
 
 test('Curated blocks cannot intersect roads, playgrounds or other houses',()=>{
- assert.equal(BUILDINGS.length,8);
+ assert.equal(BUILDINGS.length,9);
  assert.equal(BUILDINGS.filter(b=>Number.isInteger(b.managed)).length,3);
  const overlap=(a,b)=>a.x0<b.x1&&a.x1>b.x0&&a.y0<b.y1&&a.y1>b.y0;
  for(const [i,b] of BUILDINGS.entries()){
