@@ -20,7 +20,7 @@ const fs=require('node:fs/promises');
   await page.getByRole('button',{name:'Пауза',exact:true}).click();
   for(const id of [1,2,3]){
    await page.locator('[data-tab="calls"]').click();
-   await page.locator(`[data-action="call"][data-id="${id}"]`).first().click();
+   await page.locator(`#page [data-action="call"][data-id="${id}"]`).click();
    await page.getByRole('button',{name:'Уточнить обстоятельства'}).click();
    await page.locator('button[data-action="dispatch"]:not([disabled])').click();
    await page.getByRole('button',{name:'Закрыть',exact:true}).click();
@@ -44,7 +44,7 @@ const fs=require('node:fs/promises');
     await page.locator(`[data-tab="${tab}"]`).click();
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`${tab} overflows at ${width}`);
     assert.equal(await page.locator('nav button').count(),5);
-    if(width===412)await page.screenshot({path:`test-results/screenshots/${tab}-412.png`});
+    if(width===412){await page.screenshot({path:`test-results/screenshots/${tab}-412.png`,animations:'disabled'});if(process.env.CI&&['map','garage','services'].includes(tab)){const preview=await page.screenshot({type:'jpeg',quality:72,scale:'css',animations:'disabled'});console.log('UPRAVDOM_PREVIEW_'+tab.toUpperCase()+' '+preview.toString('base64'));}}
    }
   }
   await page.setViewportSize({width:412,height:915});
@@ -78,5 +78,5 @@ const fs=require('node:fs/promises');
   await page.getByRole('button',{name:'Восстановить',exact:true}).click();
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('upravdom.v1')).version),2);
   assert.deepEqual(errors,[]);console.log('UI smoke passed: 5 sections, 4 widths, dispatch, movement, repair, report, next day, backup, export/import.');
- }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
+ }catch(error){if(browser){const pages=browser.contexts().flatMap(context=>context.pages());if(pages[0]){await fs.mkdir('test-results/screenshots',{recursive:true});await pages[0].screenshot({path:'test-results/screenshots/failure.png',animations:'disabled'}).catch(()=>{});}}throw error;}finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});

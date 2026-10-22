@@ -30,7 +30,7 @@ export function renderMap(canvas,state,view,{labels=true,motion=true,progress=0,
   ctx.shadowBlur=0;ctx.strokeStyle=color;ctx.lineWidth=4;ctx.stroke();ctx.strokeStyle='#fff9';ctx.lineWidth=1.6;ctx.setLineDash([5,6]);ctx.lineDashOffset=motion?-now/100:0;ctx.stroke();ctx.setLineDash([]);
  }
  function label(text,world){
-  const p=view.project(world);ctx.font='600 11px system-ui,sans-serif';const width=ctx.measureText(text).width+16,height=24;
+  const p=view.project(world);ctx.font='600 11px system-ui,sans-serif';const width=ctx.measureText(text).width+16,height=24;if(p[0]<0||p[0]>rect.width||p[1]<0||p[1]>rect.height)return;p[0]=Math.max(width/2+5,Math.min(rect.width-width/2-5,p[0]));
   ctx.fillStyle='#081c25e8';ctx.strokeStyle='#d5e5e42b';ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(p[0]-width/2,p[1]-height/2,width,height,5);ctx.fill();ctx.stroke();ctx.fillStyle='#eaf2ec';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,p[0],p[1]);
  }
  if(labels)for(const [name,x,y,id] of LABELS){label(name,[x,y]);if(id!==undefined)view.hits.push({point:view.project([x,y]),home:id,radius:42});}
@@ -41,8 +41,8 @@ export function renderMap(canvas,state,view,{labels=true,motion=true,progress=0,
   drawVan(ctx,point,loc.angle,COLORS[cr.service],cr.id===2);
   if(cr.status!=='idle'){
    const eta=moving?`${cr.remaining} мин`:{diagnosis:'Диагностика',repair:'Ремонт'}[cr.status],text=`${titles[cr.service]} · ${eta}`;
-   ctx.font='600 10px system-ui,sans-serif';const width=ctx.measureText(text).width+22;
-   ctx.fillStyle='#061c27f2';ctx.strokeStyle=COLORS[cr.service]+'88';ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(point[0]+14,point[1]-22,width,25,7);ctx.fill();ctx.stroke();ctx.fillStyle=COLORS[cr.service];ctx.beginPath();ctx.arc(point[0]+21,point[1]-10,2,0,7);ctx.fill();ctx.fillStyle='#eaf4ef';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(text,point[0]+28,point[1]-9);
+   ctx.font='600 10px system-ui,sans-serif';const width=ctx.measureText(text).width+22,lx=Math.max(5,Math.min(rect.width-width-5,point[0]+14));
+   ctx.fillStyle='#061c27f2';ctx.strokeStyle=COLORS[cr.service]+'88';ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(lx,point[1]-22,width,25,7);ctx.fill();ctx.stroke();ctx.fillStyle=COLORS[cr.service];ctx.beginPath();ctx.arc(lx+7,point[1]-10,2,0,7);ctx.fill();ctx.fillStyle='#eaf4ef';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(text,lx+14,point[1]-9);
   }
  }
  for(let home=0;home<3;home++){
