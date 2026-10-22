@@ -13,6 +13,7 @@ const fs=require('node:fs');
   // Binary assets must really be served, not just described in an asset manifest.
   const sprites=['house_01.png','house_02.png','house_03.png','house_04.png',
     'van_water.png','van_electric.png','van_repair.png',
+    ...['water','electric','repair'].flatMap(service=>['north','west','south'].map(dir=>'van_'+service+'_'+dir+'.png')),
     'tree_green.png','tree_autumn.png','tree_pine.png'];
   for(const name of sprites){
    const response=await page.request.get('http://localhost:4173/assets/rendered/'+name);
@@ -37,6 +38,7 @@ const fs=require('node:fs');
   await page.locator('#toast').waitFor({state:'hidden'});
   await page.waitForTimeout(1100); // Let asynchronously loaded 3D sprite images settle.
   await page.screenshot({path:'artifacts/upravdom-map-412.png'});
+  assert.ok(await page.evaluate(()=>document.querySelector('#map').width>0),'Map redraws after new directional sprite loading');
   await page.reload({waitUntil:'networkidle'});
   assert.equal(await money(),'2993800','Budget survives reload');
   for(const width of [360,412,1200]){
