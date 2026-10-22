@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import * as E from '../web/engine.js';
-import {route,vehiclePosition} from '../web/map.js';
+import {route,vehiclePosition,vehiclePose} from '../web/map.js';
 import {BUILDINGS,STOPS,PARKING_BAYS,ENTRANCES,ROADS,COURTYARDS,TREES,crewRoute,footprint,onRoad,buildingIntersectsRoad} from '../web/district.js';
 
 test('Road network uses orthogonal service routes',()=>{
@@ -118,4 +118,25 @@ test('Managed front doors connect to the exact vehicle dropoffs',()=>{
   assert.ok(entry.door[0]>=f.x0&&entry.door[0]<=f.x1);
   assert.ok(entry.door[1]>=f.y0&&entry.door[1]<=f.y1);
  }
+});
+
+test('Van model heading is taken from road segments, not a flat image rotation',()=>{
+ const s=E.fresh();E.start(s);E.dispatch(s,2,1);
+ const crew=s.crews[1],path=crewRoute(crew,1);
+ const lengths=path.slice(1).map((p,i)=>Math.hypot(p[0]-path[i][0],p[1]-path[i][1]));
+ const full=lengths.reduce((n,x)=>n+x,0);
+ const heads=[];
+ let travelled=0;
+ for(let i=0;i<lengths.length;i++){
+  const mid=travelled+lengths[i]/2;
+  const temp={...crew,total:100,remaining:100*(1-mid/full)};
+  const pose=vehiclePose(temp,s);
+  assert.ok(onRoad(pose.point),'Direction sprite is grounded on a road');
+  const diffX=path[i+1][0]-path[i][0],diffY=path[i+1][1]-path[i][1];
+  const expected=diffX>0?'east':diffX<0?'west':diffY>0?'south':'north';
+  assert.equal(pose.heading,expected,'Correct sprite at turn '+i);
+  heads.push(pose.heading);
+  travelled+=lengths[i];
+ }
+ assert.ok(new Set(heads).size>=3,'A trip involves visible vehicle turns');
 });
