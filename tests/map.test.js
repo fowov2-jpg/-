@@ -1,29 +1,43 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {cameraFor} from '../web/map.js';
-import {boundsForHomes} from '../web/district-generator.js';
+import {cameraFor,transformCamera} from '../web/map.js';
+import {WORLD} from '../web/roads.js';
 
-test('Map covers viewport in all four directions at all zoom and preview sizes',()=>{
+test('Single illustrated district never exposes empty edges after swipe and zoom',()=>{
  for(const width of [320,360,412,560])for(const height of [350,600,800,1100])
- for(const zoom of [.1,.65,1,1.8,2.7])for(const shift of [-100000,0,100000])
- for(const district of [0,1,2])for(const plannedHomes of [4,12,24,48,999]){
-  const view={zoom,x:shift,y:-shift,district,focus:[235,310+district*1500],plannedHomes};
-  const c=cameraFor(width,height,view),bounds=boundsForHomes(plannedHomes);
+ for(const zoom of [.1,.65,1,1.8,2.7,4,50])for(const shift of [-100000,0,100000])
+ for(const district of [0,1,2]){
+  const view={zoom,x:shift,y:-shift,district,focus:[235,310+district*1500]},c=cameraFor(width,height,view);
   assert.ok(c.left<=0&&c.top<=0&&c.right>=width-.001&&c.bottom>=height-.001);
-  assert.ok(view.zoom>=1);assert.ok(Number.isFinite(c.scale));
-  assert.ok(Math.abs(c.right-c.left-bounds.width*c.scale)<.001);
-  assert.ok(Math.abs(c.bottom-c.top-bounds.height*c.scale)<.001);
-  assert.equal(c.minTileX,bounds.minTileX);assert.equal(c.maxTileY,bounds.maxTileY);
+  assert.ok(view.zoom>=1&&view.zoom<=4);
+  assert.ok(Math.abs(c.right-c.left-WORLD.width*c.scale)<.001);
+  assert.ok(Math.abs(c.bottom-c.top-WORLD.height*c.scale)<.001);
  }
 });
-test('North and south extremes both clamp to the actual district edges',()=>{
- for(const preview of [24,48,999]){
-  const bounds=boundsForHomes(preview);
-  const north=cameraFor(412,640,{zoom:1,x:0,y:1000000,district:0,plannedHomes:preview});
-  const south=cameraFor(412,640,{zoom:1,x:0,y:-1000000,district:0,plannedHomes:preview});
-  assert.ok(Math.abs(north.top)<.001);
-  assert.ok(Math.abs(south.bottom-640)<.001);
-  assert.ok(north.y>south.y);
-  assert.ok(bounds.minY<0&&bounds.maxY>1500);
- }
+
+test('Pinch anchors the world coordinate beneath fingers',()=>{
+ const width=412,height=720,view={zoom:1.5,x:0,y:0,district:0,focus:null};
+ const before=cameraFor(width,height,view),anchor=[206,360],world=[(anchor[0]-before.x)/before.scale,(anchor[1]-before.y)/before.scale];
+ const after=transformCamera(width,height,view,...anchor,...anchor,1.7);
+ assert.ok(after.scale>before.scale);
+ assert.ok(Math.abs(world[0]*after.scale+after.x-anchor[0])<.001);
+ assert.ok(Math.abs(world[1]*after.scale+after.y-anchor[1])<.001);
+});
+
+test('Two finger motion translates camera and pinches simultaneously',()=>{
+ const view={zoom:1.5,x:0,y:0,district:0,focus:null};
+ const before=cameraFor(412,720,view);
+ const prev=[206,360],next=[225,390],originalWorld=[(prev[0]-before.x)/before.scale,(prev[1]-before.y)/before.scale];
+ const after=transformCamera(412,720,view,...prev,...next,1.2);
+ assert.ok(Math.abs(originalWorld[0]*after.scale+after.x-next[0])<.001);
+ assert.ok(Math.abs(originalWorld[1]*after.scale+after.y-next[1])<.001);
+});
+
+test('Gesture zoom is bounded, and invalid ratios are rejected',()=>{
+ const view={zoom:1,x:0,y:0,district:0,focus:null};
+ transformCamera(412,720,view,206,360,206,360,100);
+ assert.equal(view.zoom,4);
+ transformCamera(412,720,view,206,360,206,360,.0001);
+ assert.equal(view.zoom,1);
+ assert.throws(()=>transformCamera(412,720,view,206,360,206,360,0));
 });
