@@ -30,7 +30,7 @@ jobs:
           python3 - <<'PY'
           import os, struct
           folder='web/assets/rendered'
-          names=[f'house_{i:02d}.png' for i in range(1,5)]+['van_water.png','van_electric.png','van_repair.png']
+          names=([f'house_{i:02d}.png' for i in range(1,5)] + [f'van_{kind}{suffix}.png' for kind in ('water','electric','repair') for suffix in ('','_north','_west','_south')] + [f'tree_{kind}.png' for kind in ('green','autumn','pine')])
           for name in names:
               path=os.path.join(folder,name)
               with open(path,'rb') as f: header=f.read(24)
