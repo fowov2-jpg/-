@@ -1,6 +1,6 @@
 import {COLORS,TYPES} from './engine.js';
 import {drawGameSprite} from './assets.js';
-import {BUILDINGS,ROADS,COURTYARDS,TREES,STREET_PROPS,STOPS,route as districtRoute} from './district.js';
+import {BUILDINGS,ROADS,COURTYARDS,TREES,STREET_PROPS,STOPS,PARKING_BAYS,ENTRANCES,route as districtRoute,crewRoute} from './district.js';
 import {drawApartment,drawTree,drawVan,drawStreetFurniture,drawPlayground,drawSportCourt} from './scenery.js';
 
 // Shared geometry determines roads, landmarks and interactive stops.
@@ -13,11 +13,11 @@ const noise=n=>((Math.sin(n*127.1+78.233)*43758.5453)%1+1)%1;
 
 export const route=districtRoute;
 export function vehiclePosition(crew,state){
- const start=stops[crew.home]||[8,8];
+ const start=crew.home===3?(PARKING_BAYS[crew.id]||PARKING_BAYS[0]):(stops[crew.home]||stops[3]);
  if(crew.status!=='travel')return start;
  const call=state.calls.find(c=>c.id===crew.job);
  if(!call)return start;
- const points=route(crew.home,call.home);
+ const points=crewRoute(crew,call.home);
  const lengths=points.slice(1).map((p,i)=>Math.hypot(p[0]-points[i][0],p[1]-points[i][1]));
  const total=lengths.reduce((a,b)=>a+b,0);
  let remain=total*(1-Math.max(0,Math.min(1,crew.remaining/Math.max(1,crew.total))));
@@ -163,14 +163,11 @@ export function renderMap(canvas,state,view){
   const bx=4.10+slot*1.03;
   line([iso(bx,7.22),iso(bx,7.83)],'#efeddfa8',2.2);
  }
- // Entrances have their own sidewalk connection to an actual street.
- for(const b of BUILDINGS){
-  let start,end;
-  if(b.y<4){start=[b.x,b.y-1.25];end=[b.x,.70];}
-  else if(b.y<8){start=[b.x,b.y+1.25];end=[b.x,7.30];}
-  else{start=[b.x,b.y+1.25];end=[b.x,16.30];}
-  line([iso(...start),iso(...end)],'#b1b7ac',12);
-  line([iso(...start),iso(...end)],'#e5ded0',5);
+ // Each managed entrance has a pedestrian connector ending at the curb
+ // used by its service vehicle; walking paths may not jump to another street.
+ for(const access of ENTRANCES){
+  line([iso(...access.door),iso(...access.curb)],'#a1afa4',14);
+  line([iso(...access.door),iso(...access.curb)],'#e8dfc9',7);
  }
  // Actual road crossings, not zebra markings through courtyards.
  for(const [x,y,axis] of [[0,8,'x'],[8,8,'y'],[0,0,'x'],[8,0,'y']]){
@@ -185,7 +182,7 @@ export function renderMap(canvas,state,view){
   if(cr.status!=='travel')continue;
   const job=state.calls.find(call=>call.id===cr.job);
   if(!job)continue;
-  const points=route(cr.home,job.home).map(p=>iso(p[0],p[1],3));
+  const points=crewRoute(cr,job.home).map(p=>iso(p[0],p[1],3));
   ctx.save();ctx.shadowColor=COLORS[cr.service];ctx.shadowBlur=14;
   line(points,COLORS[cr.service]+'9a',8);ctx.restore();
   line(points,'#112534c8',4);
@@ -205,9 +202,7 @@ export function renderMap(canvas,state,view){
  ];
  for(const cr of state.crews){
   const pos=vehiclePosition(cr,state);
-  const idle=cr.status==='idle',alongY=Math.abs(pos[0])<.01;
-  const vx=pos[0]+(idle&&!alongY?cr.id*1.55:0);
-  const vy=pos[1]+(idle&&alongY?cr.id*1.55:0)-(idle&&!alongY?.35:0);
+  const [vx,vy]=pos;
   scene.push({depth:vx+vy+.05,draw:()=>
    car(vx,vy,0,COLORS[cr.service],true,cr.service)});
   if(cr.status==='travel'){
