@@ -182,7 +182,8 @@ public class ScreenInsetsTest {
             }
             assertEquals("Picker cancellation changed progress",saved,evaluate("JSON.parse(localStorage.getItem('upravdom.v1')).minute"));
         }
-        tap("dialog [data-action=close]");
+        // Predictive Back may have already closed the underlying settings sheet.
+        if("true".equals(evaluate("!!document.querySelector('dialog[open] [data-action=close]')"))) tap("dialog [data-action=close]");
         // Exercise the same URI result that DocumentsUI returns, including native file reading.
         String raw = new org.json.JSONTokener(evaluate("localStorage.getItem('upravdom.v1')")).nextValue().toString();
         Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
