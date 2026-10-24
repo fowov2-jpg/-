@@ -18,7 +18,7 @@ function thumbnail(city){
 }
 export function focusDistrict(view,d,width=412,height=650,overview=false){const o=districtOrigin(d);view.x=o[0]+(overview?DW/2:708);view.y=o[1]+(overview?DH/2:434);view.scale=overview?Math.min(width/DW,height/DH)*.9:Math.min(width/TW,height/TH)*1.2;}
 export function screenPoint(view,width,height,p){return [(p[0]-view.x)*view.scale+width/2,(p[1]-view.y)*view.scale+height/2];}
-export function render(canvas,s,view,{selected=null,labels=true,motion=true,progress=0,traffic=true,equipment=true}={}){
+export function render(canvas,s,view,{selected=null,selectedCrew=null,labels=true,motion=true,progress=0,traffic=true,equipment=true}={}){
  const {width:w,height:h}=canvas.getBoundingClientRect();if(!w||!h)return;const dpr=Math.min(devicePixelRatio||1,2);
  if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);}
  const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#071b22';ctx.fillRect(0,0,w,h);view.hits=[];
@@ -60,11 +60,15 @@ export function render(canvas,s,view,{selected=null,labels=true,motion=true,prog
    if(!visible(p[0]-20,p[1]-20,40,40))continue;ctx.fillStyle=c.late?'#f77262':c.status==='new'?'#f4b84b':'#45dca0';ctx.strokeStyle='#fcf7df';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(...p,c.mission===selected?15:11,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle='#062128';ctx.font='bold 14px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(c.status==='new'?'!':c.status==='travel'?'→':c.status==='diagnosis'?'?':'•',...p);view.hits.unshift({kind:'call',id:c.mission,x:p[0]-22,y:p[1]-22,w:44,h:44});
   }
   const cards=[];
-  for(const cr of s.crews){const c=s.calls.find(c=>c.crew===cr.id),v=s.vehicles.find(v=>v.id===cr.vehicle),sprite=FLEET_ART[v.model],model=VEHICLE_MODELS.find(m=>m.id===v.model),pose=c?.status==='travel'?drivingPose(c.path,(c.total-c.remaining+(motion?progress:0))/c.total):{point:cr.point,angle:cr.angle??-Math.PI/2},p=project([pose.point[0]-Math.sin(pose.angle)*8,pose.point[1]+Math.cos(pose.angle)*8]);
+  for(const cr of s.crews){const c=s.calls.find(c=>c.crew===cr.id),v=s.vehicles.find(v=>v.id===cr.vehicle),sprite=FLEET_ART[v.model],model=VEHICLE_MODELS.find(m=>m.id===v.model),pose=cr.status==='returning'&&cr.returnTrip?drivingPose(cr.returnTrip.path,(cr.returnTrip.total-cr.returnTrip.remaining+(motion?progress:0))/cr.returnTrip.total):c?.status==='travel'?drivingPose(c.path,(c.total-c.remaining+(motion?progress:0))/c.total):{point:cr.point,angle:cr.angle??-Math.PI/2},p=project([pose.point[0]-Math.sin(pose.angle)*8,pose.point[1]+Math.cos(pose.angle)*8]);
+   if(cr.status==='returning'&&cr.id===selectedCrew&&cr.returnTrip){
+    ctx.beginPath();cr.returnTrip.path.forEach((pt,i)=>{const q=project(pt);i?ctx.lineTo(...q):ctx.moveTo(...q);});
+    ctx.strokeStyle='#6ebbf0bc';ctx.lineWidth=2.5;ctx.setLineDash([7,5]);ctx.stroke();ctx.setLineDash([]);
+   }
    fleetPoses.push({id:cr.id,point:pose.point,angle:pose.angle});if(!visible(p[0]-90,p[1]-90,180,180))continue;
    const frame=equipmentState(model,c,progress,motion&&equipment);rigs.push({id:cr.id,kind:model.kind??'service',...frame});
    ctx.save();ctx.translate(...p);ctx.rotate(pose.angle+Math.PI/2);
-   const l=Math.max(24,Math.min(52,(sprite?.length??54)*view.scale)),ww=l*(sprite?sprite.rect[2]/sprite.rect[3]:.47),working=frame.phase!=='stowed'&&frame.phase!=='inspection';
+   const l=Math.max(18,Math.min(36,(sprite?.length??54)*view.scale)),ww=l*(sprite?sprite.rect[2]/sprite.rect[3]:.47),working=frame.phase!=='stowed'&&frame.phase!=='inspection';
    if(working)drawRig(ctx,model,frame,l,ww,motion?clock:0,['#58bfee','#f4cd62','#61d9a0'][cr.service],c?Math.atan2(city.homes[c.mission].y-pose.point[1],city.homes[c.mission].x-pose.point[0])-pose.angle-Math.PI/2:0);
    else if(sprite&&fleet.complete&&fleet.naturalWidth){const [x,y,sw,sh]=sprite.rect;ctx.drawImage(fleet,x,y,sw,sh,-ww/2,-l/2,ww,l);}else drawBasicVehicle(ctx,l,ww,model.id,['#58bfee','#f4cd62','#61d9a0'][cr.service]);
    drawVehicleLights(ctx,l,ww,motion?clock:0,{braking:pose.braking,turning:pose.turning,working:!!c&&c.status!=='travel'});if(c)drawWorksite(ctx,l,ww,c,cr.service,clock,progress,motion&&equipment,Math.atan2(city.homes[c.mission].y-pose.point[1],city.homes[c.mission].x-pose.point[0])-pose.angle-Math.PI/2);ctx.restore();
