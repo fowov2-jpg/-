@@ -150,9 +150,13 @@ export function decode(raw){
 export function load(storage){try{const raw=storage.getItem(SAVE),backup=storage.getItem(BACKUP);if(raw!==null){try{return {state:decode(raw),blocked:false};}catch{}}if(backup!==null){try{return {state:decode(backup),blocked:false,recovered:true};}catch{}}return {state:null,blocked:raw!==null||backup!==null};}catch{return {state:null,blocked:true};}}
 export function save(storage,s){
  const raw=encode(s);decode(raw);
- const previous=storage.getItem(SAVE);
+ let previous=storage.getItem(SAVE);
  let backup=raw,previousVersion=null;
  if(previous!==null){try{decode(previous);backup=previous;previousVersion=JSON.parse(previous).version;}catch{/* Keep the recovered state as backup. */}}
+ if(previousVersion===null){
+  const recovered=storage.getItem(BACKUP);
+  if(recovered!==null){try{decode(recovered);previous=recovered;backup=recovered;previousVersion=JSON.parse(recovered).version;}catch{/* Both records are unreadable; the explicit import supplies the next valid copy. */}}
+ }
  if(previousVersion!==null&&previousVersion<6&&storage.getItem(MIGRATION_ARCHIVE)===null)storage.setItem(MIGRATION_ARCHIVE,previous);
  if(s.version===7&&previousVersion!==null&&previousVersion<7&&storage.getItem(OPERATION_ARCHIVE)===null)storage.setItem(OPERATION_ARCHIVE,previous);
  storage.setItem(BACKUP,backup);

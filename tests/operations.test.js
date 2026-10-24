@@ -169,4 +169,8 @@ test('switching from v6 archives the exact company; archive write failure preser
  data.clear();E.save(storage,previous);
  const full={getItem:storage.getItem,setItem(k,v){if(k===E.OPERATION_ARCHIVE)throw Error('Disk full');storage.setItem(k,v);}};
  assert.throws(()=>E.save(full,next),/Disk full/);assert.equal(data.get(E.SAVE),raw);
+ data.clear();data.set(E.SAVE,'broken primary');data.set(E.BACKUP,raw);
+ assert.equal(E.load(storage).recovered,true);E.save(storage,next);
+ assert.equal(data.get(E.OPERATION_ARCHIVE),raw,'the only valid recovered v6 company is archived before the backup is replaced');
+ assert.equal(data.get(E.BACKUP),raw);assert.equal(E.load(storage).state.version,7);
 });
