@@ -4,25 +4,29 @@ import {VEHICLE_MODELS} from './content.js';
 import {drawRoads} from './campaign-roads-art.js';
 import {drivingPose,equipmentState,drawRig,drawVehicleLights,drawWorksite,drawBasicVehicle} from './vehicle-motion.js';
 import {TrafficController,drawTrafficCar} from './city-traffic.js';
+import {placeEdgeIndicators} from './map-annotations.js';
 import {drawTerrain,terrainKey} from './campaign-terrain.js';
+import {SCENARIOS} from './operations-content.js';
+import {assignmentFor,currentHouses} from './shift-operations.js';
 // Original ЖКХ iconography drawn as vector shapes; no third-party symbols or font dependency.
 function drawIncident(ctx,x,y,service,active,late,status,clock){
- const color=late?'#ff8b7b':status==='new'?['#6cddfa','#ffd280','#9ef1bb'][service]:'#67e9b5';
- ctx.save();ctx.translate(x,y);const size=active?18:15;
- if(active){ctx.beginPath();ctx.arc(0,-2,size+7+Math.sin(clock/8)*2,0,Math.PI*2);ctx.strokeStyle=color+'73';ctx.lineWidth=2;ctx.stroke();}
- ctx.fillStyle='#062331';ctx.strokeStyle=color;ctx.lineWidth=2.3;ctx.shadowColor='#001925';ctx.shadowBlur=9;
- ctx.beginPath();ctx.moveTo(-size*.75,-size*.85);ctx.quadraticCurveTo(0,-size*1.15,size*.75,-size*.85);ctx.lineTo(size*.75,size*.3);ctx.quadraticCurveTo(size*.65,size*.77,0,size*1.05);ctx.quadraticCurveTo(-size*.65,size*.77,-size*.75,size*.3);ctx.closePath();ctx.fill();ctx.stroke();ctx.shadowBlur=0;
+ const color=late?'#e8a79c':['#9ac9e1','#e9c58d','#a1c9b4'][service];
+ ctx.save();ctx.translate(x,y);const size=active?17:15;
+ if(active){ctx.beginPath();ctx.roundRect(-size-4,-size-4,2*size+8,2*size+8,10);ctx.strokeStyle='#edf1f3b0';ctx.lineWidth=1;ctx.stroke();}
+ ctx.fillStyle='#1b2733';ctx.strokeStyle=color;ctx.lineWidth=1.7;ctx.shadowColor='#0006';ctx.shadowBlur=5;
+ ctx.beginPath();ctx.roundRect(-size,-size,size*2,size*2,7);ctx.fill();ctx.stroke();ctx.shadowBlur=0;
  ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=2.1;ctx.lineJoin='round';ctx.lineCap='round';
- if(status!=='new'){ctx.beginPath();ctx.moveTo(-5,-1);ctx.lineTo(-1,4);ctx.lineTo(6,-6);ctx.stroke();}
- else if(service===0){ctx.beginPath();ctx.moveTo(0,-10);ctx.bezierCurveTo(-3,-5,-7,-2,-7,2);ctx.arc(0,2,7,Math.PI,0,true);ctx.bezierCurveTo(7,-2,3,-5,0,-10);ctx.stroke();}
+ if(service===0){ctx.beginPath();ctx.moveTo(0,-10);ctx.bezierCurveTo(-3,-5,-7,-2,-7,2);ctx.arc(0,2,7,Math.PI,0,true);ctx.bezierCurveTo(7,-2,3,-5,0,-10);ctx.stroke();}
  else if(service===1){ctx.beginPath();ctx.moveTo(1,-10);ctx.lineTo(-6,1);ctx.lineTo(0,1);ctx.lineTo(-2,10);ctx.lineTo(7,-3);ctx.lineTo(1,-3);ctx.closePath();ctx.stroke();}
  else {ctx.translate(0,-1);ctx.rotate(-.58);ctx.beginPath();ctx.arc(-1,-5,4,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.moveTo(-1,-1);ctx.lineTo(-1,10);ctx.moveTo(-5,8);ctx.lineTo(3,8);ctx.stroke();}
+ if(status!=='new'){ctx.fillStyle='#a1c9b4';ctx.strokeStyle='#1b2733';ctx.lineWidth=2;ctx.beginPath();ctx.arc(size-1,-size+1,4,0,Math.PI*2);ctx.fill();ctx.stroke();}
  ctx.restore();
 }
 const serviceCache=new Map();
-function EFFECTIVE_SERVICE(c,s){if(Number.isInteger(c.spec?.service))return c.spec.service;const key=s.seed+':'+s.region;if(!serviceCache.has(key))serviceCache.set(key,missions(s.seed,s.region).map(m=>m.service));return serviceCache.get(key)[c.mission]??0;}
+function EFFECTIVE_SERVICE(c,s){if(s.operations)return SCENARIOS[c.kind].service;if(Number.isInteger(c.spec?.service))return c.spec.service;const key=s.seed+':'+s.region;if(!serviceCache.has(key))serviceCache.set(key,missions(s.seed,s.region).map(m=>m.service));return serviceCache.get(key)[c.mission]??0;}
 const trafficController=new TrafficController();
 const thumbnails=new Map();
+const sceneCache=new WeakMap();
 const images=[],fleet=new Image();fleet.src=new URL(FLEET_IMAGE,import.meta.url).href;
 export function loadArt(redraw){for(let i=0;i<ART.length;i++){const im=new Image();images[i]=im;im.onload=()=>{thumbnails.clear();redraw();};im.onerror=redraw;im.src=new URL('./assets/districts/'+ART[i],import.meta.url).href;}fleet.onload=redraw;}
 function thumbnail(city){
@@ -33,15 +37,44 @@ function thumbnail(city){
  drawRoads(ctx,p=>[p[0]*scale,p[1]*scale],[0,0],scale,canvas.width,canvas.height,city.seed);if(thumbnails.size>=40)thumbnails.delete(thumbnails.keys().next().value);thumbnails.set(key,canvas);return canvas;
 }
 export function focusDistrict(view,d,width=412,height=650,overview=false){const o=districtOrigin(d);view.x=o[0]+(overview?DW/2:708);view.y=o[1]+(overview?DH/2:434);view.scale=overview?Math.min(width/DW,height/DH)*.9:Math.min(width/TW,height/TH)*1.2;}
+export function focusServiceArea(view,s,width=412,height=800,overview=false){
+ if(!overview){const p=s.crews[0]?.point??depot(s.seed,s.region);view.x=p[0];view.y=p[1]+105;view.scale=.47;view.initialized=true;return;}
+ const homes=currentHouses(s).map(h=>district(s.seed,s.region).homes[h.id]),xs=homes.map(h=>h.x),ys=homes.map(h=>h.y);
+ const minX=Math.min(...xs)-150,maxX=Math.max(...xs)+150,minY=Math.min(...ys)-120,maxY=Math.max(...ys)+120;
+ view.scale=Math.max(.1,Math.min((width-60)/Math.max(1100,maxX-minX),(height-250)/Math.max(780,maxY-minY),.47));
+ view.x=(minX+maxX)/2;view.y=(minY+maxY)/2+15/view.scale;view.initialized=true;
+}
+// A joint worksite parks its services separately along the existing curb.
+// This changes presentation only; routes, ETA, fuel and saved work stay intact.
+function crewDisplayPoint(s,cr,assignment,pose,progress){
+ let offset=0,angle=cr.angle??pose.angle;
+ if(s.operations){
+  const clamp=v=>Math.max(0,Math.min(1,v));
+  const factor=assignment?(assignment.status==='travel'?clamp((3-assignment.remaining+progress)/3):1):cr.returnTrip?clamp(1-(cr.returnTrip.total-cr.returnTrip.remaining+progress)/3):0;
+  if(assignment)angle=drivingPose(assignment.path,1).angle;
+  offset=(cr.service-1)*62*factor;
+ }
+ return [pose.point[0]+Math.cos(angle)*offset-Math.sin(pose.angle)*8,pose.point[1]+Math.sin(angle)*offset+Math.cos(pose.angle)*8];
+}
 export function screenPoint(view,width,height,p){return [(p[0]-view.x)*view.scale+width/2,(p[1]-view.y)*view.scale+height/2];}
-export function render(canvas,s,view,{selected=null,selectedCrew=null,labels=true,motion=true,progress=0,traffic=true,equipment=true}={}){
+export function render(canvas,s,view,{selected=null,selectedCrew=null,labels=true,motion=true,progress=0,traffic=true,equipment=true,annotationBottom=null,annotationTop=144}={}){
  const {width:w,height:h}=canvas.getBoundingClientRect();if(!w||!h)return;const dpr=Math.min(devicePixelRatio||1,2);
  if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);}
- const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#071b22';ctx.fillRect(0,0,w,h);view.hits=[];
+ let ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#071b22';ctx.fillRect(0,0,w,h);view.hits=[];
  view.scale=Math.max(.004,Math.min(1.5,view.scale));view.x=Math.max(-TW,Math.min(DW*5+TW,view.x));view.y=Math.max(-TH,Math.min(DH*4+TH,view.y));
  if(view.scale>.05){const halfW=w/(2*view.scale),halfH=h/(2*view.scale);view.x=Math.max(halfW,Math.min(DW*5-halfW,view.x));view.y=Math.max(halfH,Math.min(DH*4-halfH,view.y));}
  const project=p=>screenPoint(view,w,h,p),visible=(x,y,width,height)=>x+width>=0&&y+height>=0&&x<=w&&y<=h;
  let tileCount=0;const trafficTiles=[],clock=(s.clock??0)+progress,rigs=[],fleetPoses=[];
+ // The city is static between camera changes; moving units and calls remain separate.
+ const sceneKey=[s.seed,s.region,s.done.length,view.x,view.y,view.scale,w,h,dpr,...images.map(im=>im.naturalWidth)].join(':');
+ const previous=sceneCache.get(canvas);
+ if(previous?.key===sceneKey){
+  ctx.drawImage(previous.image,0,0,w,h);tileCount=previous.tiles;
+  trafficTiles.push(...previous.trafficTiles);view.hits.push(...previous.hits);
+ }else{
+  const screenContext=ctx,scene=previous?.image??document.createElement('canvas');
+  if(scene.width!==canvas.width||scene.height!==canvas.height){scene.width=canvas.width;scene.height=canvas.height;}
+  ctx=scene.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#071b22';ctx.fillRect(0,0,w,h);
  for(let d=0;d<20;d++){
   const origin=districtOrigin(d),p=project(origin),rw=DW*view.scale,rh=DH*view.scale;if(!visible(...p,rw,rh))continue;
   {
@@ -58,7 +91,10 @@ export function render(canvas,s,view,{selected=null,selectedCrew=null,labels=tru
    if(d<s.region){ctx.fillStyle='#103a2b35';ctx.fillRect(...p,rw,rh);}
   }
   ctx.strokeStyle=d>s.region?'#55717b55':d===s.region?(view.scale<.07?'#48dba6':'#48dba630'):'#8cc99d55';ctx.lineWidth=1.5;ctx.strokeRect(...p,rw,rh);
-  if(view.scale<.07||d>s.region){const c=project([origin[0]+DW/2,origin[1]+DH/2]),font=Math.max(7,Math.min(13,rw/10));ctx.save();ctx.beginPath();ctx.rect(p[0]+1,p[1]+1,rw-2,rh-2);ctx.clip();ctx.textAlign='center';ctx.font=`600 ${font}px system-ui`;ctx.fillStyle=d>s.region?'#a4b7bc':'#ecf5eb';ctx.fillText((d>s.region?'🔒 ':d<s.region?'✓ ':'')+DISTRICT_NAMES[d],...c);ctx.font=`${Math.max(7,font-1)}px system-ui`;ctx.fillText(d>s.region?'Закрыт':d<s.region?'999 / 999':s.done.length+' / 999',c[0],c[1]+font+6);ctx.restore();view.hits.push({kind:'district',id:d,x:p[0],y:p[1],w:rw,h:rh});}
+  if(view.scale<.07||d>s.region){const c=project([origin[0]+DW/2,origin[1]+DH/2]),font=Math.max(7,Math.min(13,rw/10));ctx.save();ctx.beginPath();ctx.rect(p[0]+1,p[1]+1,rw-2,rh-2);ctx.clip();ctx.textAlign='center';ctx.font=`600 ${font}px system-ui`;ctx.fillStyle=d>s.region?'#a4b7bc':'#ecf5eb';ctx.fillText((d>s.region?'':d<s.region?'✓ ':'')+DISTRICT_NAMES[d],...c);ctx.font=`${Math.max(7,font-1)}px system-ui`;ctx.fillText(d>s.region?'Закрыт':s.operations?s.operations.houses.filter(h=>h.region===d).length+' домов под управлением':d<s.region?'999 / 999':s.done.length+' / 999',c[0],c[1]+font+6);ctx.restore();view.hits.push({kind:'district',id:d,x:p[0],y:p[1],w:rw,h:rh});}
+ }
+  sceneCache.set(canvas,{key:sceneKey,image:scene,tiles:tileCount,trafficTiles:[...trafficTiles],hits:[...view.hits]});
+  ctx=screenContext;ctx.drawImage(scene,0,0,w,h);
  }
  // The district art already contains real streets and parking spaces. Never paint
  // replacement parking rectangles, extra roads, or visual placeholders over it.
@@ -68,34 +104,31 @@ export function render(canvas,s,view,{selected=null,selectedCrew=null,labels=tru
  for(const car of ambient.slice(0,128))drawTrafficCar(ctx,car.screen,car.angle,view.scale,car.color,car.stopped);
  canvas.dataset.traffic=JSON.stringify(ambient.slice(0,16).map(c=>({id:c.id,point:c.point,angle:c.angle,stopped:c.stopped})));canvas.dataset.trafficCount=String(Math.min(ambient.length,128));
  if(view.scale>.07){
-  if(labels)for(let d=0;d<s.region;d++){
+  if(labels&&!s.operations)for(let d=0;d<s.region;d++){
    const origin=districtOrigin(d),pos=project(origin);if(!visible(...pos,DW*view.scale,DH*view.scale))continue;
    for(const home of district(s.seed,d).homes){const p=project([home.x,home.y]);if(!visible(p[0]-7,p[1]-7,14,14))continue;ctx.fillStyle='#38e9a2';ctx.beginPath();ctx.arc(...p,2,0,Math.PI*2);ctx.fill();view.hits.push({kind:'archiveHome',district:d,id:home.id,x:p[0]-9,y:p[1]-9,w:18,h:18});}
   }
-  const city=district(s.seed,s.region),done=new Set(s.done),issued=new Set(s.calls.map(c=>c.mission));
-  if(labels)for(const home of city.homes){const p=project([home.x,home.y]);if(!visible(p[0]-7,p[1]-7,14,14))continue;ctx.fillStyle=done.has(home.id)?'#38e9a2':issued.has(home.id)?'#ffcd64':'#f4f0de85';ctx.beginPath();ctx.arc(...p,done.has(home.id)?2:3,0,Math.PI*2);ctx.fill();view.hits.push({kind:'home',id:home.id,x:p[0]-9,y:p[1]-9,w:18,h:18});if(view.scale>.5){ctx.font='10px system-ui';ctx.fillStyle='#fff';ctx.textAlign='center';ctx.fillText(String(home.id+1),p[0],p[1]-9);}}
+  const city=district(s.seed,s.region),done=new Set(s.operations?s.operations.history.filter(r=>r.region===s.region&&r.success).map(r=>r.home):s.done),issued=new Set(s.calls.map(c=>c.home??c.mission));
+  const owned=s.operations?new Set(currentHouses(s).map(h=>h.id)):null;
+  if(labels&&view.scale>.34)for(const home of city.homes){if(owned&&!owned.has(home.id))continue;const p=project([home.x,home.y]);if(!visible(p[0]-7,p[1]-7,14,14))continue;ctx.fillStyle=done.has(home.id)?'#38e9a2':issued.has(home.id)?'#ffcd64':'#f4f0de85';ctx.beginPath();ctx.arc(...p,done.has(home.id)?2:3,0,Math.PI*2);ctx.fill();view.hits.push({kind:'home',id:home.id,x:p[0]-9,y:p[1]-9,w:18,h:18});if(view.scale>.5&&!s.operations){ctx.font='10px system-ui';ctx.fillStyle='#fff';ctx.textAlign='center';ctx.fillText(String(home.id+1),p[0],p[1]-9);}}
   // Operator navigation: when an incident lies outside the current viewport,
   // show a small edge pointer. A pointer uses the same real mission id as the map pin.
   const edgeCalls=[];
-  for(const c of s.calls){const home=city.homes[c.mission],p=project([home.x,home.y]);if(c.path&&c.crew!==null){ctx.beginPath();c.path.forEach((pt,i)=>{const q=project(pt);i?ctx.lineTo(...q):ctx.moveTo(...q);});ctx.strokeStyle=c.mission===selected?'#55f2ac':'#5da7ba85';ctx.lineWidth=c.mission===selected?4:2;ctx.stroke();}
+  for(const c of s.calls){const home=city.homes[c.home??c.mission],p=project([home.x,home.y]);
+   for(const assignment of s.operations?c.assignments:[c])if(assignment.path&&assignment.crew!==null){ctx.beginPath();assignment.path.forEach((pt,i)=>{const q=project(pt);i?ctx.lineTo(...q):ctx.moveTo(...q);});ctx.strokeStyle=c.mission===selected?'#55f2ac':'#5da7ba85';ctx.lineWidth=c.mission===selected?4:2;ctx.stroke();}
    if(!visible(p[0]-20,p[1]-20,40,40)){
-    if(c.status==='new')edgeCalls.push({call:c,point:p,service:EFFECTIVE_SERVICE(c,s)});
+    if(c.status==='new'||s.operations)edgeCalls.push({call:c,point:p,service:EFFECTIVE_SERVICE(c,s)});
     continue;
    }
    drawIncident(ctx,p[0],p[1],EFFECTIVE_SERVICE(c,s),c.mission===selected,c.late,c.status,clock);view.hits.unshift({kind:'call',id:c.mission,x:p[0]-22,y:p[1]-22,w:44,h:44});
   }
   // Keep navigation markers clear of the clock, incoming queue and bottom dock.
-  const occupied=[];
-  for(const item of edgeCalls.sort((a,b)=>(a.call.due??0)-(b.call.due??0)).slice(0,8)){
-   const [px,py]=item.point,dx=px-w/2,dy=py-h/2,angle=Math.atan2(dy,dx);
-   const horizontal=Math.max(1,Math.abs(dx)/(w/2-29)),vertical=Math.max(1,Math.abs(dy)/(h/2-140));
-   const extent=Math.max(horizontal,vertical);
-   let x=Math.max(27,Math.min(w-27,w/2+dx/extent)),y=Math.max(145,Math.min(h-110,h/2+dy/extent));
-   for(let n=0;n<9&&occupied.some(o=>Math.hypot(o[0]-x,o[1]-y)<39);n++) y=Math.max(145,Math.min(h-110,y+(n%2?-(n+1)*17:(n+1)*17)));
-   occupied.push([x,y]);
-   const color=item.call.late?'#ff8a80':['#69d9ff','#ffd37b','#71eec0'][item.service];
+  const indicators=placeEdgeIndicators(edgeCalls.sort((a,b)=>(a.call.due??0)-(b.call.due??0)),{width:w,height:h,top:s.operations?annotationTop:selectedCrew===null?136:190,bottom:annotationBottom??h-112});
+  for(const item of indicators){
+   const {x,y,angle}=item;
+   const color=item.call.late?'#e8a79c':['#9ac9e1','#e9c58d','#a1c9b4'][item.service];
    ctx.save();ctx.translate(x,y);ctx.shadowColor='#00141ac7';ctx.shadowBlur=9;
-   ctx.beginPath();ctx.arc(0,0,17,0,Math.PI*2);ctx.fillStyle='#062b39ef';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle=color;ctx.stroke();ctx.shadowBlur=0;
+   ctx.beginPath();ctx.arc(0,0,17,0,Math.PI*2);ctx.fillStyle='#1b2733f5';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle=color;ctx.stroke();ctx.shadowBlur=0;
    ctx.rotate(angle);ctx.beginPath();ctx.moveTo(6,-5);ctx.lineTo(12,0);ctx.lineTo(6,5);ctx.strokeStyle=color;ctx.lineCap='round';ctx.lineJoin='round';ctx.lineWidth=2.5;ctx.stroke();ctx.restore();
    // Same bespoke municipal service pictograms as the in-world incidents.
    ctx.save();ctx.translate(x-4,y);ctx.strokeStyle=color;ctx.lineWidth=1.7;ctx.lineJoin='round';ctx.lineCap='round';
@@ -108,28 +141,28 @@ export function render(canvas,s,view,{selected=null,selectedCrew=null,labels=tru
   }
   canvas.dataset.edgeCalls=String(edgeCalls.length);
   const cards=[];
-  for(const cr of s.crews){const c=s.calls.find(c=>c.crew===cr.id),v=s.vehicles.find(v=>v.id===cr.vehicle),sprite=FLEET_ART[v.model],model=VEHICLE_MODELS.find(m=>m.id===v.model),pose=cr.status==='returning'&&cr.returnTrip?drivingPose(cr.returnTrip.path,(cr.returnTrip.total-cr.returnTrip.remaining+(motion?progress:0))/cr.returnTrip.total):c?.status==='travel'?drivingPose(c.path,(c.total-c.remaining+(motion?progress:0))/c.total):{point:cr.point,angle:cr.angle??-Math.PI/2},p=project([pose.point[0]-Math.sin(pose.angle)*8,pose.point[1]+Math.cos(pose.angle)*8]);
+  for(const cr of s.crews){const pair=s.operations?assignmentFor(s,cr.id):null,c=s.operations?(pair?{...pair.assignment,mission:pair.call.mission,home:pair.call.home}:null):s.calls.find(c=>c.crew===cr.id),v=s.vehicles.find(v=>v.id===cr.vehicle),sprite=FLEET_ART[v.model],model=VEHICLE_MODELS.find(m=>m.id===v.model),pose=cr.status==='returning'&&cr.returnTrip?drivingPose(cr.returnTrip.path,(cr.returnTrip.total-cr.returnTrip.remaining+(motion?progress:0))/cr.returnTrip.total):c?.status==='travel'?drivingPose(c.path,(c.total-c.remaining+(motion?progress:0))/c.total):{point:cr.point,angle:cr.angle??-Math.PI/2},p=project(crewDisplayPoint(s,cr,c,pose,motion?progress:0));
    if(cr.status==='returning'&&cr.id===selectedCrew&&cr.returnTrip){
     ctx.beginPath();cr.returnTrip.path.forEach((pt,i)=>{const q=project(pt);i?ctx.lineTo(...q):ctx.moveTo(...q);});
     ctx.strokeStyle='#6ebbf0bc';ctx.lineWidth=2.5;ctx.setLineDash([7,5]);ctx.stroke();ctx.setLineDash([]);
    }
    fleetPoses.push({id:cr.id,point:pose.point,angle:pose.angle});if(!visible(p[0]-90,p[1]-90,180,180))continue;
-   const frame=equipmentState(model,c,progress,motion&&equipment);rigs.push({id:cr.id,kind:model.kind??'service',...frame});
+   const frame=equipmentState(model,c?.status==='waiting'?null:c,progress,motion&&equipment);rigs.push({id:cr.id,kind:model.kind??'service',...frame});
    ctx.save();ctx.translate(...p);ctx.rotate(pose.angle+Math.PI/2);
    const l=Math.max(18,Math.min(36,(sprite?.length??54)*view.scale)),ww=l*(sprite?sprite.rect[2]/sprite.rect[3]:.47),working=frame.phase!=='stowed'&&frame.phase!=='inspection';
-   if(working)drawRig(ctx,model,frame,l,ww,motion?clock:0,['#58bfee','#f4cd62','#61d9a0'][cr.service],c?Math.atan2(city.homes[c.mission].y-pose.point[1],city.homes[c.mission].x-pose.point[0])-pose.angle-Math.PI/2:0);
+   if(working)drawRig(ctx,model,frame,l,ww,motion?clock:0,['#58bfee','#f4cd62','#61d9a0'][cr.service],c?Math.atan2(city.homes[c.home??c.mission].y-pose.point[1],city.homes[c.home??c.mission].x-pose.point[0])-pose.angle-Math.PI/2:0);
    else if(sprite&&fleet.complete&&fleet.naturalWidth){const [x,y,sw,sh]=sprite.rect;ctx.drawImage(fleet,x,y,sw,sh,-ww/2,-l/2,ww,l);}else drawBasicVehicle(ctx,l,ww,model.id,['#58bfee','#f4cd62','#61d9a0'][cr.service]);
-   drawVehicleLights(ctx,l,ww,motion?clock:0,{braking:pose.braking,turning:pose.turning,working:!!c&&c.status!=='travel'});if(c)drawWorksite(ctx,l,ww,c,cr.service,clock,progress,motion&&equipment,Math.atan2(city.homes[c.mission].y-pose.point[1],city.homes[c.mission].x-pose.point[0])-pose.angle-Math.PI/2);ctx.restore();
+   drawVehicleLights(ctx,l,ww,motion?clock:0,{braking:pose.braking,turning:pose.turning,working:!!c&&(s.operations?c.status==='repair':c.status!=='travel')});if(c)drawWorksite(ctx,l,ww,c,cr.service,clock,progress,motion&&equipment,Math.atan2(city.homes[c.home??c.mission].y-pose.point[1],city.homes[c.home??c.mission].x-pose.point[0])-pose.angle-Math.PI/2);ctx.restore();
    // The actual sprite is the unit icon. Show a concise designation only;
    // full crew detail belongs in the tap sheet, not on the street.
    const isSelected=cr.id===selectedCrew||c?.mission===selected;
-   const color=cr.id===selectedCrew?'#9effca':cr.status==='idle'?'#48eab7':cr.status==='returning'?'#90c3ff':'#ffc976';
+   const color=cr.id===selectedCrew?'#e9c58d':cr.status==='idle'?'#a1c9b4':cr.status==='returning'?'#9ac9e1':'#e9c58d';
    const bw=30,bh=19;
    const positions=[[13,-20],[-42,-20],[13,5],[-42,5],[13,-44],[-42,-44]];
    const candidates=positions.map(([dx,dy])=>({x:Math.max(3,Math.min(w-bw-3,p[0]+dx)),y:Math.max(45,Math.min(h-bh-8,p[1]+dy)),w:bw,h:bh}));
    const badge=candidates.find(a=>!cards.some(b=>a.x<b.x+b.w+3&&a.x+a.w+3>b.x&&a.y<b.y+b.h+3&&a.y+a.h+3>b.y))??candidates[0];
    cards.push(badge);
-   ctx.save();ctx.fillStyle=isSelected?'#175d4df2':'#062c35e0';ctx.strokeStyle=color;ctx.lineWidth=isSelected?2:1.2;
+   ctx.save();ctx.fillStyle=isSelected?'#3c3d37f5':'#1b2733f0';ctx.strokeStyle=color;ctx.lineWidth=isSelected?2:1.2;
    ctx.beginPath();ctx.roundRect(badge.x,badge.y,bw,bh,7);ctx.fill();ctx.stroke();
    ctx.fillStyle='#f0fff7';ctx.font='800 10px system-ui';ctx.textAlign='center';ctx.fillText('Б'+(cr.id+1),badge.x+bw/2,badge.y+13);ctx.restore();
    // Both the physical vehicle and its small badge are accessible tap targets.
@@ -138,5 +171,5 @@ export function render(canvas,s,view,{selected=null,selectedCrew=null,labels=tru
 
   }
  }
- ctx.textBaseline='alphabetic';canvas.dataset.tiles=tileCount;canvas.dataset.lod=view.scale<.025?'district':'street';canvas.dataset.renderer=images.every(i=>i.complete&&i.naturalWidth)?'ready':'loading';canvas.dataset.equipment=JSON.stringify(rigs);canvas.dataset.fleet=JSON.stringify(fleetPoses);canvas.dataset.motionClock=String(clock);canvas.dataset.positions='999';canvas.dataset.region=String(s.region);canvas.dataset.camera=JSON.stringify({x:view.x,y:view.y,scale:view.scale});
+ ctx.textBaseline='alphabetic';canvas.dataset.tiles=tileCount;canvas.dataset.lod=view.scale<.025?'district':'street';canvas.dataset.renderer=images.length===ART.length&&images.every(i=>i.complete&&i.naturalWidth)?'ready':'loading';canvas.dataset.equipment=JSON.stringify(rigs);canvas.dataset.fleet=JSON.stringify(fleetPoses);canvas.dataset.motionClock=String(clock);canvas.dataset.positions='999';canvas.dataset.region=String(s.region);canvas.dataset.camera=JSON.stringify({x:view.x,y:view.y,scale:view.scale});canvas.dataset.markers=JSON.stringify(view.hits.filter(h=>h.kind==='call'||h.kind==='crew'));canvas.dataset.operations=s.operations?'original-art':'classic';
 }

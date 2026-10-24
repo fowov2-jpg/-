@@ -1,17 +1,19 @@
 {
   "name": "upravdom",
-  "version": "0.6.0-alpha",
+  "version": "0.8.2-gameplay.2",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.js",
     "start": "node tools/serve.js",
-    "test:ui": "node tools/geography-verify.cjs && node tools/campaign-verify.cjs && node tools/motion-verify.cjs && node tools/playability.cjs && node tools/ui-smoke.cjs",
+    "test:ui": "node tools/geography-verify.cjs && node tools/campaign-verify.cjs && node tools/motion-verify.cjs && node tools/playability.cjs && node tools/ui-smoke.cjs && node tools/operator-verify.cjs && node tools/fleet-verify.cjs && node tools/design-verify.cjs && node tools/release-verify.cjs && node tools/operations-verify.cjs",
     "test:fleet": "node tools/fleet-verify.cjs",
     "test:campaign": "node tools/campaign-verify.cjs",
     "test:motion": "node tools/motion-verify.cjs",
-    "test:balance": "node tools/balance-report.js",
-    "test:geography": "node tools/geography-verify.cjs"
+    "test:balance": "node tools/balance-report.js && node tools/operations-balance.js",
+    "test:performance": "node tools/performance-verify.cjs",
+    "test:geography": "node tools/geography-verify.cjs",
+    "test:dispatch": "node tools/operations-verify.cjs"
   },
   "engines": {
     "node": ">=20"

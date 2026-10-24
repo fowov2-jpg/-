@@ -3,6 +3,9 @@ package ru.uyut.upravdom;
 import static org.junit.Assert.*;
 import android.graphics.Bitmap;
 import android.os.SystemClock;
+import android.os.Handler;
+import android.os.Looper;
+import android.app.Activity;
 import android.view.View;
 import android.view.MotionEvent;
 import android.accessibilityservice.AccessibilityService;
@@ -13,6 +16,8 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry;
+import androidx.test.runner.lifecycle.Stage;
 import android.content.ContentValues;
 import android.content.Context;
 import android.net.Uri;
@@ -24,22 +29,64 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.json.JSONObject;
 import org.junit.Rule;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 public class ScreenInsetsTest {
     @Rule public ActivityScenarioRule<MainActivity> activity = new ActivityScenarioRule<>(MainActivity.class);
+    private final Handler uiThread = new Handler(Looper.getMainLooper());
 
+    private String shellText(String command) throws Exception {
+        android.os.ParcelFileDescriptor descriptor=InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(command);
+        try(java.io.InputStream input=new android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor);
+            java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream()) {
+            byte[] buffer=new byte[8192];int count;
+            while((count=input.read(buffer))!=-1)bytes.write(buffer,0,count);
+            return bytes.toString("UTF-8");
+        }
+    }
+    // API 36's emulator Launcher3 can ANR while tests switch navigation modes.
+    // Close ONLY that system fixture. An ANR belonging to the game must still fail.
+    private void dismissLauncherAnr() throws Exception {
+        if(shellText("dumpsys window windows").contains("Application Not Responding: com.android.launcher3")) {
+            shellText("am force-stop com.android.launcher3");SystemClock.sleep(1000);
+        }
+    }
+    @Before public void prepareFocusedDevice() throws Exception {
+        dismissLauncherAnr();
+    }
+    // Navigation-mode changes can recreate the Activity and its WebView.
+    // Resolve the current view on the UI thread instead of caching a destroyed one.
+    private WebView currentGameWebView() {
+        for(Stage stage:new Stage[]{Stage.RESUMED,Stage.STARTED}) {
+            for(Activity a:ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(stage)) {
+                if(a instanceof MainActivity)return a.findViewById(android.R.id.content).findViewWithTag("game-webview");
+            }
+        }
+        return null;
+    }
     private String evaluate(String script) throws Exception {
         AtomicReference<String> result = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
-        activity.getScenario().onActivity(a -> {
-            WebView web = a.findViewById(android.R.id.content).findViewWithTag("game-webview");
+        // ActivityScenario.onActivity waits for UI idle. A live dispatcher keeps
+        // animating, so that barrier can delay every probe until the shift ends.
+        // Post directly to the existing WebView and await this JS result only.
+        assertTrue("UI thread rejected the evaluation",uiThread.post(() -> {
+            WebView web=currentGameWebView();
+            if(web==null){result.set("null");latch.countDown();return;}
             web.evaluateJavascript(script, value -> { result.set(value); latch.countDown(); });
-        });
-        assertTrue("WebView did not respond", latch.await(10, TimeUnit.SECONDS));
+        }));
+        assertTrue("WebView did not respond: "+script, latch.await(10, TimeUnit.SECONDS));
         return result.get();
+    }
+    private void waitForTrue(String expression,String message) throws Exception {
+        for(int n=0;n<60;n++){
+            if("true".equals(evaluate(expression)))return;
+            SystemClock.sleep(100);
+        }
+        fail(message+": "+evaluate("document.querySelector('#toast')?.textContent"));
     }
     private void waitForPage() throws Exception {
         for (int n = 0; n < 100; n++) {
@@ -57,6 +104,7 @@ public class ScreenInsetsTest {
         command.close();
         SystemClock.sleep(1800);
         waitForPage();
+        dismissLauncherAnr();
         AtomicInteger nativeHeight = new AtomicInteger();
         activity.getScenario().onActivity(a -> {
             View decor = a.getWindow().getDecorView();
@@ -104,14 +152,33 @@ public class ScreenInsetsTest {
         }
     }
     private void tap(String selector) throws Exception {
+        dismissLauncherAnr();
         String quoted = JSONObject.quote(selector);
+        boolean targetReady=false;
+        for(int wait=0;wait<100;wait++) {
+            if("true".equals(evaluate("(()=>{const n=document.querySelector("+quoted+");return !!n && n.getClientRects().length>0 && !n.disabled && !n.closest('dialog:not([open])');})()"))){targetReady=true;break;}
+            SystemClock.sleep(100);
+        }
+        assertTrue("Tap target did not become available: "+selector,targetReady);
         String value = evaluate("JSON.stringify((()=>{const n=document.querySelector("+quoted+");n.scrollIntoView({block:'center'});const r=n.getBoundingClientRect();return {x:(r.left+r.width/2)*devicePixelRatio,y:(r.top+r.height/2)*devicePixelRatio};})())");
         JSONObject point = new JSONObject(new org.json.JSONTokener(value).nextValue().toString());
         int[] offset = new int[2];
-        activity.getScenario().onActivity(a -> a.getWindow().getDecorView().findViewWithTag("game-webview").getLocationOnScreen(offset));
+        CountDownLatch located=new CountDownLatch(1);AtomicReference<Boolean> found=new AtomicReference<>(false);
+        assertTrue("UI thread rejected the location probe",uiThread.post(()->{WebView web=currentGameWebView();if(web!=null){web.getLocationOnScreen(offset);found.set(true);}located.countDown();}));
+        assertTrue("WebView location probe did not respond",located.await(10,TimeUnit.SECONDS));
+        assertTrue("Current game WebView disappeared before the tap",found.get());
         float x=offset[0]+(float)point.getDouble("x"), y=offset[1]+(float)point.getDouble("y");long now=SystemClock.uptimeMillis();
         MotionEvent down=MotionEvent.obtain(now,now,MotionEvent.ACTION_DOWN,x,y,0),up=MotionEvent.obtain(now,now+40,MotionEvent.ACTION_UP,x,y,0);
         InstrumentationRegistry.getInstrumentation().sendPointerSync(down);InstrumentationRegistry.getInstrumentation().sendPointerSync(up);down.recycle();up.recycle();SystemClock.sleep(160);
+    }
+    private void startNewCampaign() throws Exception {
+        tap("[data-cmd=new]");
+        for(int wait=0;wait<100;wait++) {
+            if("true".equals(evaluate("!!document.querySelector('dialog[open] [data-cmd=confirmNew]')"))){tap("dialog [data-cmd=confirmNew]");return;}
+            if("true".equals(evaluate("!!document.querySelector('[data-cmd=regionProceed]')")))return;
+            SystemClock.sleep(100);
+        }
+        fail("New company neither opened confirmation nor district selection");
     }
     @Test public void allSectionsLifecycleAndDocumentPickers() throws Exception {
         waitForPage();tap("#mapBottom [data-action=settings]");tap("dialog [data-action=reset]");tap("dialog [data-action=confirmReset]");
@@ -147,7 +214,8 @@ public class ScreenInsetsTest {
             }
             assertEquals("Picker cancellation changed progress",saved,evaluate("JSON.parse(localStorage.getItem('upravdom.v1')).minute"));
         }
-        tap("dialog [data-action=close]");
+        // Predictive Back may have already closed the underlying settings sheet.
+        if("true".equals(evaluate("!!document.querySelector('dialog[open] [data-action=close]')"))) tap("dialog [data-action=close]");
         // Exercise the same URI result that DocumentsUI returns, including native file reading.
         String raw = new org.json.JSONTokener(evaluate("localStorage.getItem('upravdom.v1')")).nextValue().toString();
         Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
@@ -174,8 +242,9 @@ public class ScreenInsetsTest {
         }
         assertTrue("Campaign menu did not load",ready);
         assertEquals("3",evaluate("document.querySelectorAll('.campaignMenu button').length"));
-        tap("[data-cmd=new]");
-        if("true".equals(evaluate("!!document.querySelector('[data-cmd=confirmNew]')"))) tap("[data-cmd=confirmNew]");
+        startNewCampaign();
+        assertEquals("20",evaluate("document.querySelectorAll('.districtZone').length"));
+        tap("[data-cmd=regionProceed]");
         assertEquals("3",evaluate("document.querySelectorAll('.dispatchCrew').length"));
         tap("[data-cmd=start]");
         ready=false;
@@ -186,8 +255,11 @@ public class ScreenInsetsTest {
         assertTrue("Campaign map art did not load",ready);
         assertEquals("true",evaluate("document.querySelector('.campaignBottom').getBoundingClientRect().bottom<=innerHeight+1"));
         assertEquals("999",evaluate("Number(document.querySelector('#campaignMap').dataset.positions)"));
-        assertEquals("3",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).cursor"));
+        // The emulator keeps real game time running during UI/asset checks.
+        // More calls may arrive; validate the real queue instead of assuming zero elapsed time.
+        assertEquals("true",evaluate("(()=>{const s=JSON.parse(localStorage.getItem('upravdom.campaign.v4'));return s.version===7&&s.phase==='active'&&s.cursor===1&&s.calls.length===s.cursor&&new Set(s.calls.map(c=>c.mission)).size===s.cursor;})()"));
         assertEquals("true",evaluate("Number(document.querySelector('#campaignMap').dataset.trafficCount)>0"));
+        tap("[data-cmd=pause]"); // The first incoming call opens on pause.
         String traffic=evaluate("document.querySelector('#campaignMap').dataset.traffic");SystemClock.sleep(1300);
         assertNotEquals("Traffic did not animate",traffic,evaluate("document.querySelector('#campaignMap').dataset.traffic"));
         tap("[data-cmd=pause]");traffic=evaluate("document.querySelector('#campaignMap').dataset.traffic");SystemClock.sleep(1300);
@@ -198,4 +270,80 @@ public class ScreenInsetsTest {
         SystemClock.sleep(1300);
         assertEquals("Campaign resumed behind lifecycle pause",minute,evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).minute"));
     }
+    @Test public void campaignTrainingFinanceAndNativeReportImport() throws Exception {
+        boolean ready=false;
+        for(int wait=0;wait<100;wait++){
+            if("true".equals(evaluate("!!document.querySelector('.campaignMenu')"))){ready=true;break;}
+            SystemClock.sleep(100);
+        }
+        assertTrue("Campaign menu did not load",ready);
+        startNewCampaign();
+        tap("[data-cmd=regionProceed]");tap("[data-cmd=sub][data-sub=people]");
+        tap("[data-cmd=train][data-id='0']");
+        assertEquals("3",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).employees[0].level"));
+        assertEquals("2976000",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).money"));
+        tap("[data-cmd=map]");tap("[data-cmd=finance]");
+        waitForTrue("!!document.querySelector('.transactionList')","Finance page did not render after navigation");
+        assertEquals("true",evaluate("document.querySelector('.transactionList').textContent.includes('Обучение')"));
+        evaluate("import(new URL('./campaign-engine.js',location.href).href).then(E=>{const s=E.freshCompany(112);E.start(s);for(let i=0;i<480;i++){for(const c of [...s.calls])for(const cr of s.crews)if(!E.reason(s,c,cr))E.dispatch(s,c.mission,cr.id);E.tick(s);}window.nativeReportFixture=E.encode(s);})");
+        for(int wait=0;wait<50;wait++){if("true".equals(evaluate("typeof window.nativeReportFixture==='string'")))break;SystemClock.sleep(100);}
+        assertEquals("Native report fixture did not finish", "true", evaluate("typeof window.nativeReportFixture==='string'"));
+        String raw=new org.json.JSONTokener(evaluate("window.nativeReportFixture")).nextValue().toString();
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        ContentValues values=new ContentValues();values.put(MediaStore.Downloads.DISPLAY_NAME,"upravdom-campaign-report.json");values.put(MediaStore.Downloads.MIME_TYPE,"application/json");values.put(MediaStore.Downloads.RELATIVE_PATH,"Download");
+        Uri document=context.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,values);assertNotNull(document);
+        try {
+            try(OutputStream output=context.getContentResolver().openOutputStream(document)){assertNotNull(output);output.write(raw.getBytes(java.nio.charset.StandardCharsets.UTF_8));}
+            activity.getScenario().onActivity(a->a.onActivityResult(100,android.app.Activity.RESULT_OK,new android.content.Intent().setData(document)));
+            boolean imported=false;
+            for(int wait=0;wait<70;wait++){if("true".equals(evaluate("!!document.querySelector('dialog[open] [data-cmd=nextDay]')"))){imported=true;break;}SystemClock.sleep(100);}
+            assertTrue("Native report import did not open results: "+evaluate("document.querySelector('#toast').textContent"),imported);
+            assertEquals("3",evaluate("document.querySelectorAll('.opReportStats>div').length"));
+            tap("dialog [data-cmd=nextDay]");
+            assertEquals("2",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).day"));
+            waitForTrue("!!document.querySelector('.campaignTabs')","Preparation page did not render after the report");
+            assertEquals("true",evaluate("!!document.querySelector('.campaignTabs')"));
+        } finally {context.getContentResolver().delete(document,null,null);}
+    }
+
+    @Test public void linkedFloodConversationThreeCrewsAndRestoration() throws Exception {
+        boolean ready=false;
+        for(int wait=0;wait<100;wait++){
+            if("true".equals(evaluate("!!document.querySelector('.campaignMenu')"))){ready=true;break;}
+            SystemClock.sleep(100);
+        }
+        assertTrue("Campaign menu did not load",ready);
+        evaluate("import(new URL('./campaign-engine.js',location.href).href).then(E=>{const s=E.freshCompany(112);E.start(s);s.calls=[];s.done=[];s.cursor=0;s.operations.planIndex=8;E.Operations.issue(s,'flood',s.operations.houses[1].id);window.dispatchEvent(new CustomEvent('upravdom-import',{detail:E.encode(s)}));})");
+        for(int wait=0;wait<70;wait++){
+            if("true".equals(evaluate("!!document.querySelector('.opQueue')")))break;
+            SystemClock.sleep(100);
+        }
+        assertEquals("Updated dispatch fixture did not open","true",evaluate("!!document.querySelector('.opQueue')"));
+        tap("[data-cmd=queue]");tap("[data-cmd=select][data-id='0']");
+        tap("[data-cmd=op-answer][data-choice=network]");tap("[data-cmd=op-answer][data-choice=branch]");
+        assertEquals("3",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).operations.houses.filter(h=>h.outages.water).length"));
+        for(int id=0;id<3;id++){tap("[data-cmd=op-options][data-service='"+id+"']");tap("dialog [data-cmd=op-assign][data-id='"+id+"']");}
+        assertEquals("3",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).calls[0].assignments.length"));
+        assertEquals("Planning assignments unexpectedly resumed time","Продолжить время",new org.json.JSONTokener(evaluate("document.querySelector('[data-cmd=pause]').getAttribute('aria-label')")).nextValue());
+        assertEquals("true",evaluate("(()=>{const nav=document.querySelector('.campaignBottom').getBoundingClientRect(),sheet=document.querySelector('.opIncident').getBoundingClientRect();return sheet.bottom<=nav.top+2&&document.documentElement.scrollWidth<=innerWidth;})()"));
+        tap("[data-cmd=speed]");tap("[data-cmd=speed]");tap("[data-cmd=op-run]");
+        boolean completed=false,dependencyWait=false;
+        String observation="";
+        for(int wait=0;wait<180;wait++){
+            observation=evaluate("JSON.stringify({waiting:!!document.querySelector('[data-cmd=op-withdraw]'),closed:!document.querySelector('.opIncident'),clock:document.querySelector('.opClock strong')?.textContent,body:document.querySelector('.opAssignments')?.textContent})");
+            JSONObject probe=new JSONObject(new org.json.JSONTokener(observation).nextValue().toString());
+            if(probe.getBoolean("waiting"))dependencyWait=true;
+            if(probe.getBoolean("closed")){completed=true;break;}
+            SystemClock.sleep(250);
+        }
+        evaluate("window.dispatchEvent(new Event('pagehide'))");
+        System.out.println("UPRAVDOM_LINKED_OBSERVATION "+observation);
+        System.out.println("UPRAVDOM_LINKED_STATE "+evaluate("(()=>{const s=JSON.parse(localStorage.getItem('upravdom.campaign.v4'));return JSON.stringify({minute:s.minute,phase:s.phase,completed:s.operations.completed,calls:s.calls.map(c=>({kind:c.kind,work:c.work,assignments:c.assignments})),ui:document.querySelector('.opIncident')?.textContent});})()"));
+        Bitmap shot=InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
+        assertNotNull(shot);saveShared(shot,"dispatch-restored.png",Bitmap.CompressFormat.PNG,100);shot.recycle();
+        assertTrue("Three-service flood did not complete in real WebView time: "+observation,completed);
+        assertTrue("No inter-service waiting control was observed: "+observation,dependencyWait);
+        assertEquals("true",evaluate("(()=>{const s=JSON.parse(localStorage.getItem('upravdom.campaign.v4'));return s.version===7&&s.operations.completed===1&&s.calls.length===0&&s.operations.houses.every(h=>!h.outages.water&&!h.outages.electric);})()"));
+    }
+
 }

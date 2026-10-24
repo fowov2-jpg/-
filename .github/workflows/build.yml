@@ -21,12 +21,14 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: upravdom-balance-report
-          path: test-results/balance/
+          path: |
+            test-results/balance/
+            test-results/operations-balance/
           if-no-files-found: error
   browser:
     needs: test
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -41,6 +43,7 @@ jobs:
             npx playwright install --with-deps chromium
           fi
       - run: npm run test:ui
+      - run: npm run test:performance
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -58,24 +61,34 @@ jobs:
           java-version: '17'
       - uses: android-actions/setup-android@v3
         with:
-          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
-      - run: gradle -p android assembleDebug assembleRelease lintDebug lintRelease --no-daemon
+          gradle-version: '8.11.1'
+      - run: gradle -p android assembleDebug assembleRelease bundleRelease lintDebug lintRelease --no-daemon
       - uses: actions/upload-artifact@v4
         with:
-          name: upravdom-0.6.0-alpha-debug-apk
+          name: upravdom-0.8.2-gameplay.2-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
-          name: upravdom-0.6.0-alpha-unsigned-release
+          name: upravdom-0.8.2-gameplay.2-unsigned-release
           path: android/app/build/outputs/apk/release/app-release-unsigned.apk
           if-no-files-found: error
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: upravdom-0.8.2-gameplay.2-unsigned-bundle
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+
   android-device:
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [35, 36]
     needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -87,7 +100,7 @@ jobs:
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
+          gradle-version: '8.11.1'
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -95,7 +108,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: ${{ matrix.api }}
           target: default
           arch: x86_64
           profile: pixel_6
@@ -105,7 +118,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: upravdom-android-screen-verification
+          name: upravdom-android-screen-verification-${{ matrix.api }}
           path: |
             test-results/android/
             android/app/build/reports/androidTests/
