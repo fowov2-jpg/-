@@ -294,17 +294,22 @@ public class ScreenInsetsTest {
         assertEquals("true",evaluate("(()=>{const rack=document.querySelector('.opDispatchBase').getBoundingClientRect(),sheet=document.querySelector('.opIncident').getBoundingClientRect();return sheet.bottom<=rack.top+2&&document.documentElement.scrollWidth<=innerWidth;})()"));
         tap("[data-cmd=speed]");tap("[data-cmd=speed]");tap("[data-cmd=op-run]");
         boolean completed=false,dependencyWait=false;
+        String observation="";
         for(int wait=0;wait<180;wait++){
-            if("true".equals(evaluate("document.querySelector('.opAssignments')?.textContent.includes('Ждёт:')")))dependencyWait=true;
-            if("true".equals(evaluate("!document.querySelector('.opIncident')"))){completed=true;break;}
+            observation=evaluate("JSON.stringify({waiting:!!document.querySelector('[data-cmd=op-withdraw]'),closed:!document.querySelector('.opIncident'),clock:document.querySelector('.opClock strong')?.textContent,body:document.querySelector('.opAssignments')?.textContent})");
+            JSONObject probe=new JSONObject(new org.json.JSONTokener(observation).nextValue().toString());
+            if(probe.getBoolean("waiting"))dependencyWait=true;
+            if(probe.getBoolean("closed")){completed=true;break;}
             SystemClock.sleep(250);
         }
-        assertTrue("No inter-service dependency was observed",dependencyWait);
-        assertTrue("Three-service flood did not complete in real WebView time",completed);
         evaluate("window.dispatchEvent(new Event('pagehide'))");
-        assertEquals("true",evaluate("(()=>{const s=JSON.parse(localStorage.getItem('upravdom.campaign.v4'));return s.version===7&&s.operations.completed===1&&s.calls.length===0&&s.operations.houses.every(h=>!h.outages.water&&!h.outages.electric);})()"));
+        System.out.println("UPRAVDOM_LINKED_OBSERVATION "+observation);
+        System.out.println("UPRAVDOM_LINKED_STATE "+evaluate("(()=>{const s=JSON.parse(localStorage.getItem('upravdom.campaign.v4'));return JSON.stringify({minute:s.minute,phase:s.phase,completed:s.operations.completed,calls:s.calls.map(c=>({kind:c.kind,work:c.work,assignments:c.assignments})),ui:document.querySelector('.opIncident')?.textContent});})()"));
         Bitmap shot=InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
         assertNotNull(shot);saveShared(shot,"dispatch-restored.png",Bitmap.CompressFormat.PNG,100);shot.recycle();
+        assertTrue("Three-service flood did not complete in real WebView time: "+observation,completed);
+        assertTrue("No inter-service waiting control was observed: "+observation,dependencyWait);
+        assertEquals("true",evaluate("(()=>{const s=JSON.parse(localStorage.getItem('upravdom.campaign.v4'));return s.version===7&&s.operations.completed===1&&s.calls.length===0&&s.operations.houses.every(h=>!h.outages.water&&!h.outages.electric);})()"));
     }
 
 }
