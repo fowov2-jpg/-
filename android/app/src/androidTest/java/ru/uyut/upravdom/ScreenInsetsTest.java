@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.json.JSONObject;
 import org.junit.Rule;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -31,6 +32,23 @@ import org.junit.runner.RunWith;
 public class ScreenInsetsTest {
     @Rule public ActivityScenarioRule<MainActivity> activity = new ActivityScenarioRule<>(MainActivity.class);
 
+    private String shellText(String command) throws Exception {
+        android.os.ParcelFileDescriptor descriptor=InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(command);
+        try(java.io.InputStream input=new android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor);
+            java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream()) {
+            byte[] buffer=new byte[8192];int count;
+            while((count=input.read(buffer))!=-1)bytes.write(buffer,0,count);
+            return bytes.toString("UTF-8");
+        }
+    }
+    // API 36's emulator Launcher3 can ANR while tests switch navigation modes.
+    // Close ONLY that system fixture. An ANR belonging to the game must still fail.
+    private void dismissLauncherAnr() throws Exception {
+        if(shellText("dumpsys window windows").contains("Application Not Responding: com.android.launcher3")) {
+            shellText("am force-stop com.android.launcher3");SystemClock.sleep(1000);
+        }
+    }
+    @Before public void prepareFocusedDevice() throws Exception { dismissLauncherAnr(); }
     private String evaluate(String script) throws Exception {
         AtomicReference<String> result = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
@@ -57,6 +75,7 @@ public class ScreenInsetsTest {
         command.close();
         SystemClock.sleep(1800);
         waitForPage();
+        dismissLauncherAnr();
         AtomicInteger nativeHeight = new AtomicInteger();
         activity.getScenario().onActivity(a -> {
             View decor = a.getWindow().getDecorView();
@@ -104,6 +123,7 @@ public class ScreenInsetsTest {
         }
     }
     private void tap(String selector) throws Exception {
+        dismissLauncherAnr();
         String quoted = JSONObject.quote(selector);
         String value = evaluate("JSON.stringify((()=>{const n=document.querySelector("+quoted+");n.scrollIntoView({block:'center'});const r=n.getBoundingClientRect();return {x:(r.left+r.width/2)*devicePixelRatio,y:(r.top+r.height/2)*devicePixelRatio};})())");
         JSONObject point = new JSONObject(new org.json.JSONTokener(value).nextValue().toString());
@@ -215,8 +235,9 @@ public class ScreenInsetsTest {
         assertEquals("2976000",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).money"));
         tap("[data-cmd=map]");tap("[data-cmd=finance]");
         assertEquals("true",evaluate("document.querySelector('.transactionList').textContent.includes('Обучение')"));
-        evaluate("import('./campaign-engine.js').then(E=>{const s=E.fresh(112);E.start(s);E.tick(s,480);window.nativeReportFixture=E.encode(s);})");
+        evaluate("import(new URL('./campaign-engine.js',location.href).href).then(E=>{const s=E.fresh(112);E.start(s);E.tick(s,480);window.nativeReportFixture=E.encode(s);})");
         for(int wait=0;wait<50;wait++){if("true".equals(evaluate("typeof window.nativeReportFixture==='string'")))break;SystemClock.sleep(100);}
+        assertEquals("Native report fixture did not finish", "true", evaluate("typeof window.nativeReportFixture==='string'"));
         String raw=new org.json.JSONTokener(evaluate("window.nativeReportFixture")).nextValue().toString();
         Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
         ContentValues values=new ContentValues();values.put(MediaStore.Downloads.DISPLAY_NAME,"upravdom-campaign-report.json");values.put(MediaStore.Downloads.MIME_TYPE,"application/json");values.put(MediaStore.Downloads.RELATIVE_PATH,"Download");
@@ -226,7 +247,7 @@ public class ScreenInsetsTest {
             activity.getScenario().onActivity(a->a.onActivityResult(100,android.app.Activity.RESULT_OK,new android.content.Intent().setData(document)));
             boolean imported=false;
             for(int wait=0;wait<70;wait++){if("true".equals(evaluate("!!document.querySelector('dialog[open] [data-cmd=nextDay]')"))){imported=true;break;}SystemClock.sleep(100);}
-            assertTrue("Native report import did not open results",imported);
+            assertTrue("Native report import did not open results: "+evaluate("document.querySelector('#toast').textContent"),imported);
             assertEquals("4",evaluate("document.querySelectorAll('.reportStats>div').length"));
             tap("dialog [data-cmd=nextDay]");
             assertEquals("2",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).day"));

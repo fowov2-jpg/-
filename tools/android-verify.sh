@@ -10,6 +10,11 @@ if gradle -p android connectedDebugAndroidTest --no-daemon; then
     echo "UPRAVDOM_ANDROID_PREVIEW_${mode} $(base64 -w0 test-results/android/${mode}.jpg)"
   done
 else
+  mkdir -p test-results/android
+  adb exec-out screencap -p > test-results/android/failure.png || true
+  adb logcat -d -t 2000 -v threadtime > test-results/android/logcat.txt || true
+  adb shell dumpsys window windows > test-results/android/windows.txt || true
+  adb shell dumpsys activity activities > test-results/android/activities.txt || true
   python3 -c "from pathlib import Path; import xml.etree.ElementTree as E; [print(E.tostring(n, encoding='unicode')) for p in Path('android/app/build/outputs/androidTest-results').rglob('*.xml') for n in E.parse(p).iter('failure')]"
   exit 1
 fi
