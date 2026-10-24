@@ -5,13 +5,12 @@ import {TILE_WIDTH,TILE_HEIGHT,GRID_BOUNDS,visibleTiles} from './city-grid.js';
 import {FLEET_IMAGE,FLEET_ART} from './fleet-art.js';
 export {route} from './roads.js';
 const art=[],contexts=new WeakMap();let atlas=null,requested=false;
-// The original top-down seam tile is packaged in the downloadable source ZIP.
-// Do not ship a release without web/assets/seamless-neighborhood.webp.
+// The residential source tile was supplied by the owner on October 24.
 export function loadArtwork(onLoad){
  if(requested)return;requested=true;
  const picture=new Image();art[0]=art[1]=art[2]=picture;
  picture.onload=onLoad;picture.onerror=onLoad;
- picture.src=new URL('./assets/seamless-neighborhood.webp',import.meta.url).href;
+ picture.src=new URL('./assets/districts/residential.jpg',import.meta.url).href;
  atlas=new Image();atlas.onload=onLoad;atlas.onerror=onLoad;
  atlas.src=new URL(FLEET_IMAGE,import.meta.url).href;
 }

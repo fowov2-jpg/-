@@ -62,7 +62,7 @@ public class MainActivity extends Activity {
         web.getSettings().setAllowFileAccess(false);
         web.getSettings().setAllowContentAccess(false);
         web.getSettings().setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        web.getSettings().setUserAgentString(web.getSettings().getUserAgentString() + " UpravdomAndroid/0.3.2");
+        web.getSettings().setUserAgentString(web.getSettings().getUserAgentString() + " UpravdomAndroid/0.4.0");
         WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
                 .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this)).build();
         web.setWebViewClient(new WebViewClientCompat() {
