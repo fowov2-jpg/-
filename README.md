@@ -1,6 +1,8 @@
 # Управдом · диспетчерская ЖКХ
 
-Версия **0.5.0-alpha**. Новая кампания: **20 районов, в каждом 999 адресов и 999 однократных заданий**. Все 999 нужно выполнить, чтобы добавить следующий район на общую карту. Всего 19 980 заданий.
+Версия **0.6.0-alpha**. Новая кампания: **20 районов, в каждом 999 адресов и 999 однократных заданий**. Все 999 нужно выполнить, чтобы добавить следующий район на общую карту. Всего 19 980 заданий.
+
+В 0.6 карта пересобрана из десяти наборов и 32 сухопутных фрагментов: жилые зоны, высотный центр, промышленные участки и непрерывные реки с мостами. Будущие районы видны затемнёнными, открытие требует всех 999 заданий. Сохранения 0.4/0.5 переносятся автоматически с архивом исходной версии. Подробности: [docs/GEOGRAPHY_0_6.md](docs/GEOGRAPHY_0_6.md).
 
 В 0.5 устранено дублирование улиц на стыках тайлов, добавлены анимации девяти рабочих механизмов, движение и сигналы всех машин, обычный трафик и рабочие сцены. Топливо, обслуживание, сроки и оплата переработаны; полная кампания проверена автосимуляцией с тремя и шестью бригадами. Обновление сохранений 0.4 выполняется автоматически, исходная копия сохраняется отдельно.
 
@@ -31,7 +33,7 @@ JDK 17, Gradle 8.9, Android SDK 35, AGP 8.7.3. Минимум Android 8.0 / API 
 gradle -p android assembleDebug assembleRelease lintDebug lintRelease
 ```
 
-Gradle wrapper не включён; CI устанавливает Gradle 8.9. GitHub Actions собирает устанавливаемый **debug APK**, неподписанный release APK и снимки браузерных проверок. Debug-пакет находится в Actions → Test and build Android → Artifacts → `upravdom-0.5.0-alpha-debug-apk`.
+Gradle wrapper не включён; CI устанавливает Gradle 8.9. GitHub Actions собирает устанавливаемый **debug APK**, неподписанный release APK и снимки браузерных проверок. Debug-пакет находится в Actions → Test and build Android → Artifacts → `upravdom-0.6.0-alpha-debug-apk`.
 
 Для магазинного релиза нужны production-подпись, требования выбранного магазина и проверка на устройстве. Ключи не должны попадать в репозиторий. Статус и ручные проверки: `docs/RELEASE_CHECKLIST.md`.
 
@@ -47,12 +49,13 @@ npx playwright install chromium
 npm run test:ui
 ```
 
-Проверки сами запускают сервер. Новая кампания: `npm run test:campaign`, снимки — `test-results/campaign/`. Анимации и стыки: `npm run test:motion`, снимки — `test-results/motion/`. Экономика полной кампании: `npm run test:balance`. Прежняя компания: `tools/playability.cjs` и `tools/ui-smoke.cjs`, снимки — `test-results/screenshots/`. Для системного Chromium можно задать `CHROMIUM_PATH`.
+Проверки сами запускают сервер. Сборка карты: `npm run test:geography`, снимки — `test-results/geography/`. Новая кампания: `npm run test:campaign`, снимки — `test-results/campaign/`. Анимации и стыки: `npm run test:motion`, снимки — `test-results/motion/`. Экономика полной кампании: `npm run test:balance`. Прежняя компания: `tools/playability.cjs` и `tools/ui-smoke.cjs`, снимки — `test-results/screenshots/`. Для системного Chromium можно задать `CHROMIUM_PATH`.
 
 ## Структура
 
-- `web/campaign-engine.js` — новая кампания, выезды, переходы и сохранения v4.
+- `web/campaign-engine.js` — новая кампания, выезды, переходы и сохранения v6 с миграцией v4/v5.
 - `web/campaign-city.js`, `web/content-missions.js` — 20 районов, адресные входы и подготовленные задания.
+- `web/city-geography.js`, `web/city-layout.js`, `web/campaign-terrain.js` — зоны, реки и сборка кварталов.
 - `web/campaign-map.js` — карта города, улицы и машины.
 - `web/campaign-app.js`, `web/campaign.css` — меню, подготовка и диспетчерская.
 - Следующие файлы обслуживают сохранённый прежний режим:

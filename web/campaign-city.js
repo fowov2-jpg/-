@@ -1,13 +1,10 @@
 import {TYPES} from './content-missions.js';
-// Adjacent source tiles share the outer street centreline, rather than duplicating it.
-export const SOURCE={width:1536,height:1024,x:60,y:76,widthCrop:1416,heightCrop:874};
-export const ADDRESS_COUNT=999,DISTRICT_COUNT=20,TW=1416,TH=874,SIDE=8,DW=TW*SIDE,DH=TH*SIDE;
-export const ROAD_X=[0,708,1416],ROAD_Y=[0,434,874];
-export const ART=['residential.jpg','nine.png','towers.png','mixed.png','industrial.png','factory.jpg'];
+import {SOURCE,ADDRESS_COUNT,DISTRICT_COUNT,TW,TH,SIDE,DW,DH,ROAD_X,ROAD_Y,hash,districtOrigin} from './city-layout.js';
+import {tileDesign} from './city-geography.js';
+export {SOURCE,ADDRESS_COUNT,DISTRICT_COUNT,TW,TH,SIDE,DW,DH,ROAD_X,ROAD_Y,hash,districtOrigin};
+export const ART=['residential.jpg','nine.png','towers.png','mixed.png','industrial.png','factory-land.png','garden.png','brick.png','river-straight.png','river-bend.png'];
 export const DISTRICT_NAMES=['Северный','Садовый','Центральный','Заречный','Восточный','Промышленный','Берёзовый','Высотный','Солнечный','Вокзальный','Озёрный','Южный','Новый город','Заводской','Лесной','Западный','Парковый','Прибрежный','Академический','Столичный'];
-export function hash(seed,index){let h=(seed^Math.imul(index+1,0x9e3779b1))>>>0;h=Math.imul(h^(h>>>16),0x85ebca6b);h=Math.imul(h^(h>>>13),0xc2b2ae35);return (h^(h>>>16))>>>0;}
-export function districtOrigin(d){const row=Math.floor(d/5),col=row%2?4-d%5:d%5;return [col*DW,row*DH];}
-export function tileKind(seed,d,tile){const h=hash(seed+d*307,tile);if(d===0&&tile===0)return 3;return d%5===4&&tile%4===0?4+h%2:h%5;}
+export function tileKind(seed,d,tile){return tileDesign(seed,d,tile).kind;}
 // Four address entrances per quarter; multiple entrances may belong to one long slab.
 const anchors=[
  [[190,210],[580,190],[190,395],[585,385],[945,190],[1370,210],[980,390],[1310,385],[195,645],[580,665],[200,900],[585,900],[960,645],[1345,635],[960,895],[1350,895]],
@@ -18,18 +15,24 @@ const anchors=[
  [[200,200],[400,200],[500,350],[250,400],[900,215],[1000,300],[1300,210],[1350,370],[215,650],[420,650],[240,875],[400,875],[1000,650],[1260,650],[1000,875],[1260,875]]
 ];
 const streets=['Садовая','Лесная','Молодёжная','Строителей','Парковая','Рабочая','Центральная','Зелёная','Солнечная','Школьная','Полевая','Заводская','Новая','Мира','Речная','Северная'];
+anchors.push(
+ [[200,200],[500,170],[200,350],[550,440],[880,250],[1050,160],[1150,440],[1340,240],[170,650],[400,600],[400,870],[650,680],[900,700],[1170,600],[1260,880],[1350,760]],
+ [[200,200],[500,150],[360,400],[650,230],[850,350],[1000,180],[1300,220],[1350,410],[200,620],[350,600],[250,850],[440,860],[900,700],[1100,600],[1350,750],[1100,880]],
+ [[170,190],[650,200],[270,400],[680,420],[940,190],[1320,190],[950,350],[1320,350],[180,650],[700,650],[270,850],[690,850],[940,640],[1320,640],[950,850],[1350,850]],
+ [[170,190],[430,200],[170,400],[600,420],[1000,180],[1380,180],[1200,410],[1380,420],[200,650],[580,650],[200,840],[600,840],[900,620],[1400,620],[900,820],[1380,820]]
+);
 const cache=new Map();
 export function district(seed,d){
  if(!Number.isInteger(d)||d<0||d>=DISTRICT_COUNT)throw Error('Неизвестный район');
  const key=seed+':'+d;if(cache.has(key))return cache.get(key);
- const origin=districtOrigin(d),tiles=Array.from({length:64},(_,i)=>tileKind(seed,d,i));
+ const origin=districtOrigin(d),layouts=Array.from({length:64},(_,i)=>tileDesign(seed,d,i)),tiles=layouts.map(l=>l.kind);
  const homes=Array.from({length:ADDRESS_COUNT},(_,id)=>{
-  const tile=Math.floor(id/16),col=tile%SIDE,row=Math.floor(tile/SIDE),kind=tiles[tile],a=anchors[kind][id%16];
-  const x=origin[0]+col*TW+a[0]-SOURCE.x,y=origin[1]+row*TH+a[1]-SOURCE.y,j=hash(seed+d*999,id);
+  const tile=Math.floor(id/16),col=tile%SIDE,row=Math.floor(tile/SIDE),layout=layouts[tile],kind=layout.river?layout.kind:layout.quarters[Math.floor(id%16/4)],a=anchors[kind][id%16];
+  const ax=a[0]-SOURCE.x,x=origin[0]+col*TW+(layout.river?.flip?TW-ax:ax),y=origin[1]+row*TH+a[1]-SOURCE.y,j=hash(seed+d*999,id);
   return {id,globalId:d*ADDRESS_COUNT+id,district:d,name:`ул. ${streets[(Math.floor(id/32)+d)%streets.length]}, ${Math.floor(id/16)+1}, корп. ${id%16+1}`,x,y,
-   floors:kind===2?16:kind===1?9:kind>=4?1+j%4:kind===3?[5,9,16][j%3]:5,kind,tile};
+   floors:kind===2?16:kind===1?9:kind===4||kind===5?1+j%4:kind===3?[5,9,16][j%3]:kind>=7?[5,9][j%2]:5,kind,tile};
  });
- const result={id:d,name:DISTRICT_NAMES[d],origin,tiles,homes};cache.set(key,result);return result;
+ const result={id:d,seed,name:DISTRICT_NAMES[d],origin,tiles,layouts,homes};cache.set(key,result);return result;
 }
 function axes(value,step,offsets){const tile=Math.floor(value/step);return offsets.flatMap(o=>[-1,0,1].map(t=>(tile+t)*step+o));}
 export function roadStop(home){

@@ -1,19 +1,20 @@
-import {ART,SOURCE,DW,DH,TW,TH,SIDE,district,districtOrigin,DISTRICT_NAMES,pathPose} from './campaign-city.js';
+import {ART,DW,DH,TW,TH,SIDE,district,districtOrigin,DISTRICT_NAMES} from './campaign-city.js';
 import {FLEET_ART,FLEET_IMAGE} from './fleet-art.js';
 import {VEHICLE_MODELS} from './content.js';
 import {drawRoads} from './campaign-roads-art.js';
 import {drivingPose,equipmentState,drawRig,drawVehicleLights,drawWorksite,drawBasicVehicle} from './vehicle-motion.js';
 import {TrafficController,drawTrafficCar} from './city-traffic.js';
+import {drawTerrain,terrainKey} from './campaign-terrain.js';
 const trafficController=new TrafficController();
 const thumbnails=new Map();
 const images=[],fleet=new Image();fleet.src=new URL(FLEET_IMAGE,import.meta.url).href;
 export function loadArt(redraw){for(let i=0;i<ART.length;i++){const im=new Image();images[i]=im;im.onload=()=>{thumbnails.clear();redraw();};im.onerror=redraw;im.src=new URL('./assets/districts/'+ART[i],import.meta.url).href;}fleet.onload=redraw;}
 function thumbnail(city){
  if(!images.every(i=>i.complete&&i.naturalWidth))return null;
- const key=city.tiles.join(',');if(thumbnails.has(key))return thumbnails.get(key);
+ const key=terrainKey(city);if(thumbnails.has(key))return thumbnails.get(key);
  const canvas=document.createElement('canvas');canvas.width=320;canvas.height=Math.ceil(320*DH/DW);const ctx=canvas.getContext('2d'),scale=320/DW;
- for(let row=0;row<SIDE;row++)for(let col=0;col<SIDE;col++){const im=images[city.tiles[row*SIDE+col]];ctx.drawImage(im,SOURCE.x*im.naturalWidth/SOURCE.width,SOURCE.y*im.naturalHeight/SOURCE.height,SOURCE.widthCrop*im.naturalWidth/SOURCE.width,SOURCE.heightCrop*im.naturalHeight/SOURCE.height,col*TW*scale,row*TH*scale,TW*scale+.3,TH*scale+.3);}
- drawRoads(ctx,p=>[p[0]*scale,p[1]*scale],[0,0],scale,canvas.width,canvas.height);if(thumbnails.size>=40)thumbnails.delete(thumbnails.keys().next().value);thumbnails.set(key,canvas);return canvas;
+ for(let row=0;row<SIDE;row++)for(let col=0;col<SIDE;col++)drawTerrain(ctx,images,city,row*SIDE+col,col*TW*scale,row*TH*scale,TW*scale,TH*scale);
+ drawRoads(ctx,p=>[p[0]*scale,p[1]*scale],[0,0],scale,canvas.width,canvas.height,city.seed);if(thumbnails.size>=40)thumbnails.delete(thumbnails.keys().next().value);thumbnails.set(key,canvas);return canvas;
 }
 export function focusDistrict(view,d,width=412,height=650,overview=false){const o=districtOrigin(d);view.x=o[0]+(overview?DW/2:708);view.y=o[1]+(overview?DH/2:434);view.scale=overview?Math.min(width/DW,height/DH)*.9:Math.min(width/TW,height/TH)*1.2;}
 export function screenPoint(view,width,height,p){return [(p[0]-view.x)*view.scale+width/2,(p[1]-view.y)*view.scale+height/2];}
@@ -27,21 +28,20 @@ export function render(canvas,s,view,{selected=null,labels=true,motion=true,prog
  let tileCount=0;const trafficTiles=[],clock=(s.clock??0)+progress,rigs=[],fleetPoses=[];
  for(let d=0;d<20;d++){
   const origin=districtOrigin(d),p=project(origin),rw=DW*view.scale,rh=DH*view.scale;if(!visible(...p,rw,rh))continue;
-  if(d>s.region){ctx.fillStyle='#0d252d';ctx.fillRect(...p,rw,rh);}
-  else{
+  {
    const city=district(s.seed,d),thumb=view.scale<.025?thumbnail(city):null;
    if(thumb)ctx.drawImage(thumb,...p,rw,rh);else{
    for(let row=0;row<SIDE;row++)for(let col=0;col<SIDE;col++){
     const x=origin[0]+col*TW,y=origin[1]+row*TH,pos=project([x,y]),ww=TW*view.scale,hh=TH*view.scale;if(!visible(...pos,ww,hh))continue;
-    const im=images[city.tiles[row*SIDE+col]];
-    if(im?.complete&&im.naturalWidth)ctx.drawImage(im,SOURCE.x*im.naturalWidth/SOURCE.width,SOURCE.y*im.naturalHeight/SOURCE.height,SOURCE.widthCrop*im.naturalWidth/SOURCE.width,SOURCE.heightCrop*im.naturalHeight/SOURCE.height,...pos,ww+.3,hh+.3);else{ctx.fillStyle='#385340';ctx.fillRect(...pos,ww,hh);}
-    tileCount++;if(view.scale>.12)trafficTiles.push([Math.round(origin[0]/TW)+col,Math.round(origin[1]/TH)+row]);
+    drawTerrain(ctx,images,city,row*SIDE+col,...pos,ww,hh);
+    tileCount++;if(d<=s.region&&view.scale>.12)trafficTiles.push([Math.round(origin[0]/TW)+col,Math.round(origin[1]/TH)+row]);
    }
-   ctx.save();ctx.beginPath();ctx.rect(...p,rw,rh);ctx.clip();drawRoads(ctx,project,origin,view.scale,w,h);ctx.restore();
+   ctx.save();ctx.beginPath();ctx.rect(...p,rw,rh);ctx.clip();drawRoads(ctx,project,origin,view.scale,w,h,s.seed);ctx.restore();
    }
+   if(d>s.region){ctx.fillStyle='#061b24bd';ctx.fillRect(...p,rw,rh);}
    if(d<s.region){ctx.fillStyle='#103a2b35';ctx.fillRect(...p,rw,rh);}
   }
-  ctx.strokeStyle=d>s.region?'#56717a':d===s.region?'#48dba6':'#8cc99d';ctx.lineWidth=1.5;ctx.strokeRect(...p,rw,rh);
+  ctx.strokeStyle=d>s.region?'#55717b55':d===s.region?(view.scale<.07?'#48dba6':'#48dba630'):'#8cc99d55';ctx.lineWidth=1.5;ctx.strokeRect(...p,rw,rh);
   if(view.scale<.07||d>s.region){const c=project([origin[0]+DW/2,origin[1]+DH/2]),font=Math.max(7,Math.min(13,rw/10));ctx.save();ctx.beginPath();ctx.rect(p[0]+1,p[1]+1,rw-2,rh-2);ctx.clip();ctx.textAlign='center';ctx.font=`600 ${font}px system-ui`;ctx.fillStyle=d>s.region?'#a4b7bc':'#ecf5eb';ctx.fillText((d>s.region?'🔒 ':d<s.region?'✓ ':'')+DISTRICT_NAMES[d],...c);ctx.font=`${Math.max(7,font-1)}px system-ui`;ctx.fillText(d>s.region?'Закрыт':d<s.region?'999 / 999':s.done.length+' / 999',c[0],c[1]+font+6);ctx.restore();view.hits.push({kind:'district',id:d,x:p[0],y:p[1],w:rw,h:rh});}
  }
  const ambient=[],blockers=s.crews.filter(cr=>['diagnosis','repair'].includes(cr.status)).map(cr=>[cr.point[0]-Math.sin(cr.angle??0)*8,cr.point[1]+Math.cos(cr.angle??0)*8]);
