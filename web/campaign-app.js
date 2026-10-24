@@ -11,7 +11,7 @@ const root=document.querySelector('#app'),dialog=document.querySelector('#dialog
 const storage=(()=>{try{return window.localStorage;}catch{return {getItem(){throw Error('Хранилище недоступно');},setItem(){throw Error('Хранилище недоступно');}};}})();
 const esc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const rub=n=>Math.round(n).toLocaleString('ru-RU')+' ₽',names=['Сантехники','Электрики','Ремонтники'],colors=['#58bfee','#f4cd62','#61d9a0'];
-const status={idle:'Готова',new:'Новая',travel:'В пути',diagnosis:'Осмотр',repair:'Работы'};
+const status={idle:'Готова',new:'Новая',travel:'В пути',diagnosis:'Осмотр',repair:'Работы',returning:'На базу'};
 const button=(a,text,attrs='',cl='')=>`<button data-cmd="${a}" ${attrs} class="${cl}">${text}</button>`;
 let loaded=E.load(storage),state=loaded.state,blocked=loaded.blocked,settings=loadSettings(storage),screen='menu',sub='crews',paused=true,speed=1,selected=null,selectedCrew=null,page=0,saveError=false;
 let view={x:768,y:510,scale:.3},last=performance.now(),fraction=0,menuSeed=null;
