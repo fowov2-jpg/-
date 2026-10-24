@@ -103,7 +103,7 @@ function addressRow(m,city,done){return `<button class="addressRow" data-cmd="ad
 function paint(preserve=false){const scroll=preserve?(document.querySelector('.campaignScroll')?.scrollTop??0):0;if(screen==='menu')return menu();if(!state)return menu();if(screen==='districts')return districtPage();if(screen==='finance')financePage();else if(screen==='prep')preparation();else if(screen==='calls')callsPage();else if(screen==='addresses')addressesPage();else mapPage();const content=document.querySelector('.campaignScroll');if(content)content.scrollTop=scroll;}
 function redraw(){
  const canvas=document.querySelector('#campaignMap');if(!canvas||!state)return;
- const sheet=document.querySelector('.callDrawer');
+ const sheet=document.querySelector('.callDrawer,.mapHint');
  const annotationBottom=sheet?sheet.getBoundingClientRect().top-canvas.getBoundingClientRect().top-26:null;
  renderMap(canvas,state,view,{selected,selectedCrew,labels:settings.labels,motion:settings.motion,progress:fraction,traffic:visuals.traffic,equipment:visuals.equipment,annotationBottom});
 }
