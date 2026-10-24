@@ -2,6 +2,7 @@ import {COLORS,TYPES} from './engine.js';
 import {CITY_HOMES,DEPOT} from './content.js';
 import {WORLD,DISTRICT_HEIGHT,MARKERS,route,onRoute,isTransfer} from './roads.js';
 import {TILE_WIDTH,TILE_HEIGHT,GRID_BOUNDS,visibleTiles} from './city-grid.js';
+import {FLEET_IMAGE,FLEET_ART} from './fleet-art.js';
 export {route} from './roads.js';
 const art=[],contexts=new WeakMap();let atlas=null,requested=false;
 // The original top-down seam tile is packaged in the downloadable source ZIP.
@@ -12,9 +13,9 @@ export function loadArtwork(onLoad){
  picture.onload=onLoad;picture.onerror=onLoad;
  picture.src=new URL('./assets/seamless-neighborhood.webp',import.meta.url).href;
  atlas=new Image();atlas.onload=onLoad;atlas.onerror=onLoad;
- atlas.src=new URL('./assets/fleet-atlas.webp',import.meta.url).href;
+ atlas.src=new URL(FLEET_IMAGE,import.meta.url).href;
 }
-const titles=['Сантехники','Электрики','Ремонтная бригада'],modelRows={van:0,express:1,truck:2};
+const titles=['Сантехники','Электрики','Ремонтная бригада'];
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 // Cover the viewport at every zoom, including drags beyond the edges and focus near a corner.
@@ -101,10 +102,9 @@ export function renderMap(canvas,state,view,{labels=true,motion=true,progress=0,
  for(const n of canvas.parentElement.querySelectorAll('#mapTop,.zoom button,#mapBottom,.mapAddress:not([hidden])')){const r=n.getBoundingClientRect();if(r.width&&r.height)obstacles.push({x:r.left-rect.left,y:r.top-rect.top,w:r.width,h:r.height});}
  const overlap=(a,b)=>Math.max(0,Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x))*Math.max(0,Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y));
  for(const cr of state.crews){
-  const loc=vehiclePose(state,cr,progress),moving=loc.moving;poses.push({id:cr.id,point:loc.point,angle:loc.angle,transfer:!!loc.transfer});if(loc.transfer||!local(loc.point))continue;
+  const loc=vehiclePose(state,cr,progress),moving=loc.moving;poses.push({id:cr.id,model:loc.model,point:loc.point,angle:loc.angle,transfer:!!loc.transfer});if(loc.transfer||!local(loc.point))continue;
   const point=view.project(loc.point);if(!visible(point))continue;
-  const row=modelRows[loc.model]??0,angle=loc.angle;
-  drawVehicle(ctx,point,angle,row,scale,COLORS[cr.service]);
+  drawVehicle(ctx,point,loc.angle,loc.model,scale,COLORS[cr.service]);
   if(cr.status!=='idle'){
    const eta=moving?cr.remaining+' мин':cr.status==='diagnosis'?'Диагностика':'Ремонт',text=titles[cr.service]+' · '+eta;
    ctx.font='600 10px system-ui';const w=ctx.measureText(text).width+20;
@@ -128,7 +128,16 @@ export function renderMap(canvas,state,view,{labels=true,motion=true,progress=0,
   view.hits.unshift({point:p,call:c.id,radius:28});
  }
 }
-function drawVehicle(ctx,p,angle,row,scale,color){
+export function drawVehicle(ctx,p,angle,model,scale,color){
+ const sprite=FLEET_ART[model];
+ if(sprite&&atlas?.complete&&atlas.naturalWidth){
+  const [sx,sy,sw,sh]=sprite.rect,length=clamp(54*scale,19,44)*sprite.length/54,width=length*sw/sh;
+  ctx.save();ctx.translate(p[0],p[1]);ctx.rotate(angle+Math.PI/2);
+  ctx.drawImage(atlas,sx,sy,sw,sh,-width/2,-length/2,width,length);
+  ctx.fillStyle=color;ctx.strokeStyle='#f0f5ef';ctx.lineWidth=.8;
+  ctx.beginPath();ctx.arc(width/2+2,length*.22,2.5,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.restore();return;
+ }
  const length=clamp(54*scale,19,44),width=length*.47;
  ctx.save();ctx.translate(p[0],p[1]);ctx.rotate(angle+Math.PI/2);
  ctx.shadowColor='#04182080';ctx.shadowBlur=5;ctx.shadowOffsetY=2;

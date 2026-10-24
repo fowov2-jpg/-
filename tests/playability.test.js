@@ -44,13 +44,14 @@ test('Every road route is continuous, follows the graph and marks inter-district
   if(a<12&&b<12&&Math.floor(a/4)!==Math.floor(b/4))assert.ok(path.slice(1).some((p,i)=>isTransfer(path[i],p)));
  }
 });
-test('All 20 incident types, 3 vehicle models and 12 homes complete with the correct specialization and resources',()=>{
+test('All 20 incident types, all vehicle models and 12 homes complete with the correct specialization and resources',()=>{
  let cases=0;
  for(let type=0;type<E.TYPES.length;type++)for(const model of E.VEHICLE_MODELS)for(let home=0;home<12;home++){
   const s=E.fresh();s.day=10;s.reputation=100;s.campaign.completed=100;
   for(let id=3;id<12;id++)E.acceptContract(s,id);
   const service=E.TYPES[type][1];s.vehicles[service].model=model.id;E.start(s);s.calls=[];
   const c=E.spawn(s,type,home),bill=E.materials(s,c),before=s.warehouse.stock[bill.part];
+  if(model.supportedTypes&&!model.supportedTypes.includes(type)){assert.match(E.dispatchReason(s,c,s.crews[service]),/не подходит/);continue;}
   if(bill.quantity>model.capacity){assert.match(E.dispatchReason(s,c,s.crews[service]),/груз/);continue;}
   E.question(s,c.id);E.dispatch(s,c.id,service);assert.equal(s.warehouse.stock[bill.part],before-bill.quantity);
   let ticks=0;while(c.status!=='done'&&ticks++<300)E.tick(s);

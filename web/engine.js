@@ -38,6 +38,7 @@ export function dispatchReason(s,call,cr){
  if(cr.status!=='idle')return 'Бригада занята';
  if(cr.fuel<8)return 'Нужна заправка';if(cr.condition<20)return 'Нужно ТО';if(cr.fatigue>90)return 'Сотрудникам нужен отдых';
  const bill=materials(s,call),model=VEHICLE_MODELS.find(m=>m.id===crewVehicle(s,cr).model);
+ if(model.supportedTypes&&!model.supportedTypes.includes(call.type))return 'Техника не подходит для этой работы';
  if(bill.quantity>model.capacity)return 'Не хватает грузового места';
  if(s.warehouse.stock[bill.part]<bill.quantity)return 'Недостаточно комплектов на складе';return '';
 }
