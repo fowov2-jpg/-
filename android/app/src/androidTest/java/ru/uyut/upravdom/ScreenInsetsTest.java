@@ -176,6 +176,8 @@ public class ScreenInsetsTest {
         assertEquals("3",evaluate("document.querySelectorAll('.campaignMenu button').length"));
         tap("[data-cmd=new]");
         if("true".equals(evaluate("!!document.querySelector('[data-cmd=confirmNew]')"))) tap("[data-cmd=confirmNew]");
+        assertEquals("20",evaluate("document.querySelectorAll('.districtZone').length"));
+        tap("[data-cmd=regionProceed]");
         assertEquals("3",evaluate("document.querySelectorAll('.dispatchCrew').length"));
         tap("[data-cmd=start]");
         ready=false;

@@ -31,7 +31,7 @@ export function start(s){prep(s);requireThat(s.crews.length>0,'Сформиру�
 export function reason(s,call,crew){
  if(s.phase!=='active')return 'Сначала начните смену';if(!call||!crew)return 'Бригада или заявка не найдена';if(call.status!=='new')return 'Заявка уже назначена';if(crew.status!=='idle')return 'Бригада занята';
  const m=task(s,call),v=s.vehicles.find(v=>v.id===crew.vehicle),model=VEHICLE_MODELS.find(x=>x.id===v?.model);
- if(crew.service!==m.service)return 'Другая специальность';if(model.supportedTypes&&!model.supportedTypes.includes(m.type))return 'Техника не подходит для этой работы';
+ if(!v||!model)return 'Нет техники';if(crew.service!==m.service)return 'Другая специальность';if(model.supportedTypes&&!model.supportedTypes.includes(m.type))return 'Техника не подходит для этой работы';
  if(model.capacity<m.quantity)return 'Недостаточно грузового места';if(s.stock[m.service]<m.quantity)return 'Нужны комплекты со склада';
  const destination=roadStop(district(s.seed,s.region).homes[m.home]),outbound=streetRoute(crew.point,destination),back=streetRoute(destination,parkingBay(s.seed,s.region,crew.id));if(v.fuel<fuelFor(outbound)+fuelFor(back))return 'Недостаточно топлива на выезд и возвращение';if(v.condition<20)return 'Нужно обслуживание';if(crew.members.some(id=>s.employees.find(p=>p.id===id).fatigue>90))return 'Бригаде нужен отдых';return '';
 }
@@ -41,7 +41,7 @@ export function dispatch(s,id,crewId){const c=s.calls.find(c=>c.mission===id),cr
 // Reserve fuel for both legs at dispatch.
 c.returnFuelReserved=true;v.fuel-=fuelFor(c.path)+fuelFor(streetRoute(c.path.at(-1),parkingBay(s.seed,s.region,cr.id)));
 }
-export function question(s,id){const c=s.calls.find(c=>c.mission===id);requireThat(c,'Заявка не найдена');c.asked=true;return task(s,c).answer;}
+export function question(s,id){const c=s.calls.find(c=>c.mission===id);requireThat(c,'Заявка не найдена');if(!c.asked&&c.status==='diagnosis'){const elapsed=c.total-c.remaining;c.total=3;c.remaining=Math.max(1,3-elapsed);}c.asked=true;return task(s,c).answer;}
 export function contain(s,id){const c=s.calls.find(c=>c.mission===id);requireThat(c&&c.status==='new'&&!c.contained,'Инструкция уже передана');c.contained=true;c.asked=true;c.due+=20;}
 function complete(s,c){
  requireThat(!s.done.includes(c.mission),'Задание уже выполнено');const m=task(s,c),cr=s.crews.find(cr=>cr.id===c.crew);
@@ -113,6 +113,8 @@ export function decode(raw){
   }else valid(cr.returnTrip===undefined);
   usedVehicles.add(cr.vehicle);for(const id of cr.members){valid(people.has(id)&&people.get(id).service===cr.service&&!usedPeople.has(id));usedPeople.add(id);}crews.set(cr.id,cr);
  }
+ valid(s.phase!=='active'||s.minute<SHIFT);
+ valid(s.phase!=='report'||s.minute===SHIFT);
  const seen=new Set(s.done),order=missionOrder(s.seed,s.region),issued=new Set(order.slice(0,s.cursor));
  for(const c of s.calls){valid(c&&int(c.mission,0,998)&&!seen.has(c.mission)&&['new','travel','diagnosis','repair'].includes(c.status)&&typeof c.asked==='boolean'&&typeof c.contained==='boolean'&&typeof c.late==='boolean'&&Number.isSafeInteger(c.due)&&int(c.remaining)&&int(c.total));seen.add(c.mission);
   const m=task(s,c);valid(m&&m.id===s.region*999+c.mission&&m.home===c.mission&&int(m.type,0,19)&&int(m.service,0,2)&&int(m.priority,1,3)&&int(m.quantity,1,50)&&int(m.duration,1,180)&&int(m.reward,1,1000000)&&typeof m.title==='string'&&m.title.length<500&&typeof m.brief==='string'&&m.brief.length<2000&&typeof m.answer==='string'&&m.answer.length<2000);

@@ -1,12 +1,12 @@
 {
   "name": "upravdom",
-  "version": "0.6.0-alpha",
+  "version": "0.8.2-alpha",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.js",
     "start": "node tools/serve.js",
-    "test:ui": "node tools/geography-verify.cjs && node tools/campaign-verify.cjs && node tools/motion-verify.cjs && node tools/playability.cjs && node tools/ui-smoke.cjs",
+    "test:ui": "node tools/geography-verify.cjs && node tools/campaign-verify.cjs && node tools/motion-verify.cjs && node tools/playability.cjs && node tools/ui-smoke.cjs && node tools/operator-verify.cjs && node tools/fleet-verify.cjs",
     "test:fleet": "node tools/fleet-verify.cjs",
     "test:campaign": "node tools/campaign-verify.cjs",
     "test:motion": "node tools/motion-verify.cjs",
