@@ -187,6 +187,11 @@ public class ScreenInsetsTest {
         assertEquals("true",evaluate("document.querySelector('.campaignBottom').getBoundingClientRect().bottom<=innerHeight+1"));
         assertEquals("999",evaluate("Number(document.querySelector('#campaignMap').dataset.positions)"));
         assertEquals("3",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).cursor"));
+        assertEquals("true",evaluate("Number(document.querySelector('#campaignMap').dataset.trafficCount)>0"));
+        String traffic=evaluate("document.querySelector('#campaignMap').dataset.traffic");SystemClock.sleep(1300);
+        assertNotEquals("Traffic did not animate",traffic,evaluate("document.querySelector('#campaignMap').dataset.traffic"));
+        tap("[data-cmd=pause]");traffic=evaluate("document.querySelector('#campaignMap').dataset.traffic");SystemClock.sleep(1300);
+        assertEquals("Traffic moved while paused",traffic,evaluate("document.querySelector('#campaignMap').dataset.traffic"));
         activity.getScenario().moveToState(Lifecycle.State.CREATED);SystemClock.sleep(500);
         activity.getScenario().moveToState(Lifecycle.State.RESUMED);SystemClock.sleep(300);
         String minute=evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).minute");

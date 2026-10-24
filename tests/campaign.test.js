@@ -36,7 +36,7 @@ test('Issued jobs never duplicate; only finishing the 999th job unlocks the next
   s.calls=[{mission:id,status:'repair',crew:cr.id,due:80,late:false,asked:true,contained:false,remaining:1,total:1,path:[cr.point]}];cr.status='repair';cr.job=id;
   assert.throws(()=>E.nextDistrict(s),/999/);assert.doesNotThrow(()=>E.decode(E.encode(s)));
   E.tick(s);assert.equal(s.done.length,999);assert.equal(s.calls.length,0);assert.equal(cr.status,'idle');assert.doesNotThrow(()=>E.decode(E.encode(s)));
-  if(d<19){assert.equal(s.phase,'cleared');E.nextDistrict(s);assert.equal(s.region,d+1);assert.equal(s.done.length,0);assert.equal(s.cursor,0);assert.deepEqual(s.crews[0].point,districtOrigin(s.region).map((n,i)=>n+[768,510][i]));}
+  if(d<19){assert.equal(s.phase,'cleared');E.nextDistrict(s);assert.equal(s.region,d+1);assert.equal(s.done.length,0);assert.equal(s.cursor,0);assert.deepEqual(s.crews[0].point,districtOrigin(s.region).map((n,i)=>n+[708,434][i]));}
   else{assert.equal(s.phase,'won');assert.throws(()=>E.nextDistrict(s));}
  }
 });
@@ -45,7 +45,7 @@ test('Real dispatch consumes supplies, follows travel, diagnosis, repair, and pa
  E.dispatch(s,c.mission,cr.id);assert.equal(s.stock[m.service],stock-m.quantity);assert.throws(()=>E.dispatch(s,c.mission,cr.id));
  E.question(s,c.mission);const encoded=E.encode(s);assert.deepEqual(E.decode(encoded),s);
  E.tick(s,c.remaining);assert.equal(c.status,'diagnosis');E.tick(s,c.remaining);assert.equal(c.status,'repair');E.tick(s,c.remaining);
- assert.ok(s.done.includes(c.mission));assert.ok(!s.calls.includes(c));assert.equal(s.money,before+Math.round(m.reward*(c.late?.8:1)));
+ assert.ok(s.done.includes(c.mission));assert.ok(!s.calls.includes(c));assert.equal(s.money,before+E.payment(m,c.late));
  const reward=s.money;E.tick(s,1);assert.equal(s.money,reward);assert.doesNotThrow(()=>E.decode(E.encode(s)));
 });
 test('Invalid assignments and busy maintenance do not spend money, materials or fuel',()=>{

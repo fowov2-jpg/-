@@ -1,0 +1,312 @@
+{
+  "schemaVersion": 5,
+  "policy": "Public engine actions; earliest deadline; refuel/restock and capacity upgrades; no instant completions",
+  "results": [
+    {
+      "seed": 112,
+      "teams": 3,
+      "regions": [
+        {
+          "region": 1,
+          "days": 66,
+          "money": 8509188,
+          "net": 5509188,
+          "completed": 999
+        },
+        {
+          "region": 2,
+          "days": 66,
+          "money": 14011046,
+          "net": 5251858,
+          "completed": 999
+        },
+        {
+          "region": 3,
+          "days": 66,
+          "money": 19354846,
+          "net": 5093800,
+          "completed": 999
+        },
+        {
+          "region": 4,
+          "days": 66,
+          "money": 24561656,
+          "net": 4956810,
+          "completed": 999
+        },
+        {
+          "region": 5,
+          "days": 66,
+          "money": 29689610,
+          "net": 4877954,
+          "completed": 999
+        },
+        {
+          "region": 6,
+          "days": 67,
+          "money": 34666732,
+          "net": 4727122,
+          "completed": 999
+        },
+        {
+          "region": 7,
+          "days": 66,
+          "money": 39017398,
+          "net": 4100666,
+          "completed": 999
+        },
+        {
+          "region": 8,
+          "days": 66,
+          "money": 43654490,
+          "net": 4387092,
+          "completed": 999
+        },
+        {
+          "region": 9,
+          "days": 66,
+          "money": 48289286,
+          "net": 4384796,
+          "completed": 999
+        },
+        {
+          "region": 10,
+          "days": 66,
+          "money": 52851360,
+          "net": 4312074,
+          "completed": 999
+        },
+        {
+          "region": 11,
+          "days": 66,
+          "money": 57216976,
+          "net": 4115616,
+          "completed": 999
+        },
+        {
+          "region": 12,
+          "days": 66,
+          "money": 61562566,
+          "net": 4095590,
+          "completed": 999
+        },
+        {
+          "region": 13,
+          "days": 67,
+          "money": 65735926,
+          "net": 3923360,
+          "completed": 999
+        },
+        {
+          "region": 14,
+          "days": 66,
+          "money": 69749877,
+          "net": 3763951,
+          "completed": 999
+        },
+        {
+          "region": 15,
+          "days": 65,
+          "money": 73713452,
+          "net": 3713575,
+          "completed": 999
+        },
+        {
+          "region": 16,
+          "days": 66,
+          "money": 76959547,
+          "net": 2996095,
+          "completed": 999
+        },
+        {
+          "region": 17,
+          "days": 66,
+          "money": 80579098,
+          "net": 3369551,
+          "completed": 999
+        },
+        {
+          "region": 18,
+          "days": 66,
+          "money": 84142369,
+          "net": 3313271,
+          "completed": 999
+        },
+        {
+          "region": 19,
+          "days": 66,
+          "money": 87462683,
+          "net": 3070314,
+          "completed": 999
+        },
+        {
+          "region": 20,
+          "days": 66,
+          "money": 90727299,
+          "net": 3014616,
+          "completed": 999
+        }
+      ],
+      "completed": 19980,
+      "late": 2686,
+      "minMoney": 3000000,
+      "days": 1321,
+      "finalMoney": 90727299,
+      "net": 87727299,
+      "lateRate": 0.13443443443443442
+    },
+    {
+      "seed": 112,
+      "teams": 6,
+      "regions": [
+        {
+          "region": 1,
+          "days": 50,
+          "money": 7510953,
+          "net": 5602953,
+          "completed": 999
+        },
+        {
+          "region": 2,
+          "days": 50,
+          "money": 13115131,
+          "net": 5354178,
+          "completed": 999
+        },
+        {
+          "region": 3,
+          "days": 50,
+          "money": 18645461,
+          "net": 5280330,
+          "completed": 999
+        },
+        {
+          "region": 4,
+          "days": 50,
+          "money": 22108990,
+          "net": 3213529,
+          "completed": 999
+        },
+        {
+          "region": 5,
+          "days": 50,
+          "money": 27322597,
+          "net": 4963607,
+          "completed": 999
+        },
+        {
+          "region": 6,
+          "days": 50,
+          "money": 32453794,
+          "net": 4881197,
+          "completed": 999
+        },
+        {
+          "region": 7,
+          "days": 49,
+          "money": 36955427,
+          "net": 4251633,
+          "completed": 999
+        },
+        {
+          "region": 8,
+          "days": 50,
+          "money": 41837741,
+          "net": 4632314,
+          "completed": 999
+        },
+        {
+          "region": 9,
+          "days": 49,
+          "money": 46718659,
+          "net": 4630918,
+          "completed": 999
+        },
+        {
+          "region": 10,
+          "days": 49,
+          "money": 51489171,
+          "net": 4520512,
+          "completed": 999
+        },
+        {
+          "region": 11,
+          "days": 50,
+          "money": 56120923,
+          "net": 4381752,
+          "completed": 999
+        },
+        {
+          "region": 12,
+          "days": 49,
+          "money": 60744736,
+          "net": 4373813,
+          "completed": 999
+        },
+        {
+          "region": 13,
+          "days": 50,
+          "money": 65211141,
+          "net": 4216405,
+          "completed": 999
+        },
+        {
+          "region": 14,
+          "days": 50,
+          "money": 69576207,
+          "net": 4115066,
+          "completed": 999
+        },
+        {
+          "region": 15,
+          "days": 49,
+          "money": 73936300,
+          "net": 4110093,
+          "completed": 999
+        },
+        {
+          "region": 16,
+          "days": 50,
+          "money": 77666946,
+          "net": 3480646,
+          "completed": 999
+        },
+        {
+          "region": 17,
+          "days": 50,
+          "money": 81737446,
+          "net": 3820500,
+          "completed": 999
+        },
+        {
+          "region": 18,
+          "days": 50,
+          "money": 85771111,
+          "net": 3783665,
+          "completed": 999
+        },
+        {
+          "region": 19,
+          "days": 50,
+          "money": 89676407,
+          "net": 3655296,
+          "completed": 999
+        },
+        {
+          "region": 20,
+          "days": 51,
+          "money": 93409696,
+          "net": 3483289,
+          "completed": 999
+        }
+      ],
+      "completed": 19980,
+      "late": 188,
+      "minMoney": 1908000,
+      "days": 996,
+      "finalMoney": 93409696,
+      "net": 90409696,
+      "lateRate": 0.00940940940940941
+    }
+  ]
+}

@@ -17,6 +17,12 @@ jobs:
         with:
           node-version: '22'
       - run: npm test
+      - run: npm run test:balance
+      - uses: actions/upload-artifact@v4
+        with:
+          name: upravdom-balance-report
+          path: test-results/balance/
+          if-no-files-found: error
   browser:
     needs: test
     runs-on: ubuntu-latest
@@ -60,12 +66,12 @@ jobs:
       - run: gradle -p android assembleDebug assembleRelease lintDebug lintRelease --no-daemon
       - uses: actions/upload-artifact@v4
         with:
-          name: upravdom-0.4.0-alpha-debug-apk
+          name: upravdom-0.5.0-alpha-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
-          name: upravdom-0.4.0-alpha-unsigned-release
+          name: upravdom-0.5.0-alpha-unsigned-release
           path: android/app/build/outputs/apk/release/app-release-unsigned.apk
           if-no-files-found: error
 
