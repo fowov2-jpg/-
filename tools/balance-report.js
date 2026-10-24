@@ -18,7 +18,7 @@ export function simulate(seed=112,teams=3,regions=20){
    for(const c of [...s.calls].filter(c=>c.status==='new').sort((a,b)=>a.due-b.due)){
     const m=E.task(s,c),cr=s.crews.find(cr=>cr.status==='idle'&&cr.service===m.service&&!cr.members.some(id=>s.employees.find(p=>p.id===id).fatigue>90));if(!cr)continue;
     if(s.stock[m.service]<m.quantity)E.procure(s,m.service);
-    let why=E.reason(s,c,cr);if(why==='Нужна заправка'||why==='Нужно обслуживание'){E.maintain(s,cr.vehicle);why=E.reason(s,c,cr);}
+    let why=E.reason(s,c,cr);if(why==='Нужна заправка'||why.startsWith('Недостаточно топлива')||why==='Нужно обслуживание'){E.maintain(s,cr.vehicle);why=E.reason(s,c,cr);}
     if(!why){E.question(s,c.mission);E.dispatch(s,c.mission,cr.id);}
    }
    const finishing=s.calls.filter(c=>c.status==='repair'&&c.remaining===1),before=s.done.length;E.tick(s);
