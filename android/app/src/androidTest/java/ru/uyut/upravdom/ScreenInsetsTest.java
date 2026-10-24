@@ -223,7 +223,9 @@ public class ScreenInsetsTest {
         assertTrue("Campaign map art did not load",ready);
         assertEquals("true",evaluate("document.querySelector('.campaignBottom').getBoundingClientRect().bottom<=innerHeight+1"));
         assertEquals("999",evaluate("Number(document.querySelector('#campaignMap').dataset.positions)"));
-        assertEquals("3",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).cursor"));
+        // The emulator keeps real game time running during UI/asset checks.
+        // More calls may arrive; validate the real queue instead of assuming zero elapsed time.
+        assertEquals("true",evaluate("(()=>{const s=JSON.parse(localStorage.getItem('upravdom.campaign.v4'));return s.phase==='active'&&s.cursor>=3&&s.cursor<=6&&s.calls.length===s.cursor&&new Set(s.calls.map(c=>c.mission)).size===s.cursor;})()"));
         assertEquals("true",evaluate("Number(document.querySelector('#campaignMap').dataset.trafficCount)>0"));
         String traffic=evaluate("document.querySelector('#campaignMap').dataset.traffic");SystemClock.sleep(1300);
         assertNotEquals("Traffic did not animate",traffic,evaluate("document.querySelector('#campaignMap').dataset.traffic"));
