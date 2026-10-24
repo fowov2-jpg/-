@@ -57,6 +57,16 @@ export function pathPose(path,progress){
  return {point:[...path.at(-1)],angle};
 }
 export function depot(seed,d){const [x,y]=districtOrigin(d);return [x+708,y+434];}
+// Separate curbside positions along the EXISTING vertical district road.
+// 708 is a real road axis. No extra painted parking polygons are permitted.
+// Cars are placed beside the curb, not on the crossroads or another vehicle.
+export function parkingBay(seed,d,slot){
+ const [x,y]=depot(seed,d);
+ const side=Math.floor(slot/4)%2===0?1:-1;
+ const row=slot%4;
+ return [x+side*14,y+105+row*119];
+}
+
 export function missionOrder(seed,d){const ids=Array.from({length:ADDRESS_COUNT},(_,i)=>i);for(let i=ids.length-1;i>0;i--){const j=hash(seed+d*997,i)%(i+1);[ids[i],ids[j]]=[ids[j],ids[i]];}return ids;}
 const locations=['подвал, секция А','второй подъезд','технический этаж','дворовой фасад','вход со двора','служебная часть здания','первый подъезд'];
 export function missions(seed,d,balance=2){const city=district(seed,d);return city.homes.map((home,i)=>{

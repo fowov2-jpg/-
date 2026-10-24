@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import * as E from '../web/campaign-engine.js';
-import {district,missions,missionOrder,districtOrigin,roadStop,streetRoute,DW,DH} from '../web/campaign-city.js';
+import {district,missions,missionOrder,districtOrigin,parkingBay,roadStop,streetRoute,DW,DH} from '../web/campaign-city.js';
 
 test('20 deterministic districts contain 19,980 unique address IDs and prepared assignments',()=>{
  const ids=new Set(),signatures=new Set(),layouts=new Set();
@@ -35,8 +35,8 @@ test('Issued jobs never duplicate; only finishing the 999th job unlocks the next
   s.cursor=999;s.done=order.slice(0,-1);s.phase='active';s.minute=0;
   s.calls=[{mission:id,status:'repair',crew:cr.id,due:80,late:false,asked:true,contained:false,remaining:1,total:1,path:[cr.point]}];cr.status='repair';cr.job=id;
   assert.throws(()=>E.nextDistrict(s),/999/);assert.doesNotThrow(()=>E.decode(E.encode(s)));
-  E.tick(s);assert.equal(s.done.length,999);assert.equal(s.calls.length,0);assert.equal(cr.status,'idle');assert.doesNotThrow(()=>E.decode(E.encode(s)));
-  if(d<19){assert.equal(s.phase,'cleared');E.nextDistrict(s);assert.equal(s.region,d+1);assert.equal(s.done.length,0);assert.equal(s.cursor,0);assert.deepEqual(s.crews[0].point,districtOrigin(s.region).map((n,i)=>n+[708,434][i]));}
+  E.tick(s);assert.equal(s.done.length,999);assert.equal(s.calls.length,0);assert.equal(cr.status,'returning');assert.ok(cr.returnTrip.remaining>0);assert.doesNotThrow(()=>E.decode(E.encode(s)));
+  if(d<19){assert.equal(s.phase,'cleared');E.nextDistrict(s);assert.equal(s.region,d+1);assert.equal(s.done.length,0);assert.equal(s.cursor,0);assert.deepEqual(s.crews[0].point,parkingBay(s.seed,s.region,s.crews[0].id));}
   else{assert.equal(s.phase,'won');assert.throws(()=>E.nextDistrict(s));}
  }
 });
