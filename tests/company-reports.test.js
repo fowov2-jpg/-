@@ -34,3 +34,12 @@ test('Dismissal cannot remove an assigned specialist; available staff can be reh
 test('Malformed shift counters cannot replace a valid save',()=>{
  const s=E.fresh();E.start(s);s.shift.income=-1;assert.throws(()=>E.decode(E.encode(s)));
 });
+
+
+test('Return movement starts after repair completion, without skipping its first minute',()=>{
+ const s=E.fresh();E.start(s);const c=s.calls[0],cr=s.crews.find(cr=>cr.service===E.task(s,c).service);
+ E.dispatch(s,c.mission,cr.id);E.tick(s,c.remaining);E.tick(s,c.remaining);E.tick(s,c.remaining);
+ assert.equal(cr.status,'returning');assert.equal(cr.returnTrip.remaining,cr.returnTrip.total);
+ const total=cr.returnTrip.total;E.tick(s,1);assert.equal(cr.returnTrip.remaining,total-1);
+ assert.doesNotThrow(()=>E.decode(E.encode(s)));
+});

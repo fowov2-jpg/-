@@ -65,6 +65,13 @@ export function tick(s,minutes=1){
  requireThat(Number.isInteger(minutes)&&minutes>=0&&minutes<=SHIFT,'Неверный шаг времени');if(s.phase!=='active')return;
  for(let n=0;n<minutes&&s.phase==='active';n++){
   s.minute++;s.clock++;
+  for(const cr of s.crews){
+   if(cr.status!=='returning')continue;
+   if(--cr.returnTrip.remaining<=0){
+    cr.point=[...cr.returnTrip.path.at(-1)];cr.angle=-Math.PI/2;
+    cr.status='idle';delete cr.returnTrip;
+   }
+  }
   for(const c of [...s.calls]){
    if(!c.late&&s.minute>c.due)c.late=true;
    if(c.status==='new')continue;
@@ -74,13 +81,6 @@ export function tick(s,minutes=1){
    else complete(s,c);
   }
   if(s.phase!=='active')break;
-  for(const cr of s.crews){
-   if(cr.status!=='returning')continue;
-   if(--cr.returnTrip.remaining<=0){
-    cr.point=[...cr.returnTrip.path.at(-1)];cr.angle=-Math.PI/2;
-    cr.status='idle';delete cr.returnTrip;
-   }
-  }
   if(s.minute>=s.nextCall&&s.cursor<ADDRESS_COUNT&&s.calls.length<Math.max(4,s.crews.length*2))issue(s);
   if(s.minute>=s.nextCall)s.nextCall=s.minute+cadence(s)+hash(s.seed+s.day,s.minute)%9;
   if(s.minute>=SHIFT){s.phase='report';s.report={done:s.done.length,pending:s.calls.length};log(s,-expenses(s),'Содержание компании за смену');}
