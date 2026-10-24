@@ -36,13 +36,13 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   for(const width of [360,412,560,1200]){await page.setViewportSize({width,height:915});await click('menu');await click('continue');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);report.checks.push('viewport '+width);}
   await click('regionProceed');await click('settings');const downloadPromise=page.waitForEvent('download');await click('export');const exported=await downloadPromise;await exported.saveAs('test-results/campaign/export.json');await click('close');
   for(let round=0;round<2;round++){
-   await click('settings');const picker=page.waitForEvent('filechooser');await click('import');await (await picker).setFiles('test-results/campaign/export.json');await page.locator('.campaignTabs').waitFor();assert.equal((await state()).region,1);
+   await click('settings');const picker=page.waitForEvent('filechooser');await click('import');await (await picker).setFiles('test-results/campaign/export.json');await page.locator('dialog[open]').waitFor({state:'hidden'});await page.locator('.campaignTabs').waitFor();assert.equal((await state()).region,1);
   }
   report.checks.push('export and repeated file-picker imports preserve the input element');
   await page.goto(origin+'/fixture');await page.evaluate(()=>localStorage.setItem('upravdom.campaign.v4','broken primary'));await page.goto(origin);await click('continue');await flush();assert.equal((await state()).region,1);report.checks.push('corrupt primary recovers from independent backup');
   await page.goto(origin+'/fixture');await page.evaluate(()=>{localStorage.setItem('upravdom.campaign.v4','broken primary');localStorage.setItem('upravdom.campaign.v4.backup','broken backup');});await page.goto(origin);await page.clock.runFor(6000);
   assert.equal(await page.locator('[data-cmd="continue"]').isDisabled(),true);assert.equal(await page.evaluate(()=>localStorage.getItem('upravdom.campaign.v4')),'broken primary');
-  await click('settings');const picker=page.waitForEvent('filechooser');await click('import');await (await picker).setFiles('test-results/campaign/export.json');await page.locator('.campaignTabs').waitFor();assert.equal((await state()).region,1);report.checks.push('both corrupt saves remain untouched until explicit valid import');
+  await click('settings');const picker=page.waitForEvent('filechooser');await click('import');await (await picker).setFiles('test-results/campaign/export.json');await page.locator('dialog[open]').waitFor({state:'hidden'});await page.locator('.campaignTabs').waitFor();assert.equal((await state()).region,1);report.checks.push('both corrupt saves remain untouched until explicit valid import');
   assert.deepEqual(report.errors,[]);assert.deepEqual(report.responses,[]);await fs.writeFile('test-results/campaign/report.json',JSON.stringify(report,null,2));console.log('CAMPAIGN VERIFIED '+report.checks.length+' flows; no JS or HTTP errors');
  }finally{await browser?.close();await new Promise(r=>server.close(r));}
 })().catch(e=>{console.error(e);process.exitCode=1;});
