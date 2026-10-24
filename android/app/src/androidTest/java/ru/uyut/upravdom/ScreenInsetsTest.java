@@ -125,6 +125,12 @@ public class ScreenInsetsTest {
     private void tap(String selector) throws Exception {
         dismissLauncherAnr();
         String quoted = JSONObject.quote(selector);
+        boolean targetReady=false;
+        for(int wait=0;wait<100;wait++) {
+            if("true".equals(evaluate("(()=>{const n=document.querySelector("+quoted+");return !!n && n.getClientRects().length>0 && !n.disabled && !n.closest('dialog:not([open])');})()"))){targetReady=true;break;}
+            SystemClock.sleep(100);
+        }
+        assertTrue("Tap target did not become available: "+selector,targetReady);
         String value = evaluate("JSON.stringify((()=>{const n=document.querySelector("+quoted+");n.scrollIntoView({block:'center'});const r=n.getBoundingClientRect();return {x:(r.left+r.width/2)*devicePixelRatio,y:(r.top+r.height/2)*devicePixelRatio};})())");
         JSONObject point = new JSONObject(new org.json.JSONTokener(value).nextValue().toString());
         int[] offset = new int[2];
@@ -132,6 +138,15 @@ public class ScreenInsetsTest {
         float x=offset[0]+(float)point.getDouble("x"), y=offset[1]+(float)point.getDouble("y");long now=SystemClock.uptimeMillis();
         MotionEvent down=MotionEvent.obtain(now,now,MotionEvent.ACTION_DOWN,x,y,0),up=MotionEvent.obtain(now,now+40,MotionEvent.ACTION_UP,x,y,0);
         InstrumentationRegistry.getInstrumentation().sendPointerSync(down);InstrumentationRegistry.getInstrumentation().sendPointerSync(up);down.recycle();up.recycle();SystemClock.sleep(160);
+    }
+    private void startNewCampaign() throws Exception {
+        tap("[data-cmd=new]");
+        for(int wait=0;wait<100;wait++) {
+            if("true".equals(evaluate("!!document.querySelector('dialog[open] [data-cmd=confirmNew]')"))){tap("dialog [data-cmd=confirmNew]");return;}
+            if("true".equals(evaluate("!!document.querySelector('[data-cmd=regionProceed]')")))return;
+            SystemClock.sleep(100);
+        }
+        fail("New company neither opened confirmation nor district selection");
     }
     @Test public void allSectionsLifecycleAndDocumentPickers() throws Exception {
         waitForPage();tap("#mapBottom [data-action=settings]");tap("dialog [data-action=reset]");tap("dialog [data-action=confirmReset]");
@@ -194,8 +209,7 @@ public class ScreenInsetsTest {
         }
         assertTrue("Campaign menu did not load",ready);
         assertEquals("3",evaluate("document.querySelectorAll('.campaignMenu button').length"));
-        tap("[data-cmd=new]");
-        if("true".equals(evaluate("!!document.querySelector('[data-cmd=confirmNew]')"))) tap("[data-cmd=confirmNew]");
+        startNewCampaign();
         assertEquals("20",evaluate("document.querySelectorAll('.districtZone').length"));
         tap("[data-cmd=regionProceed]");
         assertEquals("3",evaluate("document.querySelectorAll('.dispatchCrew').length"));
@@ -227,8 +241,7 @@ public class ScreenInsetsTest {
             SystemClock.sleep(100);
         }
         assertTrue("Campaign menu did not load",ready);
-        tap("[data-cmd=new]");
-        if("true".equals(evaluate("!!document.querySelector('[data-cmd=confirmNew]')"))) tap("[data-cmd=confirmNew]");
+        startNewCampaign();
         tap("[data-cmd=regionProceed]");tap("[data-cmd=sub][data-sub=people]");
         tap("[data-cmd=train][data-id='0']");
         assertEquals("3",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).employees[0].level"));
