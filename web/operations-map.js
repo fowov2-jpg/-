@@ -8,7 +8,7 @@ import {drivingPose,equipmentState,drawRig,drawBasicVehicle,drawVehicleLights,dr
 
 const COLORS=['#79bddb','#e8bf70','#8cc9a4'];
 const fleet=typeof Image==='undefined'?null:new Image();
-if(fleet)fleet.src=new URL(FLEET_IMAGE,import.meta.url).href;
+if(fleet){fleet.onload=()=>globalThis.dispatchEvent(new Event('upravdom-art-ready'));fleet.src=new URL(FLEET_IMAGE,import.meta.url).href;}
 const backgrounds=new WeakMap(),trafficController=new TrafficController();
 const intersect=(a,b,gap=4)=>a.x<b.x+b.w+gap&&a.x+a.w+gap>b.x&&a.y<b.y+b.h+gap&&a.y+a.h+gap>b.y;
 

@@ -4,11 +4,12 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
 (async()=>{
  const E=await import('../web/campaign-engine.js'),{createServer}=await import('./serve.js');
  const server=createServer();await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
- const report={checks:[],screens:[],errors:[],httpErrors:[]};
+ const report={checks:[],screens:[],errors:[],httpErrors:[],unusedDistrictRequests:[]};
  try{
   browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||undefined,args:['--no-sandbox']});
   const page=await browser.newPage({viewport:{width:412,height:915}}),origin=`http://127.0.0.1:${server.address().port}`;
   page.on('pageerror',e=>report.errors.push(e.message));page.on('response',r=>{if(r.status()>=400)report.httpErrors.push(r.status()+' '+r.url());});
+  page.on('request',r=>{if(r.url().includes('/assets/districts/'))report.unusedDistrictRequests.push(r.url());});
   await page.clock.install();await page.clock.pauseAt(new Date(Date.now()+1000));
   await fs.mkdir('test-results/operations',{recursive:true});
   const click=(cmd,suffix='')=>page.locator(`[data-cmd="${cmd}"]${suffix}`).click();
@@ -96,7 +97,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   const valid=await page.evaluate(()=>localStorage.getItem('upravdom.campaign.v4'));
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('upravdom-import',{detail:'broken'})));assert.equal(await page.evaluate(()=>localStorage.getItem('upravdom.campaign.v4')),valid);
   report.checks.push('invalid v7 import leaves the running company and saved progress intact');
-  assert.deepEqual(report.errors,[]);assert.deepEqual(report.httpErrors,[]);
+  assert.deepEqual(report.errors,[]);assert.deepEqual(report.httpErrors,[]);assert.deepEqual(report.unusedDistrictRequests,[],'operational map unnecessarily decodes old district backgrounds');
   await fs.writeFile('test-results/operations/report.json',JSON.stringify(report,null,2));console.log('DISPATCH STORY VERIFIED '+report.checks.length+' flows; '+report.screens.length+' screens; no JS or HTTP errors');
  }finally{await browser?.close();await new Promise(r=>server.close(r));}
 })().catch(e=>{console.error(e);process.exitCode=1;});
