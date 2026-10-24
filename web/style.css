@@ -46,3 +46,4 @@ dialog{width:min(500px,calc(100% - 24px));max-height:calc(100dvh - 40px);overflo
 #mapTop .mapWelcomeCompact .incidentInfo>strong{font-size:13px;line-height:1.25}
 #mapTop .mapWelcomeCompact .incidentInfo>small{font-size:9px;line-height:1.35}
 #mapTop .mapWelcomeCompact .eyebrow{font-size:9px}
+.vehiclePhoto.topdown{width:auto;height:210px;max-width:100%;background-repeat:no-repeat;flex-shrink:0}.vehiclePhoto.topdown .fleetService{right:-10px;bottom:18%}

@@ -14,7 +14,21 @@ export const PARTS=[
 export const VEHICLE_MODELS=[
  {id:'van',name:'Сервисный фургон',description:'Универсальный автомобиль для любого профиля',price:320000,speed:1,capacity:8,upkeep:700},
  {id:'express',name:'Быстрый фургон',description:'На 30% быстрее, но меньше грузовой отсек',price:510000,speed:1.3,capacity:6,upkeep:1000},
- {id:'truck',name:'Грузовой пикап',description:'Запас материалов для сложных ремонтов',price:440000,speed:.9,capacity:14,upkeep:900}
+ {id:'truck',name:'Грузовой пикап',description:'Запас материалов для сложных ремонтов',price:440000,speed:.9,capacity:14,upkeep:900},
+ {"id":"kamaz-crane","name":"Автокран на шасси КамАЗ","description":"Подача тяжёлых материалов: трубы, насосы, кровля и ступени","price":1850000,"speed":0.72,"capacity":20,"upkeep":3200,"kind":"crane","supportedTypes":[0,12,14,18]},
+ {"id":"gazelle-next-van","name":"ГАЗель NEXT, фургон","description":"Сервисный фургон для всех профилей","price":610000,"speed":1.15,"capacity":12,"upkeep":1200,"kind":"service"},
+ {"id":"gaz53-scissor-lift","name":"ГАЗ-53, ножничный подъёмник","description":"Работы на высоте: светильники, кровля, окна и водостоки","price":720000,"speed":0.8,"capacity":10,"upkeep":1400,"kind":"lift","supportedTypes":[9,13,14,16,19]},
+ {"id":"gaz53-aerial-lift","name":"ГАЗ-53, автовышка","description":"Высотные работы с подъёмной корзиной","price":760000,"speed":0.78,"capacity":10,"upkeep":1500,"kind":"lift","supportedTypes":[9,13,14,16,19]},
+ {"id":"gaz3307-tipper","name":"ГАЗ-3307, самосвал","description":"Материалы для входных групп: обледенение и ступени","price":580000,"speed":0.78,"capacity":24,"upkeep":1650,"kind":"tipper","supportedTypes":[17,18]},
+ {"id":"gazon-next-flatbed","name":"ГАЗон NEXT, бортовой","description":"Бортовой автомобиль для ремонтных материалов","price":780000,"speed":0.95,"capacity":20,"upkeep":1600,"kind":"service"},
+ {"id":"kamaz6520-tipper","name":"КамАЗ-6520, самосвал","description":"Тяжёлые поставки для ремонта входов","price":1300000,"speed":0.8,"capacity":32,"upkeep":2500,"kind":"tipper","supportedTypes":[17,18]},
+ {"id":"maz-tipper","name":"МАЗ, самосвал","description":"Самосвал для материалов и ремонта ступеней","price":1250000,"speed":0.78,"capacity":30,"upkeep":2400,"kind":"tipper","supportedTypes":[17,18]},
+ {"id":"gazelle-business-flatbed","name":"ГАЗель Бизнес, двухрядная кабина и борт","description":"Двухрядная кабина и борт для бригады с материалами","price":480000,"speed":1,"capacity":14,"upkeep":950,"kind":"service"},
+ {"id":"uaz39094-utility","name":"УАЗ-39094, аварийная служба","description":"Аварийная служба: инструмент и материалы под тентом","price":410000,"speed":0.92,"capacity":9,"upkeep":800,"kind":"service"},
+ {"id":"maz-crane","name":"МАЗ, автокран","description":"Подъём материалов на крупных ремонтных работах","price":1750000,"speed":0.75,"capacity":20,"upkeep":3000,"kind":"crane","supportedTypes":[0,12,14,18]},
+ {"id":"gazelle-next-aerial-lift","name":"ГАЗель NEXT, автовышка","description":"Компактная автовышка для дворовых работ","price":1100000,"speed":1.05,"capacity":8,"upkeep":1800,"kind":"lift","supportedTypes":[9,13,14,16,19]},
+ {"id":"uaz2206-minibus","name":"УАЗ-2206, микроавтобус","description":"Микроавтобус для выездной бригады","price":370000,"speed":0.95,"capacity":8,"upkeep":750,"kind":"service"},
+ {"id":"gaz53-ks1571-crane","name":"ГАЗ-53А, автокран КС-1571","description":"Кран для труб, насосов и строительных материалов","price":950000,"speed":0.7,"capacity":16,"upkeep":1900,"kind":"crane","supportedTypes":[0,12,14,18]}
 ];
 export const PEOPLE=[
  ['Алексей Волков',0,2,2200,12],['Сергей Морозов',0,1,1400,6],['Дмитрий Соколов',1,2,2200,10],['Андрей Козлов',1,1,1400,5],['Михаил Петров',2,2,2200,14],['Иван Лебедев',2,1,1400,7],

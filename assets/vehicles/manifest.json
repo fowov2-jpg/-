@@ -1,0 +1,203 @@
+{
+  "status": "integrated-preview",
+  "view": "orthographic-top-down-front-up",
+  "columns": 4,
+  "rows": 4,
+  "image": "fleet-topdown-draft.png",
+  "imageSize": [
+    1261,
+    1247
+  ],
+  "notes": [
+    "All 14 supplied references retained.",
+    "Visual approximations; exact factory variants unverified.",
+    "Source rectangles measured from the original unmodified PNG; runtime crops via CSS and Canvas.",
+    "Top-down 2D sprites; no 3D meshes, lifting/tipping animations or physics.",
+    "Specifications and task restrictions are game balance values, not real vehicle specifications."
+  ],
+  "vehicles": [
+    {
+      "id": "kamaz-crane",
+      "name": "Автокран на шасси КамАЗ",
+      "reference": "i (1).jpeg",
+      "row": 0,
+      "column": 0,
+      "sourceRect": [
+        127,
+        41,
+        106,
+        260
+      ]
+    },
+    {
+      "id": "gazelle-next-van",
+      "name": "ГАЗель NEXT, фургон",
+      "reference": "i (1).png",
+      "row": 0,
+      "column": 1,
+      "sourceRect": [
+        420,
+        73,
+        120,
+        224
+      ]
+    },
+    {
+      "id": "gaz53-scissor-lift",
+      "name": "ГАЗ-53, ножничный подъёмник",
+      "reference": "i (2).jpeg",
+      "row": 0,
+      "column": 2,
+      "sourceRect": [
+        724,
+        66,
+        111,
+        229
+      ]
+    },
+    {
+      "id": "gaz53-aerial-lift",
+      "name": "ГАЗ-53, автовышка",
+      "reference": "i (3).jpeg",
+      "row": 0,
+      "column": 3,
+      "sourceRect": [
+        1034,
+        67,
+        110,
+        234
+      ]
+    },
+    {
+      "id": "gaz3307-tipper",
+      "name": "ГАЗ-3307, самосвал",
+      "reference": "i (4).jpeg",
+      "row": 1,
+      "column": 0,
+      "sourceRect": [
+        117,
+        365,
+        126,
+        239
+      ]
+    },
+    {
+      "id": "gazon-next-flatbed",
+      "name": "ГАЗон NEXT, бортовой",
+      "reference": "i (5).jpeg",
+      "row": 1,
+      "column": 1,
+      "sourceRect": [
+        418,
+        359,
+        126,
+        244
+      ]
+    },
+    {
+      "id": "kamaz6520-tipper",
+      "name": "КамАЗ-6520, самосвал",
+      "reference": "i (6).jpeg",
+      "row": 1,
+      "column": 2,
+      "sourceRect": [
+        716,
+        359,
+        126,
+        246
+      ]
+    },
+    {
+      "id": "maz-tipper",
+      "name": "МАЗ, самосвал",
+      "reference": "i (7).jpeg",
+      "row": 1,
+      "column": 3,
+      "sourceRect": [
+        1027,
+        357,
+        123,
+        251
+      ]
+    },
+    {
+      "id": "gazelle-business-flatbed",
+      "name": "ГАЗель Бизнес, двухрядная кабина и борт",
+      "reference": "i (8).jpeg",
+      "row": 2,
+      "column": 0,
+      "sourceRect": [
+        120,
+        674,
+        121,
+        234
+      ]
+    },
+    {
+      "id": "uaz39094-utility",
+      "name": "УАЗ-39094, аварийная служба",
+      "reference": "i.jpeg",
+      "row": 2,
+      "column": 1,
+      "sourceRect": [
+        417,
+        662,
+        125,
+        234
+      ]
+    },
+    {
+      "id": "maz-crane",
+      "name": "МАЗ, автокран",
+      "reference": "i.png",
+      "row": 2,
+      "column": 2,
+      "sourceRect": [
+        717,
+        643,
+        128,
+        270
+      ]
+    },
+    {
+      "id": "gazelle-next-aerial-lift",
+      "name": "ГАЗель NEXT, автовышка",
+      "reference": "ipavd86l6hheeh73im09ract9w0m9bzi.jpg",
+      "row": 2,
+      "column": 3,
+      "sourceRect": [
+        1027,
+        657,
+        126,
+        254
+      ]
+    },
+    {
+      "id": "uaz2206-minibus",
+      "name": "УАЗ-2206, микроавтобус",
+      "reference": "uaz_buhanka_947032.jpg",
+      "row": 3,
+      "column": 0,
+      "sourceRect": [
+        107,
+        1003,
+        143,
+        182
+      ]
+    },
+    {
+      "id": "gaz53-ks1571-crane",
+      "name": "ГАЗ-53А, автокран КС-1571",
+      "reference": "КС-1571_на_шасси_ГАЗ-53А_1.webp",
+      "row": 3,
+      "column": 1,
+      "sourceRect": [
+        420,
+        937,
+        117,
+        252
+      ]
+    }
+  ],
+  "runtimeImage": "../../web/assets/fleet-reference.png"
+}
