@@ -1,15 +1,15 @@
 import {VEHICLE_MODELS,PEOPLE} from './content.js';
 import {ADDRESS_COUNT,DISTRICT_COUNT,DW,DH,missions,missionOrder,depot,district,roadStop,streetRoute,pathLength,pathPose,hash} from './campaign-city.js';
 import {fuelFor,repairTime,deadlineFor,cadence,payment,expenses,serviceCost,supplyCost,efficiency} from './campaign-balance.js';
-import {migrateV4} from './campaign-migrate.js';
+import {migrateV4,migrateV5} from './campaign-migrate.js';
 export {VEHICLE_MODELS,repairTime,expenses,supplyCost,payment,efficiency};
 export const maintainCost=(s,id)=>serviceCost(s.vehicles.find(v=>v.id===id));
 export const SAVE='upravdom.campaign.v4',BACKUP=SAVE+'.backup',SHIFT=480;
-export const MIGRATION_ARCHIVE=SAVE+'.before-v5';
+export const MIGRATION_ARCHIVE=SAVE+'.before-v6';
 const requireThat=(v,m)=>{if(!v)throw Error(m);},clamp=n=>Math.max(0,Math.min(100,n));
 const catalogs=new Map();
 export function catalog(s){const key=s.seed+':'+s.region;if(!catalogs.has(key))catalogs.set(key,missions(s.seed,s.region));return catalogs.get(key);}
-export function fresh(seed=112){const s={version:5,clock:0,seed:seed>>>0,region:0,day:1,minute:0,phase:'prep',money:3000000,done:[],cursor:0,calls:[],nextCall:0,
+export function fresh(seed=112){const s={version:6,clock:0,seed:seed>>>0,region:0,day:1,minute:0,phase:'prep',money:3000000,done:[],cursor:0,calls:[],nextCall:0,
  employees:PEOPLE.slice(0,6).map((p,id)=>({id,name:p[0],service:p[1],level:p[2],fatigue:0})),
  vehicles:[{id:0,model:'uaz39094-utility',fuel:100,condition:100},{id:1,model:'gazelle-next-van',fuel:100,condition:100},{id:2,model:'gazelle-business-flatbed',fuel:100,condition:100}],
  crews:[0,1,2].map(id=>({id,service:id,members:[id*2,id*2+1],vehicle:id,point:depot(seed,0),angle:-Math.PI/2,status:'idle',job:null})),
@@ -77,9 +77,9 @@ export function form(s,members,vehicle){prep(s);requireThat(s.crews.length<8&&me
 export function sell(s,id){prep(s);const v=s.vehicles.find(v=>v.id===id);requireThat(v&&!s.crews.some(c=>c.vehicle===id),'Сначала освободите машину');log(s,Math.floor(VEHICLE_MODELS.find(m=>m.id===v.model).price*.6*v.condition/100),'Продажа машины');s.vehicles=s.vehicles.filter(item=>item!==v);}
 export function encode(s){return JSON.stringify(s);}
 export function decode(raw){
- const s=migrateV4(JSON.parse(raw)),valid=v=>requireThat(v,'Сохранение кампании повреждено'),int=(n,a=0,b=Number.MAX_SAFE_INTEGER)=>Number.isSafeInteger(n)&&n>=a&&n<=b,pct=n=>Number.isFinite(n)&&n>=0&&n<=100;
+ const s=migrateV5(migrateV4(JSON.parse(raw))),valid=v=>requireThat(v,'Сохранение кампании повреждено'),int=(n,a=0,b=Number.MAX_SAFE_INTEGER)=>Number.isSafeInteger(n)&&n>=a&&n<=b,pct=n=>Number.isFinite(n)&&n>=0&&n<=100;
  const point=p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)&&p[0]>=0&&p[0]<=DW*5&&p[1]>=0&&p[1]<=DH*4;
- valid(s&&s.version===5&&int(s.clock)&&int(s.seed,0,0xffffffff)&&int(s.region,0,19)&&int(s.day,1)&&int(s.minute,0,SHIFT)&&Number.isSafeInteger(s.money)&&['prep','active','report','cleared','won'].includes(s.phase));
+ valid(s&&s.version===6&&int(s.clock)&&int(s.seed,0,0xffffffff)&&int(s.region,0,19)&&int(s.day,1)&&int(s.minute,0,SHIFT)&&Number.isSafeInteger(s.money)&&['prep','active','report','cleared','won'].includes(s.phase));
  valid(Array.isArray(s.done)&&s.done.length<=999&&new Set(s.done).size===s.done.length&&s.done.every(n=>int(n,0,998))&&int(s.cursor,0,999));
  valid(Array.isArray(s.calls)&&s.calls.length<=16&&Array.isArray(s.employees)&&s.employees.length<=24&&Array.isArray(s.vehicles)&&s.vehicles.length<=12&&Array.isArray(s.crews)&&s.crews.length<=8&&Array.isArray(s.stock)&&s.stock.length===3&&s.stock.every(n=>int(n,0,200))&&int(s.nextCall));
  valid(int(s.nextVehicle)&&int(s.nextEmployee)&&int(s.nextCrew)&&Array.isArray(s.ledger)&&s.ledger.length<=60&&s.ledger.every(e=>e&&int(e.day,1,s.day)&&Number.isFinite(e.amount)&&typeof e.label==='string'));
@@ -100,4 +100,4 @@ export function decode(raw){
  return s;
 }
 export function load(storage){try{const raw=storage.getItem(SAVE),backup=storage.getItem(BACKUP);if(raw!==null){try{return {state:decode(raw),blocked:false};}catch{}}if(backup!==null){try{return {state:decode(backup),blocked:false,recovered:true};}catch{}}return {state:null,blocked:raw!==null||backup!==null};}catch{return {state:null,blocked:true};}}
-export function save(storage,s){const raw=encode(s);decode(raw);const previous=storage.getItem(SAVE);let backup=raw,archive=null;if(previous!==null){try{decode(previous);backup=previous;if(JSON.parse(previous).version===4&&storage.getItem(MIGRATION_ARCHIVE)===null)archive=previous;}catch{}}if(archive!==null)storage.setItem(MIGRATION_ARCHIVE,archive);storage.setItem(BACKUP,backup);storage.setItem(SAVE,raw);}
+export function save(storage,s){const raw=encode(s);decode(raw);const previous=storage.getItem(SAVE);let backup=raw,archive=null;if(previous!==null){try{decode(previous);backup=previous;if(JSON.parse(previous).version<6&&storage.getItem(MIGRATION_ARCHIVE)===null)archive=previous;}catch{}}if(archive!==null)storage.setItem(MIGRATION_ARCHIVE,archive);storage.setItem(BACKUP,backup);storage.setItem(SAVE,raw);}

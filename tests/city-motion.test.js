@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import * as E from '../web/campaign-engine.js';
-import {TW,TH,DW,DH,SOURCE,ROAD_X,ROAD_Y,missions,missionOrder,streetRoute,pathLength} from '../web/campaign-city.js';
+import {TW,TH,DW,DH,SOURCE,ROAD_X,ROAD_Y,missions,missionOrder,streetRoute,pathLength,district,roadStop} from '../web/campaign-city.js';
 import {roadAxes} from '../web/campaign-roads-art.js';
 import {roundedRoute,drivingPose,equipmentState} from '../web/vehicle-motion.js';
 import {trafficPoses,TrafficController} from '../web/city-traffic.js';
@@ -19,8 +19,8 @@ test('v4 migration preserves ongoing work, old prices, resources and cursor with
  s.version=4;delete s.clock;s.phase='active';s.day=4;s.minute=25;s.cursor=1;
  for(const c of s.crews){c.point=[768,510];delete c.angle;}
  cr.status='travel';cr.job=id;s.calls=[{mission:id,status:'travel',crew:cr.id,due:100,late:false,asked:true,contained:false,remaining:9,total:17,path:[[768,510],[60,510],[60,200]]}];
- const raw=E.encode(s),restored=E.decode(raw);assert.equal(restored.version,5);assert.equal(restored.clock,1465);assert.deepEqual(restored.crews[0].point,[708,434]);assert.deepEqual(restored.calls[0].path,[[708,434],[0,434],[0,124]]);
- assert.equal(restored.calls[0].remaining,9);assert.equal(restored.calls[0].spec.reward,m.reward);assert.equal(restored.money,3000000);assert.deepEqual(restored.stock,s.stock);
+ const raw=E.encode(s),restored=E.decode(raw);assert.equal(restored.version,6);assert.equal(restored.clock,1465);assert.deepEqual(restored.crews[0].point,[708,434]);assert.deepEqual(restored.calls[0].path.at(-1),roadStop(district(112,0).homes[id]));
+ assert.ok(restored.calls[0].remaining>0);assert.ok(restored.calls[0].due>=100);assert.equal(restored.calls[0].spec.reward,m.reward);assert.equal(restored.money,3000000);assert.deepEqual(restored.stock,s.stock);
  assert.deepEqual(E.decode(E.encode(restored)),restored);const broken=JSON.parse(raw);broken.crews[0].point=[-100,510];assert.throws(()=>E.decode(E.encode(broken)));
  const data=new Map([[E.SAVE,raw]]),storage={getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,v)};E.save(storage,restored);restored.money+=100;E.save(storage,restored);assert.equal(data.get(E.MIGRATION_ARCHIVE),raw,'The pre-update original must survive later autosaves');
 });
