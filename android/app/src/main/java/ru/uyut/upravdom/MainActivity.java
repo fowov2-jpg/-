@@ -4,6 +4,9 @@ import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Build;
+import android.window.OnBackInvokedCallback;
+import android.window.OnBackInvokedDispatcher;
 import android.widget.FrameLayout;
 import android.view.ViewGroup;
 import androidx.core.graphics.Insets;
@@ -28,6 +31,7 @@ public class MainActivity extends Activity {
     private static final int EXPORT_FILE = 101;
     private static final String ORIGIN = "https://appassets.androidplatform.net/";
     private WebView web;
+    private OnBackInvokedCallback backCallback;
     private String pendingExport;
 
     @Override public void onCreate(Bundle state) {
@@ -62,7 +66,7 @@ public class MainActivity extends Activity {
         web.getSettings().setAllowFileAccess(false);
         web.getSettings().setAllowContentAccess(false);
         web.getSettings().setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        web.getSettings().setUserAgentString(web.getSettings().getUserAgentString() + " UpravdomAndroid/0.6.0");
+        web.getSettings().setUserAgentString(web.getSettings().getUserAgentString() + " UpravdomAndroid/0.8.2");
         WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
                 .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this)).build();
         web.setWebViewClient(new WebViewClientCompat() {
@@ -109,6 +113,12 @@ public class MainActivity extends Activity {
             }
         });
         web.loadUrl(ORIGIN + "assets/index.html");
+        // Android 16 no longer dispatches predictive Back to onBackPressed.
+        if (Build.VERSION.SDK_INT >= 33) {
+            backCallback = this::handleBack;
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                    OnBackInvokedDispatcher.PRIORITY_DEFAULT, backCallback);
+        }
     }
     private void syncViewport() {
         if (web == null || web.getHeight() <= 0) return;
@@ -169,12 +179,21 @@ public class MainActivity extends Activity {
         super.onPause();
     }
     @Override protected void onResume() { super.onResume(); if (web != null) web.onResume(); }
-    @Override public void onBackPressed() {
+    @Override public void onBackPressed() { handleBack(); }
+    private void handleBack() {
+        if (web == null || isFinishing() || isDestroyed()) return;
         web.evaluateJavascript("(function(){var d=document.querySelector('dialog');if(d&&d.open){d.dispatchEvent(new Event('cancel'));d.close();return true;}return false;})()", result -> {
             if (!"true".equals(result)) moveTaskToBack(true);
         });
     }
     @Override protected void onDestroy() {
-        web.destroy(); super.onDestroy();
+        if (Build.VERSION.SDK_INT >= 33 && backCallback != null) {
+            getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(backCallback);
+        }
+        if (web != null) {
+            if (web.getParent() instanceof ViewGroup) ((ViewGroup) web.getParent()).removeView(web);
+            web.destroy();
+        }
+        super.onDestroy();
     }
 }

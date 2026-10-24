@@ -10,7 +10,7 @@ export function loadArtwork(onLoad){
  if(requested)return;requested=true;
  const picture=new Image();art[0]=art[1]=art[2]=picture;
  picture.onload=onLoad;picture.onerror=onLoad;
- picture.src=new URL('./assets/districts/residential.jpg',import.meta.url).href;
+ picture.src=new URL('./assets/districts/residential.webp',import.meta.url).href;
  atlas=new Image();atlas.onload=onLoad;atlas.onerror=onLoad;
  atlas.src=new URL(FLEET_IMAGE,import.meta.url).href;
 }

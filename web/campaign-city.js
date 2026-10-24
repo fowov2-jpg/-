@@ -2,7 +2,7 @@ import {TYPES} from './content-missions.js';
 import {SOURCE,ADDRESS_COUNT,DISTRICT_COUNT,TW,TH,SIDE,DW,DH,ROAD_X,ROAD_Y,hash,districtOrigin} from './city-layout.js';
 import {tileDesign} from './city-geography.js';
 export {SOURCE,ADDRESS_COUNT,DISTRICT_COUNT,TW,TH,SIDE,DW,DH,ROAD_X,ROAD_Y,hash,districtOrigin};
-export const ART=['residential.jpg','nine.png','towers.png','mixed.png','industrial.png','factory-land.png','garden.png','brick.png','river-straight.png','river-bend.png'];
+export const ART=['residential.webp','nine.webp','towers.webp','mixed.webp','industrial.webp','factory-land.webp','garden.webp','brick.webp','river-straight.webp','river-bend.webp'];
 export const DISTRICT_NAMES=['Северный','Садовый','Центральный','Заречный','Восточный','Промышленный','Берёзовый','Высотный','Солнечный','Вокзальный','Озёрный','Южный','Новый город','Заводской','Лесной','Западный','Парковый','Прибрежный','Академический','Столичный'];
 export function tileKind(seed,d,tile){return tileDesign(seed,d,tile).kind;}
 // Four address entrances per quarter; multiple entrances may belong to one long slab.
