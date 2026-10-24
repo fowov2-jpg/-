@@ -1,0 +1,83 @@
+/* 0.8.2 | Real gameplay finish: no substitute map imagery or additional vehicle models. */
+:root{--ud-surface:#071d29;--ud-stroke:#426a72;--ud-glow:#62e8b1}
+body.campaignMode{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased}
+.campaignApp{background:#081e28!important}
+.campaignApp button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+/* Typography: functional instruments rather than glossy web buttons. */
+.campaignMenuButtons button,.campaignFooter button{font-size:15px!important;min-height:49px!important;letter-spacing:0!important}
+.campaignMenuButtons{gap:8px!important;max-width:470px;width:100%;margin-left:auto;margin-right:auto}
+.campaignMenuButtons button{padding-inline:19px!important}
+.campaignMenuButtons button.subtle{box-shadow:inset 0 1px #8ef6d51c,0 5px 14px #001a2170!important}
+.campaignMenu .brandOverline{font-size:9px!important;letter-spacing:1.65px!important}
+.campaignBrand h1{font-size:clamp(42px,11.5vw,67px)!important;text-shadow:0 3px 18px #00121c!important}
+/* Workbench: vehicle, two workers and tools are aligned in a unified tactical roster. */
+.campaignScroll{scrollbar-width:thin;scrollbar-color:#538b85 transparent;overscroll-behavior:contain}
+.campaignScroll .dispatchCrew{padding:12px!important;border-radius:15px!important;border:1px solid #3d6570!important;background:linear-gradient(140deg,#153c49,#0a222f 73%)!important;box-shadow:0 4px 22px #00131d54,inset 2px 0 var(--service, #60d5b4)!important;gap:9px!important}
+.campaignScroll .dispatchCrew>.row{min-height:23px;align-items:center}
+.campaignScroll .dispatchCrew>.row>strong{font-size:14px!important}
+.campaignScroll .crewComposition{gap:8px!important;align-items:stretch;min-height:152px}
+.campaignScroll .crewVehicle{min-width:102px!important;max-width:37%;width:34%!important;padding:7px!important;display:grid;place-items:center;border-radius:12px!important;min-height:152px!important;background:radial-gradient(circle at 50% 55%,#28545a,#0d2a36 76%)!important;overflow:hidden}
+.campaignScroll .crewVehicle .vehiclePhoto{max-width:100%;object-fit:contain}
+.campaignScroll .crewVehicle .vehiclePhoto.topdown{height:132px!important;max-height:132px!important;width:auto!important;object-fit:contain}
+.campaignScroll .workerSlots{gap:7px!important}
+.campaignScroll .workerTile{padding:7px 5px!important;border-radius:10px!important;min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:flex-start;gap:4px;background:linear-gradient(180deg,#153846,#092734)!important}
+.campaignScroll .workerPortrait{width:100%;height:63px!important;min-height:63px;border-radius:10px!important;margin:0!important;background:radial-gradient(circle at 50% 34%,#2c7e75,#16404b 56%,#0c2834)!important}
+.campaignScroll .workerTile strong{font-size:10px!important;line-height:1.25!important;overflow-wrap:anywhere}
+.campaignScroll .workerTile small{font-size:9px!important;line-height:1.32!important}
+.campaignScroll .crewControls{gap:7px!important}
+.campaignScroll .crewControls button{min-height:37px!important;border-radius:9px!important}
+.campaignScroll .dispatchCrew>p{font-size:11px!important;line-height:1.4!important;margin:0}
+.campaignScroll .fleetOwned{min-height:130px!important;align-items:center}
+.campaignScroll .fleetOwned .fleetOwnedImage{min-height:112px!important;border-radius:11px!important}
+.campaignScroll .fleetOwned .fleetOwnedBody strong{font-size:12px!important;line-height:1.26}
+.campaignScroll .catalogRow{border-radius:15px!important;background:linear-gradient(130deg,#173947,#0a2330)!important;box-shadow:0 4px 15px #00131b70;align-items:center}
+.campaignScroll .personCard{border-radius:14px!important;box-shadow:inset 3px 0 #3fc79d3c}
+.campaignScroll .personCard>strong{font-size:14px!important}
+.campaignTabs{gap:4px!important;padding:5px 8px!important}
+.campaignTabs button{border-radius:9px!important;min-height:40px!important;letter-spacing:0!important}
+.campaignTabs button.active{background:linear-gradient(150deg,#195646,#0d3e37)!important;box-shadow:inset 0 -2px #69f3b1!important}
+.campaignFooter{background:linear-gradient(0deg,#061720,#0b2430)!important;border-top:1px solid #2d535e!important}
+/* Clear-map tactical HUD: no web-app top header, no fabricated parking layer. */
+.dispatchToolbar button,.dispatchToolbar strong{box-shadow:0 5px 18px #00121ca8!important;background:#081c26e9!important;border:1px solid #5d8284a3!important}
+.dispatchToolbar strong{font-weight:900;color:#8cfdc1!important;letter-spacing:.3px}
+.opsPanel{border:1px solid #63868ca6!important;backdrop-filter:blur(10px)}
+.opsToggle{background:#081e27e8!important}
+.campaignBottom{width:min(272px,87%)!important;border:1px solid #50717a80!important;background:#071d26f2!important}
+.campaignBottom button.active{background:linear-gradient(170deg,#1a654e,#0f433b)!important;color:#91ffd2!important}
+.campaignBottom .navLabel{font-size:9px!important}
+.mapOverlay{bottom:71px!important}
+.mapHint{background:#092934df!important;border:1px solid #4470789e!important;box-shadow:0 5px 22px #00121c8b;font-weight:550}
+.callDrawer{background:linear-gradient(155deg,#102e3bf7,#071b28f8)!important;border:1px solid #6b9397!important;box-shadow:0 14px 32px #00131fe0!important;border-radius:17px!important;overflow-y:auto}
+.callDrawer .suggestCrew{background:#0c3140a3!important;border:1px solid #2f6673!important;border-radius:10px!important}
+.callDrawer .suggestCrew:not(:disabled):active{background:#1c765c!important}
+/* Informational panels remain readable without consuming the playfield. */
+.campaignMode #dialog{border:1px solid #68908c!important;border-radius:19px!important;box-shadow:0 14px 55px #000b!important;overflow:auto}
+.campaignDialogHead{padding:13px 15px!important}
+.campaignDialogBody{gap:12px!important;padding:14px!important}
+.campaignDialogBody button{min-height:44px}
+@media(max-width:365px){
+ .campaignScroll .crewVehicle{min-width:87px!important;width:30%!important;max-width:32%!important;min-height:145px!important}
+ .campaignScroll .crewVehicle .vehiclePhoto.topdown{height:120px!important}
+ .campaignScroll .crewComposition{min-height:145px}
+ .campaignScroll .workerTile{padding:6px 3px!important}
+ .campaignScroll .workerPortrait{height:55px!important;min-height:55px}
+ .campaignScroll .workerTile strong{font-size:9px!important}
+ .campaignScroll .workerTile small{font-size:9px!important}
+ .campaignMenuButtons{padding-left:19px!important;padding-right:19px!important}
+}
+@media(max-height:720px){
+ .prepBrief{padding-block:6px!important}
+ .campaignFooter{padding-block:5px!important}
+ .districtFeatured>p{display:none}
+ .districtHero>p{display:none}
+}
+
+/* The garage is an actual resource-management game interface, not paragraph-only cards. */
+.vehicleModelName{color:#b5d3d3!important;line-height:1.28;margin:0!important;font-size:11px!important}
+.vehicleGauges{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0 1px 3px}
+.vehicleGauges span{display:grid;grid-template-columns:1fr auto;gap:4px;min-width:0;align-items:center}
+.vehicleGauges i,.vehicleGauges b{font-size:10px;font-style:normal;color:#bcd7d6;font-weight:550}
+.vehicleGauges b{text-align:right;color:#e9fcf4;font-variant-numeric:tabular-nums;font-weight:800}
+.vehicleGauges em{grid-column:span 2;height:4px;width:100%;border-radius:10px;background:linear-gradient(to right,var(--meter) 0%,var(--meter) var(--value),#09222f var(--value),#09222f 100%);box-shadow:inset 0 0 2px #0006}
+.fleetOwnedBody .vehicleGauges{gap:7px;margin:2px 0}
+.fleetOwnedBody .vehicleGauges i,.fleetOwnedBody .vehicleGauges b{font-size:9px}
