@@ -21,38 +21,19 @@ export function goals(s) {
   return `<div class="opGoals" aria-label="Условия расширения компании"><span class="${o.districtShifts>=3?'met':''}">${icon('clock')} ${Math.min(3,o.districtShifts)}/3 смены</span><span class="${count>=4?'met':''}">${icon('home')} ${count}/4 дома</span><span class="${trust>=68?'met':''}">Доверие ${trust}/68</span><span class="${o.districtMajor?'met':''}">Крупная авария ${Math.min(1,o.districtMajor)}/1</span></div>`;
 }
 
-export function brief(s) {
-  const weather=O.weather(s), houses=O.currentHouses(s);
-  return `<section class="opBriefPage"><header class="opPageHeader">${b('menu',icon('chevron'),'aria-label="Главное меню"','iconButton')}<div><small>УК «УЮТ» · ДИСПЕТЧЕРСКАЯ</small><h2>${esc(DISTRICT_NAMES[s.region])}</h2></div>${b('settings',icon('gear'),'aria-label="Настройки"','iconButton')}</header>
-    <div class="opBriefScroll"><div class="opBriefHero"><span class="eyebrow">ПЕРЕДАЧА СМЕНЫ · ДЕНЬ ${s.day}</span><h1>${s.day===1?'Три дома. Ваша ответственность.':'Город снова на связи.'}</h1><p>${s.day===1?'Вы приняли управляющую компанию «Уют». На линии жители, во дворе три бригады. Разберитесь в обращениях, распределите службы и сохраните дома в рабочем состоянии.':'Проверьте состояние домов, незавершённые работы и готовность служб. Сегодняшние решения останутся в истории компании.'}</p></div>
-    <div class="opBriefMetrics"><div><small>Средства компании</small><strong data-budget>${rub(s.money)}</strong></div><div><small>Под управлением</small><strong>${houses.length} дома</strong></div><div><small>Доверие жителей</small><strong>${O.reputation(s)}%</strong></div></div>
-    <div class="opWeatherBrief"><span>${icon('map')}</span><div><strong>${weather.label} · ${weather.temperature} °C</strong><small>${weather.description}</small></div></div>
-    <article class="opBriefNote"><span class="eyebrow">${s.day===1?'ПЕРВАЯ СМЕНА':'ОПЕРАТИВНАЯ ЗАДАЧА'}</span><h3>${s.day===1?'Начните с разговора':'Снабжение важнее количества выездов'}</h3><p>${s.day===1?'Уточняйте обстоятельства и доступ. Для затопления подвала понадобится совместная работа сантехников, электриков и ремонтников. Время можно остановить в любой момент.':'Восстанавливайте сети, предупреждайте жителей об отключениях и учитывайте зависимость работ. Ожидающую бригаду можно отозвать на другую аварию.'}</p></article>
-    <div class="opSectionHead"><h3>Рост компании</h3><span>Район ${s.region+1}/20</span></div>${goals(s)}
-    <p class="opMuted">Новые районы открываются по результатам работы и доверию домов. Договоры и профилактика доступны в разделе «Дома».</p></div>
-    <footer class="opPageFooter">${b('regionProceed',s.phase==='active'?'В диспетчерскую':'Проверить службы '+icon('arrow'),'','primary wide')}</footer></section>`;
-}
-
-export function compactCrew(s,cr) {
-  const v=s.vehicles.find(v=>v.id===cr.vehicle), model=VEHICLE_MODELS.find(m=>m.id===v.model);
-  const names=cr.members.map(id=>s.employees.find(p=>p.id===id));
-  const kit=O.kitFor(s,cr);
-  return `<article class="opCrewRow opServiceBorder${cr.service}"><button class="opCrewVehicle" data-cmd="vehicle" data-id="${v.id}" aria-label="${esc(model.name)}">${vehicle(cr.service,v.model)}</button><div class="opCrewInfo"><div><strong>Б${cr.id+1} · ${services[cr.service]}</strong><span class="opState ${cr.status==='idle'?'ready':''}">${states[cr.status]}</span></div><small>${esc(model.name)}</small><p>${names.map(p=>`<span title="Уровень ${p.level} · усталость ${p.fatigue}%">${esc(p.name.split(' ')[0])} <i>${'•'.repeat(p.level)}</i></span>`).join('')}</p><div class="opCrewResource"><span>Топливо <b>${v.fuel}%</b></span><span>Состояние <b>${v.condition}%</b></span></div></div><div class="opCrewTools">${b('op-equipment',icon(symbols[cr.service])+'<span>'+esc(kit.name)+'</span>',`data-id="${cr.id}" ${s.phase!=='prep'||cr.status!=='idle'?'disabled':''}`)}${b('disband','Состав',`data-id="${cr.id}" ${s.phase!=='prep'||cr.status!=='idle'?'disabled':''}`,'opTextButton')}</div></article>`;
-}
-
 export function crewRack(s,selectedCrew) {
   return `<div class="opRackHeading"><span>СЛУЖБЫ НА ЛИНИИ</span><span>${s.crews.filter(c=>c.status==='idle').length} свободны</span></div><div class="opCrewRack">${s.crews.map(cr=>{
     const pair=O.assignmentFor(s,cr.id),a=pair?.assignment;
     const operation=a?.task?O.definitions(pair.call).find(w=>w.id===a.task)?.label:null;
-    return b('op-crew',`${tag(cr.service)}<span><strong>Б${cr.id+1}</strong><small>${cr.status==='repair'?esc(operation):states[cr.status]}${cr.status==='travel'?' · '+a.remaining+' мин':cr.status==='returning'?' · '+cr.returnTrip.remaining+' мин':''}</small></span><i class="opCrewDot ${cr.status}"></i>`,`data-id="${cr.id}" aria-label="Бригада ${cr.id+1}, ${services[cr.service]}, ${states[cr.status]}" aria-pressed="${cr.id===selectedCrew}"`,'opRackUnit '+(cr.id===selectedCrew?'picked':''));
+    const vehicleModel=s.vehicles.find(v=>v.id===cr.vehicle).model;
+    return b('op-crew',`<span class="opRackVehicle">${vehicle(cr.service,vehicleModel)}</span><span><strong>Б${cr.id+1}</strong><small>${cr.status==='repair'?esc(operation):states[cr.status]}${cr.status==='travel'?' · '+a.remaining+' мин':cr.status==='returning'?' · '+cr.returnTrip.remaining+' мин':''}</small></span><i class="opCrewDot ${cr.status}"></i>`,`data-id="${cr.id}" aria-label="Бригада ${cr.id+1}, ${services[cr.service]}, ${states[cr.status]}" aria-pressed="${cr.id===selectedCrew}"`,'opRackUnit opServiceBorder'+cr.service+' '+(cr.id===selectedCrew?'picked':''));
   }).join('')}</div>`;
 }
 
 export function queue(s,open,selected) {
   const sorted=[...s.calls].sort((a,b)=>Number(b.late)-Number(a.late)||SCENARIOS[b.kind].priority-SCENARIOS[a.kind].priority||a.due-b.due);
-  const newCount=sorted.filter(c=>c.status==='new'&&!c.deferred).length;
-  const important=sorted.find(c=>c.mission!==selected&&!c.deferred);
-  return `<section class="opQueue"><button data-cmd="queue" class="opQueueToggle" aria-expanded="${open}"><span class="opLiveDot"></span><strong>На линии ${s.calls.length}</strong><span>${newCount?'Без бригады '+newCount:'Все обращения приняты'}</span>${icon('chevron')}</button>${open?`<div class="opQueueList">${sorted.map(c=>b('select',`${tag(SCENARIOS[c.kind].service)}<span><strong>${esc(SCENARIOS[c.kind].title)}</strong><small>${esc(address(s,c.home))}</small></span><em class="${c.late?'late':''}">${c.deferred?'Завтра':c.late?'Срок истёк':Math.max(0,c.due-s.minute)+' мин'}</em>`,`data-id="${c.mission}"`,'opQueueCall')).join('')||'<p class="opMuted">На линии спокойно. Продолжайте время, чтобы принять следующие обращения.</p>'}</div>`:important?b('select',`<span class="opQueuePriority p${SCENARIOS[important.kind].priority}">${SCENARIOS[important.kind].priority===3?'!':icon('phone')}</span><span><strong>${esc(SCENARIOS[important.kind].title)}</strong><small>${important.deferred?'Согласовано на завтра':important.late?'Требует внимания':Math.max(0,important.due-s.minute)+' мин до норматива'}</small></span>${icon('arrow')}`,`data-id="${important.mission}"`,'opNextCall'):''}</section>`;
+  const ready=s.crews.filter(c=>c.status==='idle').length,enroute=s.crews.filter(c=>c.status==='travel').length,working=s.crews.filter(c=>c.status==='repair').length;
+  return `<section class="opsPanel opQueue"><button data-cmd="queue" class="opsToggle" aria-expanded="${open}"><span class="opsPulse" aria-hidden="true"></span><strong>Вызовы <b>${s.calls.length}</b></strong><span>Свободны ${ready}</span><span>В пути ${enroute}</span><span>Работают ${working}</span><span class="opsArrow" aria-hidden="true">${icon('chevron')}</span></button>${open?`<div class="opQueueList">${sorted.map(c=>b('select',`${tag(SCENARIOS[c.kind].service)}<span><strong>${esc(SCENARIOS[c.kind].title)}</strong><small>${esc(address(s,c.home))}</small></span><em class="${c.late?'late':''}">${c.deferred?'Завтра':c.late?'Срок истёк':Math.max(0,c.due-s.minute)+' мин'}</em>`,`data-id="${c.mission}"`,'opQueueCall')).join('')||'<p class="opMuted">Новых обращений нет.</p>'}</div>`:''}</section>`;
 }
 
 export function radioLine(s) {
@@ -114,13 +95,13 @@ export function drawer(s,selected,tab,paused) {
 
 export function mapPage(s,{paused,speed,selected,selectedCrew,queueOpen,tab}) {
   const w=O.weather(s);
-  return `<section class="campaignMapArea opDispatch"><canvas id="campaignMap" aria-label="Оперативная карта района. Двигайте одним пальцем, меняйте масштаб двумя. Обращения и службы доступны кнопками."></canvas>
-    <header class="opToolbar dispatchToolbar">${b('menu',icon('home'),'aria-label="Главное меню"','opToolbarButton')}${b(s.phase==='prep'?'start':'pause',icon(paused?'play':'pause'),`aria-label="${paused?'Продолжить время':'Пауза'}"`,'opToolbarButton')}${b('speed',speed+'×','aria-label="Изменить скорость времени"','opToolbarButton')}<div class="opClock"><strong>${time(s.minute)}</strong><small>СМЕНА ${String(s.day).padStart(2,'0')}</small></div><div class="opMapBudget"><small>УК «УЮТ»</small><b data-budget>${rub(s.money)}</b></div></header>
-    <div class="opMapConditions"><span>${w.label} · ${w.temperature}°</span>${b('op-focus',icon('location'),'aria-label="Вся зона обслуживания"','opFocus')}</div>
-    <div id="campaignIncoming" class="opIncoming">${queue(s,queueOpen,selected)}</div>
-    <div id="campaignDrawer" class="opOverlay">${drawer(s,selected,tab,paused)}</div>
+  return `<section class="campaignMapArea opDispatch"><canvas id="campaignMap" aria-label="Карта города. Перемещение одним пальцем, масштаб двумя; обращения и бригады доступны кнопками."></canvas>
+    <header class="dispatchToolbar">${b('districts',icon('map'),'aria-label="Выбор района"','subtle')}${b(s.phase==='prep'?'start':'pause',s.phase==='prep'?'Начать':icon(paused?'play':'pause'),`aria-label="${paused?'Продолжить время':'Пауза'}"`,'subtle')}${b('speed',speed+'×','aria-label="Изменить скорость времени"','subtle')}<div class="dispatchClock opClock"><strong>${time(s.minute)}</strong><small data-budget>${rub(s.money)}</small></div></header>
+    <div id="campaignIncoming" class="campaignIncoming opIncoming">${queue(s,queueOpen,selected)}</div>
+    <div class="opMapConditions"><span>${w.label} · ${w.temperature} °C</span>${b('op-focus',icon('location'),'aria-label="Вся зона обслуживания"','opFocus')}</div>
+    <div id="campaignDrawer" class="mapOverlay opOverlay">${drawer(s,selected,tab,paused)}</div>
     <div class="opDispatchBase"><div id="opRadio">${radioLine(s)}</div><div id="quickSelect">${crewRack(s,selectedCrew)}</div></div>
-  </section><nav class="campaignBottom opNav" aria-label="Игровое меню">${b('map',icon('map')+'<span>Карта</span>','aria-current="page"')}${b('prep',icon('crew')+'<span>Службы</span>')}${b('addresses',icon('home')+'<span>Дома</span>')}${b('finance',icon('money')+'<span>Компания</span>')}</nav>`;
+  </section><nav class="campaignBottom" aria-label="Игровое меню">${b('menu',icon('home')+'<span class="navLabel">Меню</span>')}${b('calls',icon('phone')+'<span class="navLabel">Заявки</span><em>'+s.calls.length+'</em>')}${b('prep',icon('crew')+'<span class="navLabel">Бригады</span>')}${b('addresses',icon('map')+'<span class="navLabel">Дома</span>')}${b('finance',icon('money')+'<span class="navLabel">Финансы</span>')}</nav>`;
 }
 
 export function equipment(s,crewId) {

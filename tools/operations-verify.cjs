@@ -4,12 +4,12 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
 (async()=>{
  const E=await import('../web/campaign-engine.js'),{createServer}=await import('./serve.js');
  const server=createServer();await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
- const report={checks:[],screens:[],errors:[],httpErrors:[],unusedDistrictRequests:[]};
+ const report={checks:[],screens:[],errors:[],httpErrors:[],districtArtRequests:[]};
  try{
   browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||undefined,args:['--no-sandbox']});
   const page=await browser.newPage({viewport:{width:412,height:915}}),origin=`http://127.0.0.1:${server.address().port}`;
   page.on('pageerror',e=>report.errors.push(e.message));page.on('response',r=>{if(r.status()>=400)report.httpErrors.push(r.status()+' '+r.url());});
-  page.on('request',r=>{if(r.url().includes('/assets/districts/'))report.unusedDistrictRequests.push(r.url());});
+  page.on('request',r=>{if(r.url().includes('/assets/districts/'))report.districtArtRequests.push(r.url());});
   await page.clock.install();await page.clock.pauseAt(new Date(Date.now()+1000));
   await fs.mkdir('test-results/operations',{recursive:true});
   const click=(cmd,suffix='')=>page.locator(`[data-cmd="${cmd}"]${suffix}`).click();
@@ -18,15 +18,15 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   const resume=async()=>{if(await page.locator('[data-cmd=pause][aria-label="Продолжить время"]').count())await click('pause');};
   const capture=async name=>{
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,name+' viewport overflow');
-   const clipped=await page.locator('.opIncidentHeader h3,.opCrewInfo strong,.opServiceRow strong,.opMapBudget b').evaluateAll(ns=>ns.filter(n=>n.scrollWidth>n.clientWidth+2).map(n=>n.textContent));
+   const clipped=await page.locator('.opIncidentHeader h3,.workerTile strong,.crewHeadingName strong,.opServiceRow strong').evaluateAll(ns=>ns.filter(n=>n.scrollWidth>n.clientWidth+2).map(n=>n.textContent));
    assert.deepEqual(clipped,[],name+' clipped text');
    await page.screenshot({path:`test-results/operations/${name}.png`});report.screens.push(name);
   };
-  await page.goto(origin);await click('new');await capture('412-brief');await click('regionProceed');
-  assert.equal(await page.locator('.opCrewRow').count(),3);await capture('412-crews');
+  await page.goto(origin);await click('new');assert.equal(await page.locator('.districtZone').count(),20);await capture('412-brief');await click('regionProceed');
+  assert.equal(await page.locator('.dispatchCrew').count(),3);await capture('412-crews');
   await click('op-equipment','[data-id="2"]');await click('op-equip','[data-kit="repair-pump"]');await page.locator('dialog [data-cmd=close]').click();
   assert.equal((await saved()).money,2964000);await click('start');
-  assert.equal((await saved()).calls.length,1);assert.equal(await page.locator('[data-cmd=pause]').getAttribute('aria-label'),'Продолжить время');
+  await page.locator('#campaignMap[data-renderer=ready]').waitFor();assert.equal((await saved()).calls.length,1);assert.equal(await page.locator('[data-cmd=pause]').getAttribute('aria-label'),'Продолжить время');
   await capture('412-first-call');
   await click('speed');await click('speed');
   let floodScreenshot=false,guard=0;
@@ -78,14 +78,14 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
     await click('queue');await click('select','[data-id="0"]');await click('op-tab','[data-tab="work"][role=tab]');
     await capture(width+'-linked-incident');
     const restored=await saved();assert.deepEqual(restored.calls[0].work,fixture.calls[0].work);assert.deepEqual(restored.calls[0].assignments,fixture.calls[0].assignments);
-    const sheet=await page.locator('.opIncident').boundingBox(),rack=await page.locator('.opDispatchBase').boundingBox();assert.ok(sheet.y+sheet.height<=rack.y+2,'incident sheet covers crew rack');
+    const sheet=await page.locator('.opIncident').boundingBox(),nav=await page.locator('.campaignBottom').boundingBox();assert.ok(sheet.y+sheet.height<=nav.y+2,'incident sheet covers bottom menu');
     const queue=await page.locator('.opIncoming').boundingBox();assert.ok(sheet.y>=queue.y+queue.height-1,'incident sheet covers queue');
-    await click('deselect');await click('op-focus','.opFocus');await capture(width+'-operational-map');
+    await click('deselect');await click('op-focus','.opFocus');await capture(width+'-original-city-map');
     const canvas=await page.locator('#campaignMap').boundingBox(),before=JSON.parse(await page.locator('#campaignMap').getAttribute('data-camera'));
     await page.mouse.move(canvas.x+canvas.width/2,canvas.y+canvas.height/2);await page.mouse.down();await page.mouse.move(canvas.x+canvas.width/2-40,canvas.y+canvas.height/2-40,{steps:5});await page.mouse.up();
     const after=JSON.parse(await page.locator('#campaignMap').getAttribute('data-camera'));assert.notEqual(before.x,after.x);
   }
-  report.checks.push('344/412/960 layouts, clear crew rack, real map gestures, and mid-incident import preserve routes, participants and dependencies');
+  report.checks.push('344/412/960 layouts, unobstructed original navigation, real map gestures, and mid-incident import preserve routes, participants and dependencies');
   const quick=E.freshCompany(112);E.start(quick);
   await page.setViewportSize({width:412,height:915});
   await page.evaluate(raw=>window.dispatchEvent(new CustomEvent('upravdom-import',{detail:raw})),E.encode(quick));
@@ -97,7 +97,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   const valid=await page.evaluate(()=>localStorage.getItem('upravdom.campaign.v4'));
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('upravdom-import',{detail:'broken'})));assert.equal(await page.evaluate(()=>localStorage.getItem('upravdom.campaign.v4')),valid);
   report.checks.push('invalid v7 import leaves the running company and saved progress intact');
-  assert.deepEqual(report.errors,[]);assert.deepEqual(report.httpErrors,[]);assert.deepEqual(report.unusedDistrictRequests,[],'operational map unnecessarily decodes old district backgrounds');
+  assert.deepEqual(report.errors,[]);assert.deepEqual(report.httpErrors,[]);assert.equal(new Set(report.districtArtRequests).size,10,'new gameplay must use the established city artwork');assert.equal(await page.locator('#campaignMap').getAttribute('data-operations'),'original-art');
   await fs.writeFile('test-results/operations/report.json',JSON.stringify(report,null,2));console.log('DISPATCH STORY VERIFIED '+report.checks.length+' flows; '+report.screens.length+' screens; no JS or HTTP errors');
  }finally{await browser?.close();await new Promise(r=>server.close(r));}
 })().catch(e=>{console.error(e);process.exitCode=1;});

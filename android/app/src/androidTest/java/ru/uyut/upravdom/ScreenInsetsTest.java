@@ -3,6 +3,9 @@ package ru.uyut.upravdom;
 import static org.junit.Assert.*;
 import android.graphics.Bitmap;
 import android.os.SystemClock;
+import android.os.Handler;
+import android.os.Looper;
+import android.app.Activity;
 import android.view.View;
 import android.view.MotionEvent;
 import android.accessibilityservice.AccessibilityService;
@@ -13,6 +16,8 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry;
+import androidx.test.runner.lifecycle.Stage;
 import android.content.ContentValues;
 import android.content.Context;
 import android.net.Uri;
@@ -31,7 +36,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class ScreenInsetsTest {
     @Rule public ActivityScenarioRule<MainActivity> activity = new ActivityScenarioRule<>(MainActivity.class);
-    private final AtomicReference<WebView> gameWebView = new AtomicReference<>();
+    private final Handler uiThread = new Handler(Looper.getMainLooper());
 
     private String shellText(String command) throws Exception {
         android.os.ParcelFileDescriptor descriptor=InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(command);
@@ -51,21 +56,37 @@ public class ScreenInsetsTest {
     }
     @Before public void prepareFocusedDevice() throws Exception {
         dismissLauncherAnr();
-        activity.getScenario().onActivity(a -> gameWebView.set(a.findViewById(android.R.id.content).findViewWithTag("game-webview")));
-        assertNotNull("Game WebView was not created",gameWebView.get());
+    }
+    // Navigation-mode changes can recreate the Activity and its WebView.
+    // Resolve the current view on the UI thread instead of caching a destroyed one.
+    private WebView currentGameWebView() {
+        for(Stage stage:new Stage[]{Stage.RESUMED,Stage.STARTED}) {
+            for(Activity a:ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(stage)) {
+                if(a instanceof MainActivity)return a.findViewById(android.R.id.content).findViewWithTag("game-webview");
+            }
+        }
+        return null;
     }
     private String evaluate(String script) throws Exception {
         AtomicReference<String> result = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
-        WebView web=gameWebView.get();
         // ActivityScenario.onActivity waits for UI idle. A live dispatcher keeps
         // animating, so that barrier can delay every probe until the shift ends.
         // Post directly to the existing WebView and await this JS result only.
-        assertTrue("WebView rejected the evaluation",web.post(() -> {
+        assertTrue("UI thread rejected the evaluation",uiThread.post(() -> {
+            WebView web=currentGameWebView();
+            if(web==null){result.set("null");latch.countDown();return;}
             web.evaluateJavascript(script, value -> { result.set(value); latch.countDown(); });
         }));
-        assertTrue("WebView did not respond", latch.await(10, TimeUnit.SECONDS));
+        assertTrue("WebView did not respond: "+script, latch.await(10, TimeUnit.SECONDS));
         return result.get();
+    }
+    private void waitForTrue(String expression,String message) throws Exception {
+        for(int n=0;n<60;n++){
+            if("true".equals(evaluate(expression)))return;
+            SystemClock.sleep(100);
+        }
+        fail(message+": "+evaluate("document.querySelector('#toast')?.textContent"));
     }
     private void waitForPage() throws Exception {
         for (int n = 0; n < 100; n++) {
@@ -142,9 +163,10 @@ public class ScreenInsetsTest {
         String value = evaluate("JSON.stringify((()=>{const n=document.querySelector("+quoted+");n.scrollIntoView({block:'center'});const r=n.getBoundingClientRect();return {x:(r.left+r.width/2)*devicePixelRatio,y:(r.top+r.height/2)*devicePixelRatio};})())");
         JSONObject point = new JSONObject(new org.json.JSONTokener(value).nextValue().toString());
         int[] offset = new int[2];
-        CountDownLatch located=new CountDownLatch(1);WebView web=gameWebView.get();
-        assertTrue("WebView rejected the location probe",web.post(()->{web.getLocationOnScreen(offset);located.countDown();}));
+        CountDownLatch located=new CountDownLatch(1);AtomicReference<Boolean> found=new AtomicReference<>(false);
+        assertTrue("UI thread rejected the location probe",uiThread.post(()->{WebView web=currentGameWebView();if(web!=null){web.getLocationOnScreen(offset);found.set(true);}located.countDown();}));
         assertTrue("WebView location probe did not respond",located.await(10,TimeUnit.SECONDS));
+        assertTrue("Current game WebView disappeared before the tap",found.get());
         float x=offset[0]+(float)point.getDouble("x"), y=offset[1]+(float)point.getDouble("y");long now=SystemClock.uptimeMillis();
         MotionEvent down=MotionEvent.obtain(now,now,MotionEvent.ACTION_DOWN,x,y,0),up=MotionEvent.obtain(now,now+40,MotionEvent.ACTION_UP,x,y,0);
         InstrumentationRegistry.getInstrumentation().sendPointerSync(down);InstrumentationRegistry.getInstrumentation().sendPointerSync(up);down.recycle();up.recycle();SystemClock.sleep(160);
@@ -221,9 +243,9 @@ public class ScreenInsetsTest {
         assertTrue("Campaign menu did not load",ready);
         assertEquals("3",evaluate("document.querySelectorAll('.campaignMenu button').length"));
         startNewCampaign();
-        assertEquals("true",evaluate("!!document.querySelector('.opBriefPage')"));
+        assertEquals("20",evaluate("document.querySelectorAll('.districtZone').length"));
         tap("[data-cmd=regionProceed]");
-        assertEquals("3",evaluate("document.querySelectorAll('.opCrewRow').length"));
+        assertEquals("3",evaluate("document.querySelectorAll('.dispatchCrew').length"));
         tap("[data-cmd=start]");
         ready=false;
         for(int wait=0;wait<100;wait++){
@@ -261,6 +283,7 @@ public class ScreenInsetsTest {
         assertEquals("3",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).employees[0].level"));
         assertEquals("2976000",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).money"));
         tap("[data-cmd=map]");tap("[data-cmd=finance]");
+        waitForTrue("!!document.querySelector('.transactionList')","Finance page did not render after navigation");
         assertEquals("true",evaluate("document.querySelector('.transactionList').textContent.includes('Обучение')"));
         evaluate("import(new URL('./campaign-engine.js',location.href).href).then(E=>{const s=E.freshCompany(112);E.start(s);for(let i=0;i<480;i++){for(const c of [...s.calls])for(const cr of s.crews)if(!E.reason(s,c,cr))E.dispatch(s,c.mission,cr.id);E.tick(s);}window.nativeReportFixture=E.encode(s);})");
         for(int wait=0;wait<50;wait++){if("true".equals(evaluate("typeof window.nativeReportFixture==='string'")))break;SystemClock.sleep(100);}
@@ -278,6 +301,7 @@ public class ScreenInsetsTest {
             assertEquals("3",evaluate("document.querySelectorAll('.opReportStats>div').length"));
             tap("dialog [data-cmd=nextDay]");
             assertEquals("2",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).day"));
+            waitForTrue("!!document.querySelector('.campaignTabs')","Preparation page did not render after the report");
             assertEquals("true",evaluate("!!document.querySelector('.campaignTabs')"));
         } finally {context.getContentResolver().delete(document,null,null);}
     }
@@ -301,7 +325,7 @@ public class ScreenInsetsTest {
         for(int id=0;id<3;id++){tap("[data-cmd=op-options][data-service='"+id+"']");tap("dialog [data-cmd=op-assign][data-id='"+id+"']");}
         assertEquals("3",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).calls[0].assignments.length"));
         assertEquals("Planning assignments unexpectedly resumed time","Продолжить время",new org.json.JSONTokener(evaluate("document.querySelector('[data-cmd=pause]').getAttribute('aria-label')")).nextValue());
-        assertEquals("true",evaluate("(()=>{const rack=document.querySelector('.opDispatchBase').getBoundingClientRect(),sheet=document.querySelector('.opIncident').getBoundingClientRect();return sheet.bottom<=rack.top+2&&document.documentElement.scrollWidth<=innerWidth;})()"));
+        assertEquals("true",evaluate("(()=>{const nav=document.querySelector('.campaignBottom').getBoundingClientRect(),sheet=document.querySelector('.opIncident').getBoundingClientRect();return sheet.bottom<=nav.top+2&&document.documentElement.scrollWidth<=innerWidth;})()"));
         tap("[data-cmd=speed]");tap("[data-cmd=speed]");tap("[data-cmd=op-run]");
         boolean completed=false,dependencyWait=false;
         String observation="";
