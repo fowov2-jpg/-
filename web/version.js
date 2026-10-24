@@ -1,2 +1,2 @@
-// Application release version; save schema remains v6 for compatibility.
-export const APP_VERSION='0.8.2-rc.1';
+// Gameplay review build. New companies use schema v7; v4–v6 remain readable.
+export const APP_VERSION='0.8.2-gameplay.1';

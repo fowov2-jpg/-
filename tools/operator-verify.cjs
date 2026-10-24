@@ -47,7 +47,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   await imported(won);assert.match(await page.locator('dialog[open]').textContent(),/Город под управлением/);
   await page.locator('dialog [data-cmd=menu]').click();await imported(E.fresh(314));
   checks.push('completed district and final campaign imports expose their correct progression');
-  await click('settings');assert.match(await page.locator('dialog').textContent(),/0\.8\.2-rc\.1/);await click('close');
+  await click('settings');assert.ok((await page.locator('dialog').textContent()).includes((await import('../web/version.js')).APP_VERSION));await click('close');
   for(const width of [360,412,1200]){
    await page.setViewportSize({width,height:800});await click('map');
    await page.locator('#campaignMap[data-renderer="ready"]').waitFor();

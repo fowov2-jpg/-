@@ -13,7 +13,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   const state=async()=>E.decode(await page.evaluate(()=>localStorage.getItem('upravdom.campaign.v4')));
   const flush=()=>page.evaluate(()=>window.dispatchEvent(new Event('pagehide')));
   const load=async s=>{await page.goto(origin+'/fixture');await page.evaluate(raw=>{localStorage.setItem('upravdom.campaign.v4',raw);localStorage.setItem('upravdom.campaign.v4.backup',raw);},E.encode(s));await page.goto(origin);await click('continue');};
-  await page.goto(origin);await page.locator('.campaignMenu').waitFor();assert.equal(await page.locator('.campaignMenu button').count(),3);assert.equal(await page.locator('[data-cmd="continue"]').isDisabled(),true);
+  await page.goto(origin+'?classic=1');await page.locator('.campaignMenu').waitFor();assert.equal(await page.locator('.campaignMenu button').count(),3);assert.equal(await page.locator('[data-cmd="continue"]').isDisabled(),true);
   await page.evaluate(()=>new Promise(resolve=>{const im=new Image();im.onload=resolve;im.onerror=resolve;im.src='./assets/campaign-cover.png';}));await page.screenshot({path:'test-results/campaign/01-menu.png'});report.checks.push('main menu exactly three actions');
   await click('new');assert.equal((await state()).region,0);assert.equal(await page.locator('.districtZone').count(),20);await click('regionProceed');assert.equal(await page.locator('.dispatchCrew').count(),3);await page.screenshot({path:'test-results/campaign/02-preparation.png'});
   await click('sub','[data-sub="fleet"]');await click('catalog');assert.equal(await page.locator('[data-cmd="buy"]').count(),17);await click('buy','[data-model="gazelle-next-van"]');assert.equal((await state()).vehicles.length,4);

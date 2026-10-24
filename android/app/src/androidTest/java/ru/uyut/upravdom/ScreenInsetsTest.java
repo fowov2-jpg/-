@@ -211,9 +211,9 @@ public class ScreenInsetsTest {
         assertTrue("Campaign menu did not load",ready);
         assertEquals("3",evaluate("document.querySelectorAll('.campaignMenu button').length"));
         startNewCampaign();
-        assertEquals("20",evaluate("document.querySelectorAll('.districtZone').length"));
+        assertEquals("true",evaluate("!!document.querySelector('.opBriefPage')"));
         tap("[data-cmd=regionProceed]");
-        assertEquals("3",evaluate("document.querySelectorAll('.dispatchCrew').length"));
+        assertEquals("3",evaluate("document.querySelectorAll('.opCrewRow').length"));
         tap("[data-cmd=start]");
         ready=false;
         for(int wait=0;wait<100;wait++){
@@ -225,8 +225,9 @@ public class ScreenInsetsTest {
         assertEquals("999",evaluate("Number(document.querySelector('#campaignMap').dataset.positions)"));
         // The emulator keeps real game time running during UI/asset checks.
         // More calls may arrive; validate the real queue instead of assuming zero elapsed time.
-        assertEquals("true",evaluate("(()=>{const s=JSON.parse(localStorage.getItem('upravdom.campaign.v4'));return s.phase==='active'&&s.cursor>=3&&s.cursor<=6&&s.calls.length===s.cursor&&new Set(s.calls.map(c=>c.mission)).size===s.cursor;})()"));
+        assertEquals("true",evaluate("(()=>{const s=JSON.parse(localStorage.getItem('upravdom.campaign.v4'));return s.version===7&&s.phase==='active'&&s.cursor===1&&s.calls.length===s.cursor&&new Set(s.calls.map(c=>c.mission)).size===s.cursor;})()"));
         assertEquals("true",evaluate("Number(document.querySelector('#campaignMap').dataset.trafficCount)>0"));
+        tap("[data-cmd=pause]"); // The first incoming call opens on pause.
         String traffic=evaluate("document.querySelector('#campaignMap').dataset.traffic");SystemClock.sleep(1300);
         assertNotEquals("Traffic did not animate",traffic,evaluate("document.querySelector('#campaignMap').dataset.traffic"));
         tap("[data-cmd=pause]");traffic=evaluate("document.querySelector('#campaignMap').dataset.traffic");SystemClock.sleep(1300);
@@ -251,7 +252,7 @@ public class ScreenInsetsTest {
         assertEquals("2976000",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).money"));
         tap("[data-cmd=map]");tap("[data-cmd=finance]");
         assertEquals("true",evaluate("document.querySelector('.transactionList').textContent.includes('Обучение')"));
-        evaluate("import(new URL('./campaign-engine.js',location.href).href).then(E=>{const s=E.fresh(112);E.start(s);E.tick(s,480);window.nativeReportFixture=E.encode(s);})");
+        evaluate("import(new URL('./campaign-engine.js',location.href).href).then(E=>{const s=E.freshCompany(112);E.start(s);for(let i=0;i<480;i++){for(const c of [...s.calls])for(const cr of s.crews)if(!E.reason(s,c,cr))E.dispatch(s,c.mission,cr.id);E.tick(s);}window.nativeReportFixture=E.encode(s);})");
         for(int wait=0;wait<50;wait++){if("true".equals(evaluate("typeof window.nativeReportFixture==='string'")))break;SystemClock.sleep(100);}
         assertEquals("Native report fixture did not finish", "true", evaluate("typeof window.nativeReportFixture==='string'"));
         String raw=new org.json.JSONTokener(evaluate("window.nativeReportFixture")).nextValue().toString();
@@ -264,11 +265,46 @@ public class ScreenInsetsTest {
             boolean imported=false;
             for(int wait=0;wait<70;wait++){if("true".equals(evaluate("!!document.querySelector('dialog[open] [data-cmd=nextDay]')"))){imported=true;break;}SystemClock.sleep(100);}
             assertTrue("Native report import did not open results: "+evaluate("document.querySelector('#toast').textContent"),imported);
-            assertEquals("4",evaluate("document.querySelectorAll('.reportStats>div').length"));
+            assertEquals("3",evaluate("document.querySelectorAll('.opReportStats>div').length"));
             tap("dialog [data-cmd=nextDay]");
             assertEquals("2",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).day"));
             assertEquals("true",evaluate("!!document.querySelector('.campaignTabs')"));
         } finally {context.getContentResolver().delete(document,null,null);}
+    }
+
+    @Test public void linkedFloodConversationThreeCrewsAndRestoration() throws Exception {
+        boolean ready=false;
+        for(int wait=0;wait<100;wait++){
+            if("true".equals(evaluate("!!document.querySelector('.campaignMenu')"))){ready=true;break;}
+            SystemClock.sleep(100);
+        }
+        assertTrue("Campaign menu did not load",ready);
+        evaluate("import(new URL('./campaign-engine.js',location.href).href).then(E=>{const s=E.freshCompany(112);E.start(s);s.calls=[];s.done=[];s.cursor=0;s.operations.planIndex=8;E.Operations.issue(s,'flood',s.operations.houses[1].id);window.dispatchEvent(new CustomEvent('upravdom-import',{detail:E.encode(s)}));})");
+        for(int wait=0;wait<70;wait++){
+            if("true".equals(evaluate("!!document.querySelector('.opQueue')")))break;
+            SystemClock.sleep(100);
+        }
+        assertEquals("Updated dispatch fixture did not open","true",evaluate("!!document.querySelector('.opQueue')"));
+        tap("[data-cmd=queue]");tap("[data-cmd=select][data-id='0']");
+        tap("[data-cmd=op-answer][data-choice=network]");tap("[data-cmd=op-answer][data-choice=branch]");
+        assertEquals("3",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).operations.houses.filter(h=>h.outages.water).length"));
+        for(int id=0;id<3;id++){tap("[data-cmd=op-options][data-service='"+id+"']");tap("dialog [data-cmd=op-assign][data-id='"+id+"']");}
+        assertEquals("3",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).calls[0].assignments.length"));
+        assertEquals("Planning assignments unexpectedly resumed time","Продолжить время",new org.json.JSONTokener(evaluate("document.querySelector('[data-cmd=pause]').getAttribute('aria-label')")).nextValue());
+        assertEquals("true",evaluate("(()=>{const rack=document.querySelector('.opDispatchBase').getBoundingClientRect(),sheet=document.querySelector('.opIncident').getBoundingClientRect();return sheet.bottom<=rack.top+2&&document.documentElement.scrollWidth<=innerWidth;})()"));
+        tap("[data-cmd=speed]");tap("[data-cmd=speed]");tap("[data-cmd=op-run]");
+        boolean completed=false,dependencyWait=false;
+        for(int wait=0;wait<180;wait++){
+            if("true".equals(evaluate("document.querySelector('.opAssignments')?.textContent.includes('Ждёт:')")))dependencyWait=true;
+            if("true".equals(evaluate("!document.querySelector('.opIncident')"))){completed=true;break;}
+            SystemClock.sleep(250);
+        }
+        assertTrue("No inter-service dependency was observed",dependencyWait);
+        assertTrue("Three-service flood did not complete in real WebView time",completed);
+        evaluate("window.dispatchEvent(new Event('pagehide'))");
+        assertEquals("true",evaluate("(()=>{const s=JSON.parse(localStorage.getItem('upravdom.campaign.v4'));return s.version===7&&s.operations.completed===1&&s.calls.length===0&&s.operations.houses.every(h=>!h.outages.water&&!h.outages.electric);})()"));
+        Bitmap shot=InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
+        assertNotNull(shot);saveShared(shot,"dispatch-restored.png",Bitmap.CompressFormat.PNG,100);shot.recycle();
     }
 
 }

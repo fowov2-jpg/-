@@ -6,6 +6,7 @@ import {drivingPose,equipmentState,drawRig,drawVehicleLights,drawWorksite,drawBa
 import {TrafficController,drawTrafficCar} from './city-traffic.js';
 import {placeEdgeIndicators} from './map-annotations.js';
 import {drawTerrain,terrainKey} from './campaign-terrain.js';
+import {renderOperations} from './operations-map.js';
 // Original ЖКХ iconography drawn as vector shapes; no third-party symbols or font dependency.
 function drawIncident(ctx,x,y,service,active,late,status,clock){
  const color=late?'#e8a79c':['#9ac9e1','#e9c58d','#a1c9b4'][service];
@@ -36,7 +37,8 @@ function thumbnail(city){
 }
 export function focusDistrict(view,d,width=412,height=650,overview=false){const o=districtOrigin(d);view.x=o[0]+(overview?DW/2:708);view.y=o[1]+(overview?DH/2:434);view.scale=overview?Math.min(width/DW,height/DH)*.9:Math.min(width/TW,height/TH)*1.2;}
 export function screenPoint(view,width,height,p){return [(p[0]-view.x)*view.scale+width/2,(p[1]-view.y)*view.scale+height/2];}
-export function render(canvas,s,view,{selected=null,selectedCrew=null,labels=true,motion=true,progress=0,traffic=true,equipment=true,annotationBottom=null}={}){
+export function render(canvas,s,view,{selected=null,selectedCrew=null,labels=true,motion=true,progress=0,traffic=true,equipment=true,annotationBottom=null,annotationTop=144}={}){
+ if(s.operations)return renderOperations(canvas,s,view,{selected,selectedCrew,motion,progress,traffic,equipment,annotationBottom,annotationTop});
  const {width:w,height:h}=canvas.getBoundingClientRect();if(!w||!h)return;const dpr=Math.min(devicePixelRatio||1,2);
  if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);}
  let ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#071b22';ctx.fillRect(0,0,w,h);view.hits=[];

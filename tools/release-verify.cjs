@@ -5,7 +5,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
  try{
   browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||undefined,args:['--no-sandbox']});
   const page=await browser.newPage({viewport:{width:344,height:689}});page.on('pageerror',e=>errors.push(e.message));
-  await page.goto(`http://127.0.0.1:${server.address().port}`);
+  await page.goto(`http://127.0.0.1:${server.address().port}?classic=1`);
   const click=cmd=>page.locator(`[data-cmd=${cmd}]`).click();
   await click('settings');await click('guide');assert.match(await page.locator('dialog').textContent(),/Первые шаги/);await page.locator('dialog [data-cmd=close]').first().click();
   await click('settings');await click('about');assert.match(await page.locator('dialog').textContent(),/не передаёт сохранения/);await page.locator('dialog [data-cmd=close]').first().click();checks.push('help and privacy work before any company exists');

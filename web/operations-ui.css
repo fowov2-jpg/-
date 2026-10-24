@@ -1,0 +1,328 @@
+/* Dispatch components are scoped to the v7 campaign; imported v6 companies keep
+   their existing interface until their shift can be safely transferred. */
+body.operationsMode { --bg:#16212a; --panel:#1f2e38; --line:#3b4b55; --muted:#a7b8c2; --amber:#eac480; }
+.operationsMode #app.campaignApp { max-width:1100px; background:#17232b; }
+.operationsMode button { -webkit-user-select:none; user-select:none; }
+.opMuted { color:#a9bac4; font-size:12px; line-height:1.65; }
+.opWarning,.opIncident .late { color:#f0ae8e; }
+.opPageHeader { display:flex; gap:12px; align-items:center; padding:15px 18px; border-bottom:1px solid var(--line); flex-shrink:0; }
+.opPageHeader>div { flex:1; min-width:0; }
+.opPageHeader small { font-size:9px; letter-spacing:1.2px; margin-bottom:5px; }
+.opPageHeader h2 { font-size:20px; }
+.opPageHeader [data-cmd=menu] svg { transform:rotate(180deg); }
+.opPageFooter { flex-shrink:0; padding:14px 18px; border-top:1px solid var(--line); background:#192630; }
+.opPageFooter button { min-height:50px; }
+.opBriefPage { display:flex; flex-direction:column; height:100%; min-height:0; }
+.opBriefScroll { flex:1; min-height:0; overflow:auto; padding:26px 22px; display:flex; flex-direction:column; gap:22px; }
+.opBriefScroll>* { flex-shrink:0; }
+.opBriefHero h1 { font-size:clamp(28px,6.3vw,40px); max-width:500px; margin:12px 0 14px; line-height:1.16; font-weight:650; letter-spacing:-1.3px; }
+.opBriefHero>p { max-width:620px; font-size:13px; line-height:1.75; color:#b5c3ca; }
+.opBriefMetrics { display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:12px; }
+.opBriefMetrics>div { border-left:2px solid #6d8b96; padding-left:12px; min-width:0; }
+.opBriefMetrics small { font-size:10px; line-height:1.5; }
+.opBriefMetrics strong { display:block; font-size:clamp(14px,3.6vw,19px); margin-top:6px; font-weight:600; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.opWeatherBrief { display:flex; gap:14px; align-items:center; padding:14px 16px; border:1px solid #4d6269; border-radius:5px; background:#24383b; }
+.opWeatherBrief>span { color:#adc9c5; }
+.opWeatherBrief strong { display:block; font-size:13px; }
+.opWeatherBrief small { font-size:11px; margin-top:4px; line-height:1.5; color:#b3c6c9; }
+.opBriefNote { border-left:2px solid #e3bd7a; padding:2px 0 2px 16px; }
+.opBriefNote h3 { font-size:17px; margin:5px 0 8px; font-weight:600; }
+.opBriefNote p { color:#acbec6; font-size:12px; line-height:1.7; max-width:640px; }
+.opSectionHead { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:5px; }
+.opSectionHead h3 { font-size:16px; font-weight:600; }
+.opSectionHead>span { font-size:10px; color:#a4b7c2; }
+.opGoals { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.opGoals>span { display:flex; gap:7px; align-items:center; font-size:11px; padding:10px 11px; background:#24323c; border:1px solid #3c4d58; border-radius:5px; color:#b2c0c9; min-width:0; }
+.opGoals svg { width:14px; height:14px; }
+.opGoals .met { color:#acd5b9; border-color:#527261; background:#253b32; }
+.opRosterBrief { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:14px 17px; background:#22323b; border-bottom:1px solid #3c4c57; flex-shrink:0; }
+.opRosterBrief strong { display:block; font-size:15px; margin:3px 0; }
+.opRosterBrief small { font-size:11px; line-height:1.5; }
+.opRosterBrief .opWeatherBadge { text-align:right; color:#d7be94; font-size:11px; white-space:nowrap; }
+.opCrewRow { display:grid; grid-template-columns:36px minmax(0,1fr) 69px; gap:9px; padding:11px; background:#22303a; border:1px solid #41515d; border-left:3px solid; border-radius:5px; }
+.opCrewRow.opServiceBorder0 { border-left-color:#79bddb; }
+.opCrewRow.opServiceBorder1 { border-left-color:#e8bf70; }
+.opCrewRow.opServiceBorder2 { border-left-color:#8cc9a4; }
+.opCrewVehicle { display:grid; place-items:center; padding:3px; min-width:0; width:36px; height:77px; border:0; background:#15212a; border-radius:3px; }
+.opCrewVehicle .vehiclePhoto.topdown { height:65px; width:auto; max-width:35px; object-fit:contain; }
+.opCrewInfo>div:first-child { display:flex; align-items:center; flex-wrap:wrap; gap:5px 10px; justify-content:space-between; }
+.opCrewInfo strong { font-size:12px; }
+.opCrewInfo>small { font-size:10px; margin:3px 0 6px; }
+.opState { color:#d7ba89; font-size:9px; white-space:nowrap; }
+.opState.ready { color:#aed2b9; }
+.opCrewInfo p { display:flex; flex-wrap:wrap; gap:5px 14px; font-size:10px; color:#d1dce2; }
+.opCrewInfo p i { color:#97acb9; font-style:normal; font-size:9px; letter-spacing:1px; }
+.opCrewResource { display:flex; gap:18px; margin-top:7px; }
+.opCrewResource span { color:#a2b5c1; font-size:9px; }
+.opCrewResource b { color:#d9e2e6; font-weight:500; margin-left:4px; }
+.opCrewTools { display:flex; flex-direction:column; justify-content:center; gap:3px; border-left:1px solid #394b55; padding-left:7px; }
+.opCrewTools button { flex:1; flex-direction:column; gap:3px; min-height:36px; padding:4px 0; border-radius:2px; color:#c1d2d9; font-size:8px; line-height:1.4; }
+.opCrewTools button svg { width:15px; height:15px; color:#d8bc8b; }
+.opCrewTools .opTextButton { color:#aebec9; padding:4px 8px; }
+.opDecisionOutcome { font-size:10px; line-height:1.6; padding:8px 10px; margin-bottom:10px; border:1px solid #496b60; border-radius:3px; color:#c1d7c7; background:#283e36; }
+.opDispatch { background:#17232b; }
+.operationsMode .opToolbar { top:10px; left:10px; right:10px; gap:6px; background:#192732f5; border:1px solid #576975; border-radius:5px; padding:5px; box-shadow:0 4px 14px #07131c33; }
+.operationsMode .opToolbar button { min-height:36px; height:36px; min-width:34px; width:34px; padding:8px; background:#2a3b46; border:1px solid #50606b; border-radius:3px; box-shadow:none; font-size:11px; }
+.operationsMode .opToolbar svg { width:17px; height:17px; }
+.opClock { display:grid; padding:0 9px; border-left:1px solid #53616a; margin-left:3px; }
+.operationsMode .opClock strong { margin:0; padding:0; font-size:19px; line-height:22px; font-weight:550; letter-spacing:.3px; min-height:0; height:auto; min-width:0; border:0; background:transparent; box-shadow:none; }
+.opClock small { font-size:7px; line-height:12px; color:#a7bdc8; letter-spacing:.7px; white-space:nowrap; }
+.opMapBudget { margin-left:auto; padding:0 7px; text-align:right; min-width:0; }
+.opMapBudget small { font-size:7px; color:#8fa9b5; letter-spacing:1.2px; }
+.opMapBudget b { font-size:11px; font-weight:550; color:#e5d2ad; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.opMapConditions { position:absolute; top:67px; left:14px; right:14px; display:flex; align-items:center; justify-content:space-between; pointer-events:none; }
+.opMapConditions>span { color:#c0d0d5; font-size:10px; text-shadow:0 2px 3px #0b151d; background:#1d2b34c9; padding:5px 8px; border:1px solid #53646d77; border-radius:3px; }
+.opMapConditions .opFocus { pointer-events:auto; width:34px; min-height:32px; height:32px; border:1px solid #53646daa; border-radius:3px; padding:7px; background:#1d2b34e8; }
+.opFocus svg { width:16px; height:16px; }
+.opIncoming { position:absolute; top:105px; left:10px; width:calc(100% - 20px); z-index:4; pointer-events:none; }
+.opQueue { background:#1b2b36f5; border:1px solid #536775; border-radius:5px; box-shadow:0 3px 10px #07131c33; pointer-events:auto; overflow:hidden; }
+.opQueueToggle { display:flex; width:100%; padding:7px 10px; gap:8px; min-height:36px; border-radius:0; }
+.opLiveDot { width:5px; height:5px; border-radius:50%; background:#a8d4be; flex-shrink:0; }
+.opQueueToggle strong { font-size:11px; white-space:nowrap; }
+.opQueueToggle>span:nth-last-child(2) { flex:1; text-align:right; font-size:9px; color:#a9becb; }
+.opQueueToggle svg { width:13px; height:13px; transform:rotate(90deg); }
+.opQueueToggle[aria-expanded=true] svg { transform:rotate(-90deg); }
+.opQueueList { max-height:190px; overflow:auto; border-top:1px solid #3c505c; }
+.opNextCall,.opQueueCall { display:flex; text-align:left; width:100%; padding:8px 10px; min-height:49px; border-radius:0; gap:10px; border-top:1px solid #3c505c; }
+.opNextCall>span:nth-child(2),.opQueueCall>span:nth-child(2) { flex:1; min-width:0; }
+.opNextCall strong,.opQueueCall strong { display:block; font-size:11px; font-weight:550; }
+.opNextCall small,.opQueueCall small { font-size:9px; margin-top:2px; color:#a3b6c2; line-height:1.5; }
+.opNextCall>svg { width:15px; height:15px; color:#e1c491; }
+.opQueueCall em { font-size:10px; font-style:normal; white-space:nowrap; color:#d9c7a2; }
+.opQueuePriority { color:#b3cad5; background:#30434d; width:27px; height:29px; display:grid; place-items:center; border-radius:3px; flex-shrink:0; }
+.opQueuePriority svg { width:15px; height:15px; }
+.opQueuePriority.p3 { color:#e7c18d; border:1px solid #9d7c56; background:#443e34; font-weight:750; }
+.opService { display:grid; place-items:center; width:31px; height:33px; flex-shrink:0; background:#2b414d; border:1px solid #688995; border-radius:4px; color:#8dc8e1; }
+.opService svg { width:17px; height:17px; }
+.opService1 { color:#e8c27f; background:#443d30; border-color:#94815e; }
+.opService2 { color:#9dd2ae; background:#2d4138; border-color:#658b74; }
+.opOverlay { position:absolute; bottom:132px; left:10px; right:10px; z-index:5; pointer-events:none; }
+.opOverlay>* { pointer-events:auto; }
+.operationsMode .opIncident { display:flex; flex-direction:column; padding:0; overflow:hidden; border:1px solid #6c7e88; border-radius:7px; background:#1d2c37fa; max-height:min(57dvh,560px); box-shadow:0 8px 26px #07131c66; }
+.opIncidentHeader { display:flex; gap:10px; align-items:center; padding:12px 13px 9px; flex-shrink:0; }
+.opIncidentHeader>div { flex:1; min-width:0; }
+.opIncidentHeader .eyebrow { font-size:8px; letter-spacing:1px; color:#c0aa85; }
+.opIncidentHeader h3 { font-size:15px; margin:3px 0; font-weight:600; letter-spacing:-.2px; }
+.opIncidentHeader small { font-size:10px; line-height:1.5; }
+.opIncidentHeader .iconButton { width:32px; min-width:32px; height:34px; min-height:34px; padding:8px; border:0; }
+.opIncidentHeader .iconButton svg { width:16px; height:16px; }
+.opIncidentMeta { display:flex; justify-content:space-between; flex-wrap:wrap; gap:5px 10px; padding:0 13px 9px; font-size:9px; color:#b4c5ce; flex-shrink:0; }
+.opIncidentMeta>span:last-child { color:#dac398; }
+.opIncidentTabs { display:flex; gap:0; padding:0 12px; border-block:1px solid #3d515d; flex-shrink:0; }
+.opIncidentTabs button { flex:1; border:0; border-bottom:2px solid transparent; border-radius:0; min-height:36px; padding:8px; font-size:11px; color:#9db4c1; }
+.opIncidentTabs button.active { color:#e6c991; border-bottom-color:#e6c991; }
+.opIncidentTabs button i { display:inline-block; width:5px; height:5px; border-radius:50%; background:#e5c389; }
+.opIncidentTabs button b { color:#a1b9c8; font-size:9px; }
+.opIncidentBody { overflow:auto; min-height:0; padding:12px 13px; overscroll-behavior:contain; scrollbar-width:thin; }
+.opCaller { display:flex; align-items:center; gap:9px; margin-bottom:9px; }
+.opCaller>span { display:grid; place-items:center; width:30px; height:30px; border:1px solid #5f727e; color:#d3dfe4; background:#344650; font-size:12px; border-radius:50%; }
+.opCaller>div:nth-child(2) { flex:1; min-width:0; }
+.opCaller strong { display:block; font-size:11px; }
+.opCaller small { font-size:9px; margin-top:2px; }
+.opVoice { display:flex; align-items:center; gap:2px; }
+.opVoice i { width:2px; height:7px; background:#abc7bf; }
+.opVoice i:nth-child(2),.opVoice i:nth-child(4) { height:13px; }
+.opVoice i:nth-child(3) { height:19px; }
+.opSpeech { padding:10px 12px; border:1px solid #425b67; background:#283c46; border-radius:3px 9px 9px; color:#dee7e9; font-size:12px; line-height:1.65; }
+.opDialoguePrompt { color:#acbfc9; font-size:11px; line-height:1.65; padding:10px 0 8px; }
+.opReplies { display:grid; gap:7px; }
+.opReply { text-align:left; justify-content:flex-start; padding:10px 12px; min-height:46px; border:1px solid #7c735d; background:#3a3d37; border-radius:4px; color:#e3d7bd; font-size:11px!important; line-height:1.55!important; }
+.opReply:hover:not(:disabled) { background:#4b4a3d; border-color:#c8ad79; }
+.opDecisionDone { display:flex; gap:8px; align-items:flex-start; padding:14px 0; font-size:11px; color:#b3d1bf; }
+.opDecisionDone svg { width:17px; height:17px; }
+.opIncidentBody>.primary { min-height:43px; font-size:11px; }
+.opIncidentFooter { display:flex; gap:12px; justify-content:space-between; align-items:center; padding:8px 12px; border-top:1px solid #415461; flex-shrink:0; }
+.opPausedLabel { font-size:9px; color:#a8bcc6; }
+.opIncidentFooter button { min-height:36px; padding:7px 12px; font-size:11px; border-radius:4px; }
+.opIncidentFooter svg { width:13px; height:13px; }
+.opAssignments { display:grid; gap:0; }
+.opServiceRow { display:flex; align-items:center; gap:10px; min-height:62px; border-bottom:1px solid #3c515d; padding:9px 0; }
+.opServiceRow:first-child { padding-top:0; }
+.opServiceRow:last-child { border-bottom:0; }
+.opServiceRow>span:nth-child(2) { flex:1; min-width:0; }
+.opServiceRow strong { display:block; font-size:11px; font-weight:550; }
+.opServiceRow small { font-size:9px; line-height:1.5; margin-top:3px; color:#a5bbc8; }
+.opServiceRow>svg { width:15px; color:#a9cbb5; }
+.opServiceRow.complete { opacity:.7; }
+.opServiceRow.complete .opService { border-color:#506f5b; }
+.opServiceRow .opAssign { min-height:40px; flex-shrink:0; display:grid; gap:1px; padding:5px 9px; border:1px solid #c2ab7f; border-radius:4px; background:#d2b983; color:#212a2b; font-size:12px; }
+.opAssign>span { display:flex; gap:4px; align-items:center; font-size:8px; font-weight:650; white-space:nowrap; }
+.opAssign svg { width:11px; height:11px; }
+.opProgress { height:3px; background:#3b505c; margin-top:7px; border-radius:2px; }
+.opProgress i { display:block; height:100%; background:#98c8b0; border-radius:2px; }
+.opSmall { min-height:36px; padding:6px 9px; font-size:10px!important; color:#d5dfe3; border:1px solid #536975; border-radius:4px; background:#2b404c; }
+.opWorkingDot { width:5px; height:5px; border-radius:50%; background:#a4d8b6; margin:0 8px; }
+.opSteps { margin-top:10px; padding:9px 0 0; border-top:1px solid #405562; }
+.opSteps summary { cursor:pointer; color:#b5c7d1; font-size:10px; }
+.opSteps summary b { float:right; color:#d7c297; }
+.opSteps ol { list-style:none; padding:8px 0 0; margin:0; display:grid; gap:8px; }
+.opSteps li { display:flex; align-items:flex-start; gap:8px; font-size:10px; color:#9ab0bd; line-height:1.5; }
+.opSteps li>span { width:15px; display:grid; place-items:center; height:16px; flex-shrink:0; }
+.opSteps li svg { width:12px; height:12px; }
+.opSteps li small { display:block; font-size:8px; color:#8ea6b6; }
+.opSteps .done { color:#a4cbb3; }
+.opSteps .working { color:#ede0c4; }
+.opSteps .working i { width:5px; height:5px; border-radius:50%; background:#d9c38e; }
+.opRisk,.opExternal { font-size:10px; line-height:1.6; border-left:2px solid #b49066; padding-left:9px; margin-bottom:10px; }
+.opDispatchBase { position:absolute; bottom:0; left:0; right:0; padding:0 10px 9px; background:linear-gradient(transparent,#15232bf2 20%); z-index:3; }
+.opRadioLine { display:flex; width:100%; min-height:30px; padding:5px 4px; gap:6px; text-align:left; border-radius:0; color:#afc3ce; }
+.opRadioLine svg { width:12px; height:12px; color:#cfb889; }
+.opRadioLine>span { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:9px; min-width:0; }
+.opRadioLine b { font-weight:550; color:#d7c19b; margin-right:4px; }
+.opRackHeading { display:flex; justify-content:space-between; color:#a5bac7; font-size:7px; letter-spacing:.8px; margin:0 3px 6px; }
+.opRackHeading>span:last-child { letter-spacing:0; color:#aacdb9; }
+.opCrewRack { display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; padding-bottom:1px; }
+.opCrewRack::-webkit-scrollbar { display:none; }
+.opRackUnit { display:flex; min-width:98px; flex:1; align-items:center; gap:6px; min-height:55px; padding:7px 8px; border:1px solid #526874; border-radius:4px; background:#223641f5; text-align:left; }
+.opRackUnit.picked { border-color:#e0c590; background:#38443f; }
+.opRackUnit .opService { width:23px; height:29px; border-radius:3px; }
+.opRackUnit .opService svg { width:13px; height:13px; }
+.opRackUnit>span:nth-child(2) { flex:1; min-width:0; }
+.opRackUnit strong { font-size:11px; font-weight:550; display:block; }
+.opRackUnit small { font-size:8px; line-height:1.45; margin-top:3px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden; max-width:180px; }
+.opCrewDot { display:none; }
+.operationsMode .opMapHint { padding:9px 10px; border-radius:4px; border:1px solid #536c7c; background:#1e303de8; align-items:center; gap:10px; }
+.opMapHint>span { font-size:10px; color:#c5d4dc; white-space:normal; }
+.opMapHint .opSmall { padding:5px 7px; min-height:30px; }
+.opMapHint svg { width:14px; height:14px; }
+.operationsMode .opNav { position:relative; inset:auto; width:100%; max-width:none; min-height:58px; height:58px; padding:0 10px; background:#182832; border:0; border-top:1px solid #536674; border-radius:0; box-shadow:none; flex-shrink:0; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); }
+.operationsMode .opNav button { min-height:58px; border-radius:0; display:flex; flex-direction:column; gap:4px; padding:8px 3px; color:#a3bac8; font-size:9px; }
+.operationsMode .opNav button[aria-current] { color:#e7c58b; }
+.opNav svg { width:19px; height:19px; }
+.opHouseIntro h2 { font-size:22px; margin:5px 0 9px; }
+.opHouseIntro p { color:#aec0ca; font-size:12px; line-height:1.7; }
+.opHouse { display:block; width:100%; padding:15px; text-align:left; border:1px solid #435965; border-radius:6px; background:#22343e; }
+.opHouseHeading { display:flex; align-items:center; gap:10px; }
+.opHouseHeading>span { min-width:0; flex:1; }
+.opHouseHeading>svg:first-child { color:#bfd1cb; width:21px; }
+.opHouseHeading>svg:last-child { width:14px; height:14px; color:#9cb4c2; }
+.opHouseHeading strong { font-size:12px; display:block; }
+.opHouseHeading small { font-size:9px; margin-top:4px; line-height:1.5; }
+.opHouseSystems { display:grid; grid-template-columns:repeat(3,1fr); gap:13px; margin:15px 0 12px; }
+.opHouseSystems>span { display:grid; grid-template-columns:1fr auto; gap:7px 4px; }
+.opHouseSystems small { font-size:9px; }
+.opHouseSystems b { font-size:9px; color:#cbd8db; font-weight:500; }
+.opHouseSystems i { grid-column:1/-1; height:3px; border-radius:3px; background:linear-gradient(90deg,#91b5a7 var(--condition),#465d68 var(--condition)); }
+.opHouse>p { font-size:10px; color:#b6c8d0; line-height:1.65; }
+.opHouse .opWarning { color:#efb58e; margin-bottom:8px; }
+.opOffer { display:flex; align-items:center; gap:12px; padding:14px; border:1px solid #455b69; border-radius:5px; }
+.opOffer>div { flex:1; min-width:0; }
+.opOffer strong { display:block; font-size:12px; }
+.opOffer small { font-size:9px; line-height:1.6; margin-top:3px; }
+.opOffer button { font-size:10px; padding:8px 10px; flex-shrink:0; }
+.opEquipmentList { display:grid; gap:10px; margin-top:16px; }
+.opEquipment { text-align:left; align-items:flex-start; padding:14px; border:1px solid #57717d; border-radius:5px; background:#263b46; gap:12px; }
+.opEquipment>span { display:grid; place-items:center; width:31px; height:34px; background:#344b54; color:#dec79e; border-radius:4px; flex-shrink:0; }
+.opEquipment svg { width:17px; height:17px; }
+.opEquipment>div { flex:1; }
+.opEquipment strong { display:block; font-size:12px; }
+.opEquipment small { display:block; font-size:11px; line-height:1.6; color:#afc4ce; margin:5px 0; }
+.opEquipment b { font-size:11px; color:#e5cb98; }
+.opAssignChoices { display:grid; gap:10px; margin-top:14px; }
+.opAssignChoice { text-align:left; gap:12px; justify-content:flex-start; border:1px solid #617d8b; background:#273e4b; padding:12px; border-radius:5px; }
+.opChoiceVehicle { width:34px; height:74px; display:grid; place-items:center; background:#182a35; flex-shrink:0; }
+.opChoiceVehicle .vehiclePhoto.topdown { height:64px; width:auto; max-width:32px; object-fit:contain; }
+.opChoiceBody { flex:1; min-width:0; }
+.opChoiceBody strong { font-size:12px; display:block; }
+.opChoiceBody small { display:block; color:#aac2ce; font-size:10px; line-height:1.6; margin-top:4px; }
+.opChoiceBody em { display:block; font-style:normal; color:#e2cb9c; font-size:10px; margin-top:7px; line-height:1.5; }
+.opAssignChoice>svg { width:16px; height:16px; color:#dac397; }
+.opHouseDetail h3 { margin:20px 0 10px; }
+.opPrevent { display:flex; gap:10px; align-items:center; padding:12px 0; border-bottom:1px solid #405762; }
+.opPrevent>span { flex:1; }
+.opPrevent strong { display:block; font-size:12px; }
+.opPrevent small { font-size:10px; display:block; margin-top:4px; line-height:1.5; color:#abc0ca; }
+.opPrevent button { font-size:10px; padding:7px 10px; flex-shrink:0; }
+.opHouseHistory { margin:0; padding:0; list-style:none; display:grid; gap:12px; }
+.opHouseHistory li { display:grid; gap:4px; padding-left:12px; border-left:1px solid #5d7984; font-size:11px; color:#c7d6dc; }
+.opHouseHistory small { display:block; font-size:9px; color:#9bb5c3; }
+.opReportGrade h2 { margin:9px 0 18px; font-size:26px; font-weight:600; }
+.opReportStats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
+.opReportStats>div { padding:12px; background:#263c47; border:1px solid #49636f; border-radius:5px; }
+.opReportStats strong { font-size:24px; color:#e8d0a6; font-weight:550; }
+.opReportStats small { display:block; font-size:9px; margin-top:3px; color:#a5c0cd; }
+.opReportMoney { display:flex; justify-content:space-between; gap:12px; border-block:1px solid #4b626e; padding:12px 0; margin:12px 0; }
+.opReportMoney>span { font-size:12px; color:#c1d1d9; }
+.opReportMoney>b { font-size:17px; color:#b9d8c3; white-space:nowrap; }
+.opReportDecisions { display:grid; gap:10px; margin:12px 0 18px; }
+.opReportDecisions>article { border-left:2px solid #698e9a; padding:0 0 0 12px; }
+.opReportDecisions strong { font-size:12px; display:block; color:#dfc697; }
+.opReportDecisions p { font-size:11px; margin:4px 0; color:#d1dee3; }
+.opReportDecisions small { display:block; font-size:10px; line-height:1.6; color:#9eb8c7; }
+.opReportResults { border-block:1px solid #48616d; padding:12px 0; margin-bottom:18px; font-size:12px; }
+.opReportResults summary { cursor:pointer; color:#bbd0da; }
+.opReportResults p { display:flex; gap:8px; align-items:flex-start; padding:8px 0; font-size:11px; }
+.opReportResults svg { width:14px; height:14px; color:#b2d2be; }
+.opReportResults small { display:block; font-size:9px; color:#9eb9c7; margin-top:3px; }
+.opRadioHistory { display:grid; gap:14px; }
+.opRadioHistory p { padding-left:11px; border-left:1px solid #60808e; font-size:12px; color:#cbdae1; }
+.opRadioHistory small { display:block; font-size:9px; color:#d9bf8f; margin-bottom:3px; }
+.operationsMode #dialog { max-width:650px; border-color:#657b85; border-radius:7px; background:#1c2d38; }
+.operationsMode #dialog h3 { margin:16px 0 10px; font-size:15px; }
+.operationsMode #dialog .campaignDialogBody { scrollbar-width:thin; }
+.operationsMode #dialog.opReportDialog[open] { display:flex; flex-direction:column; overflow:hidden; height:86dvh; }
+.opReportDialog .campaignDialogHead { position:static; flex-shrink:0; }
+.opReportDialog .campaignDialogBody { flex:1; min-height:0; overflow:auto; overscroll-behavior:contain; }
+.opDialogFooter { flex-shrink:0; border-top:1px solid #4e6773; padding:12px 16px; background:#213642; }
+.opDialogFooter button { min-height:46px; font-size:12px; width:100%; border-radius:5px; }
+.opReport { display:grid; gap:16px; }
+.operationsMode #dialog .opReport h3 { margin:0; }
+.opReport .opReportGrade h2 { margin:7px 0 0; font-size:25px; }
+.opReport .opReportStats,.opReport .opReportMoney,.opReport .opReportDecisions,.opReport .opReportResults { margin:0; }
+.operationsMode #dialog .opReport .opReportDecisions p { font-size:11px; line-height:1.5; }
+.operationsMode #dialog .opReport .opMuted { font-size:11px; }
+.operationsMode .campaignFooter:has([data-cmd=start]) { display:grid; grid-template-columns:1fr 1.2fr; align-items:stretch; padding-block:9px; }
+.operationsMode .campaignFooter:has([data-cmd=start]) .subtle { font-size:10px; line-height:1.5; }
+.operationsMode .campaignHeader { background:#1a2933; }
+.operationsMode .campaignFooter { background:#1a2933; }
+.operationsMode .campaignScroll { gap:12px; }
+@media (min-width:700px) {
+  .opBriefScroll { padding:30px 40px; }
+  .opBriefHero h1 { font-size:42px; }
+  .opBriefMetrics { gap:24px; }
+  .opIncoming { width:310px; }
+  .opOverlay { left:auto; width:360px; right:15px; bottom:132px; }
+  .opIncident { max-height:calc(100% - 150px); }
+  .opMapHint { max-width:360px; margin-left:auto; }
+  .opDispatchBase { padding-inline:15px; }
+  .opRackUnit { max-width:260px; }
+  .opGoals { grid-template-columns:repeat(4,1fr); }
+  .opBriefPage .opPageFooter { padding-inline:40px; }
+  .opBriefPage .opPageFooter button { max-width:480px; }
+}
+@media (max-width:370px) {
+  .opBriefScroll { padding:20px 16px; gap:18px; }
+  .opPageHeader { padding-inline:14px; }
+  .opBriefMetrics { gap:9px; }
+  .opBriefMetrics>div { padding-left:8px; }
+  .opBriefMetrics small { font-size:9px; }
+  .opMapBudget { padding-inline:1px; }
+  .opMapBudget b { font-size:9px; }
+  .opClock { padding-inline:6px; }
+  .operationsMode .opClock strong { font-size:17px; }
+  .operationsMode .opToolbar { gap:4px; }
+  .operationsMode .opToolbar button { width:31px; min-width:31px; }
+  .opRackUnit { min-width:94px; padding:7px 6px; gap:5px; }
+  .opIncidentHeader { padding:10px; gap:8px; }
+  .opIncidentHeader h3 { font-size:14px; }
+  .opIncidentBody { padding:10px; }
+  .opServiceRow { gap:8px; }
+  .opReportStats>div { padding:10px; }
+}
+@media (max-height:740px) {
+  .operationsMode .opIncident { max-height:min(48dvh,calc(var(--native-viewport-height,100dvh) - 360px)); }
+  .opDispatch:has(.opIncident) .opMapConditions { display:none; }
+  .opDispatch:has(.opIncident) .opIncoming { top:66px; }
+  .opDispatch:has(.opIncident) .opNextCall { display:none; }
+  .opIncidentHeader { padding-block:8px; }
+  .opIncidentMeta { padding-bottom:6px; }
+  .opCaller { margin-bottom:7px; }
+  .opSpeech { padding:8px 10px; font-size:11px; }
+  .opDialoguePrompt { padding-block:8px; font-size:10px; }
+  .opReply { padding:8px 10px; font-size:10px!important; min-height:44px; }
+  .opCrewRow { padding:10px 12px; }
+  .opRosterBrief { padding-block:10px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .operationsMode button { transition:none; }
+}
