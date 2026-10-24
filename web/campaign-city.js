@@ -1,5 +1,8 @@
 import {TYPES} from './content-missions.js';
-export const ADDRESS_COUNT=999,DISTRICT_COUNT=20,TW=1536,TH=1024,SIDE=8,DW=TW*SIDE,DH=TH*SIDE;
+// Adjacent source tiles share the outer street centreline, rather than duplicating it.
+export const SOURCE={width:1536,height:1024,x:60,y:76,widthCrop:1416,heightCrop:874};
+export const ADDRESS_COUNT=999,DISTRICT_COUNT=20,TW=1416,TH=874,SIDE=8,DW=TW*SIDE,DH=TH*SIDE;
+export const ROAD_X=[0,708,1416],ROAD_Y=[0,434,874];
 export const ART=['residential.jpg','nine.png','towers.png','mixed.png','industrial.png','factory.jpg'];
 export const DISTRICT_NAMES=['Северный','Садовый','Центральный','Заречный','Восточный','Промышленный','Берёзовый','Высотный','Солнечный','Вокзальный','Озёрный','Южный','Новый город','Заводской','Лесной','Западный','Парковый','Прибрежный','Академический','Столичный'];
 export function hash(seed,index){let h=(seed^Math.imul(index+1,0x9e3779b1))>>>0;h=Math.imul(h^(h>>>16),0x85ebca6b);h=Math.imul(h^(h>>>13),0xc2b2ae35);return (h^(h>>>16))>>>0;}
@@ -22,7 +25,7 @@ export function district(seed,d){
  const origin=districtOrigin(d),tiles=Array.from({length:64},(_,i)=>tileKind(seed,d,i));
  const homes=Array.from({length:ADDRESS_COUNT},(_,id)=>{
   const tile=Math.floor(id/16),col=tile%SIDE,row=Math.floor(tile/SIDE),kind=tiles[tile],a=anchors[kind][id%16];
-  const x=origin[0]+col*TW+a[0],y=origin[1]+row*TH+a[1],j=hash(seed+d*999,id);
+  const x=origin[0]+col*TW+a[0]-SOURCE.x,y=origin[1]+row*TH+a[1]-SOURCE.y,j=hash(seed+d*999,id);
   return {id,globalId:d*ADDRESS_COUNT+id,district:d,name:`ул. ${streets[(Math.floor(id/32)+d)%streets.length]}, ${Math.floor(id/16)+1}, корп. ${id%16+1}`,x,y,
    floors:kind===2?16:kind===1?9:kind>=4?1+j%4:kind===3?[5,9,16][j%3]:5,kind,tile};
  });
@@ -30,27 +33,34 @@ export function district(seed,d){
 }
 function axes(value,step,offsets){const tile=Math.floor(value/step);return offsets.flatMap(o=>[-1,0,1].map(t=>(tile+t)*step+o));}
 export function roadStop(home){
- const xs=axes(home.x,TW,[60,768,1476]),ys=axes(home.y,TH,[76,510,950]);
+ const xs=axes(home.x,TW,ROAD_X),ys=axes(home.y,TH,ROAD_Y);
  const x=xs.reduce((a,b)=>Math.abs(a-home.x)<Math.abs(b-home.x)?a:b),y=ys.reduce((a,b)=>Math.abs(a-home.y)<Math.abs(b-home.y)?a:b);
  return Math.abs(x-home.x)<Math.abs(y-home.y)?[x,home.y]:[home.x,y];
 }
-function onVertical(p){return [60,768,1476].some(x=>Math.abs(((p[0]%TW)+TW)%TW-x)<.001);}
+function onVertical(p){return ROAD_X.some(x=>Math.abs(((p[0]%TW)+TW)%TW-x)<.001);}
 function nearestAxis(v,step,os){return axes(v,step,os).reduce((a,b)=>Math.abs(a-v)<Math.abs(b-v)?a:b);}
 export function streetRoute(a,b){
  if(a[0]===b[0]&&a[1]===b[1])return [[...a]];
  let path;
- if(onVertical(a)&&onVertical(b)){const y=nearestAxis((a[1]+b[1])/2,TH,[76,510,950]);path=[a,[a[0],y],[b[0],y],b];}
- else if(!onVertical(a)&&!onVertical(b)){const x=nearestAxis((a[0]+b[0])/2,TW,[60,768,1476]);path=[a,[x,a[1]],[x,b[1]],b];}
+ if(onVertical(a)&&onVertical(b)){const y=nearestAxis((a[1]+b[1])/2,TH,ROAD_Y);path=[a,[a[0],y],[b[0],y],b];}
+ else if(!onVertical(a)&&!onVertical(b)){const x=nearestAxis((a[0]+b[0])/2,TW,ROAD_X);path=[a,[x,a[1]],[x,b[1]],b];}
  else if(onVertical(a))path=[a,[a[0],b[1]],b];else path=[a,[b[0],a[1]],b];
  return path.filter((p,i)=>!i||p.some((v,j)=>v!==path[i-1][j])).map(p=>[...p]);
 }
 export function pathLength(p){return p.slice(1).reduce((s,b,i)=>s+Math.hypot(b[0]-p[i][0],b[1]-p[i][1]),0);}
-export function pathPose(path,progress){let left=pathLength(path)*Math.max(0,Math.min(1,progress));for(let i=1;i<path.length;i++){const a=path[i-1],b=path[i],l=Math.hypot(b[0]-a[0],b[1]-a[1]);if(left<=l)return {point:[a[0]+(b[0]-a[0])*left/l,a[1]+(b[1]-a[1])*left/l],angle:Math.atan2(b[1]-a[1],b[0]-a[0])};left-=l;}return {point:path.at(-1),angle:0};}
-export function depot(seed,d){const [x,y]=districtOrigin(d);return [x+768,y+510];}
+export function pathPose(path,progress){
+ let left=pathLength(path)*Math.max(0,Math.min(1,progress)),angle=-Math.PI/2;
+ for(let i=1;i<path.length;i++){const a=path[i-1],b=path[i],l=Math.hypot(b[0]-a[0],b[1]-a[1]);if(l<.000001)continue;angle=Math.atan2(b[1]-a[1],b[0]-a[0]);if(left<=l+.000001){const t=Math.min(1,left/l);return {point:[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t],angle};}left-=l;}
+ return {point:[...path.at(-1)],angle};
+}
+export function depot(seed,d){const [x,y]=districtOrigin(d);return [x+708,y+434];}
 export function missionOrder(seed,d){const ids=Array.from({length:ADDRESS_COUNT},(_,i)=>i);for(let i=ids.length-1;i>0;i--){const j=hash(seed+d*997,i)%(i+1);[ids[i],ids[j]]=[ids[j],ids[i]];}return ids;}
 const locations=['подвал, секция А','второй подъезд','технический этаж','дворовой фасад','вход со двора','служебная часть здания','первый подъезд'];
-export function missions(seed,d){const city=district(seed,d);return city.homes.map((home,i)=>{
+export function missions(seed,d,balance=2){const city=district(seed,d);return city.homes.map((home,i)=>{
  const type=(i+hash(seed,d)%20)%20,variant=Math.floor(i/20),scene=TYPES[type],cause=scene.causes[Math.floor(variant/7)%scene.causes.length],place=scene.places?.[variant%7]??locations[variant%7],scope=1+hash(seed+d,i)%6;
+ // Heavy pipes, pumps, roofs and stairs grow with district complexity; small service jobs stay viable for compact vans/lifts.
+ const quantity=balance===1?Math.min(7,2+scope):2+scope+([0,2,6,12,14,18].includes(type)?Math.floor(d/3):0),materialsCost=quantity*[1400,1100,1800][scene.service];
+ const fee=5000+(scene.duration+scope*2)*40+scene.priority*400;
  return {id:d*ADDRESS_COUNT+i,home:i,type,title:`${scene.title} · ${place}`,brief:`${cause}. Место: ${place}. Объём работ (${scene.unit}): ${scope}. ${scene.access[variant%scene.access.length]}`,
   answer:`Осмотр подтвердил: ${cause.toLowerCase()}. ${scene.action}. Контроль результата: ${scene.check}.`,action:scene.action,service:scene.service,priority:scene.priority,
-  quantity:Math.min(7,2+scope),duration:scene.duration+scope*2,deadline:[180,120,80][scene.priority-1],reward:18000+scope*3200+scene.priority*2500,homeName:home.name};});}
+  quantity,duration:scene.duration+scope*2,deadline:[180,120,80][scene.priority-1],reward:balance===1?18000+scope*3200+scene.priority*2500:materialsCost+fee,...(balance===1?{}:{materialsCost,fee}),homeName:home.name};});}
