@@ -1,5 +1,5 @@
 import * as E from './campaign-engine.js';
-import {district,missions,DISTRICT_NAMES,ADDRESS_COUNT,DW,DH,districtOrigin,roadStop,pathPose} from './campaign-city.js';
+import {district,missions,DISTRICT_NAMES,ADDRESS_COUNT,DW,DH,districtOrigin,roadStop,pathPose,parkingBay,depot} from './campaign-city.js';
 import {loadArt,render as renderMap,focusDistrict} from './campaign-map.js';
 import {vehicle} from './graphics.js';
 import {icon} from './icons.js';
@@ -16,6 +16,9 @@ const button=(a,text,attrs='',cl='')=>`<button data-cmd="${a}" ${attrs} class="$
 let loaded=E.load(storage),state=loaded.state,blocked=loaded.blocked,settings=loadSettings(storage),screen='menu',sub='crews',paused=true,speed=1,selected=null,selectedCrew=null,page=0,saveError=false;
 let view={x:768,y:510,scale:.3},last=performance.now(),fraction=0,menuSeed=null;
 let visuals=visualSettings();
+// Keep old saves intact and separate cars that shared the original depot coordinate.
+function restoreParkingBays(){if(!state)return;const p=depot(state.seed,state.region);for(const cr of state.crews){if(cr.status==='idle'&&Math.hypot(cr.point[0]-p[0],cr.point[1]-p[1])<.1)cr.point=parkingBay(state.seed,state.region,cr.id);}}
+restoreParkingBays();
 root.classList.add('campaignApp');document.body.classList.add('campaignMode');
 const selectedCall=()=>state?.calls.find(c=>c.mission===selected);
 function message(text){toast.textContent=text;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),4000);}
