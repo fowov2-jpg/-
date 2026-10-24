@@ -12,7 +12,8 @@ if gradle -p android connectedDebugAndroidTest --no-daemon; then
   done
 else
   mkdir -p test-results/android
-  if ! adb exec-out cat /sdcard/Pictures/UpravdomVerification/dispatch-restored.png > test-results/android/failure.png; then
+  adb exec-out cat /sdcard/Pictures/UpravdomVerification/dispatch-restored.png > test-results/android/failure.png || true
+  if ! python3 -c "from pathlib import Path; assert Path('test-results/android/failure.png').read_bytes().startswith(bytes([137,80,78,71,13,10,26,10]))"; then
     adb exec-out screencap -p > test-results/android/failure.png || true
   fi
   adb logcat -d -t 2000 -v threadtime > test-results/android/logcat.txt || true

@@ -31,6 +31,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class ScreenInsetsTest {
     @Rule public ActivityScenarioRule<MainActivity> activity = new ActivityScenarioRule<>(MainActivity.class);
+    private final AtomicReference<WebView> gameWebView = new AtomicReference<>();
 
     private String shellText(String command) throws Exception {
         android.os.ParcelFileDescriptor descriptor=InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(command);
@@ -48,14 +49,21 @@ public class ScreenInsetsTest {
             shellText("am force-stop com.android.launcher3");SystemClock.sleep(1000);
         }
     }
-    @Before public void prepareFocusedDevice() throws Exception { dismissLauncherAnr(); }
+    @Before public void prepareFocusedDevice() throws Exception {
+        dismissLauncherAnr();
+        activity.getScenario().onActivity(a -> gameWebView.set(a.findViewById(android.R.id.content).findViewWithTag("game-webview")));
+        assertNotNull("Game WebView was not created",gameWebView.get());
+    }
     private String evaluate(String script) throws Exception {
         AtomicReference<String> result = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
-        activity.getScenario().onActivity(a -> {
-            WebView web = a.findViewById(android.R.id.content).findViewWithTag("game-webview");
+        WebView web=gameWebView.get();
+        // ActivityScenario.onActivity waits for UI idle. A live dispatcher keeps
+        // animating, so that barrier can delay every probe until the shift ends.
+        // Post directly to the existing WebView and await this JS result only.
+        assertTrue("WebView rejected the evaluation",web.post(() -> {
             web.evaluateJavascript(script, value -> { result.set(value); latch.countDown(); });
-        });
+        }));
         assertTrue("WebView did not respond", latch.await(10, TimeUnit.SECONDS));
         return result.get();
     }
@@ -134,7 +142,9 @@ public class ScreenInsetsTest {
         String value = evaluate("JSON.stringify((()=>{const n=document.querySelector("+quoted+");n.scrollIntoView({block:'center'});const r=n.getBoundingClientRect();return {x:(r.left+r.width/2)*devicePixelRatio,y:(r.top+r.height/2)*devicePixelRatio};})())");
         JSONObject point = new JSONObject(new org.json.JSONTokener(value).nextValue().toString());
         int[] offset = new int[2];
-        activity.getScenario().onActivity(a -> a.getWindow().getDecorView().findViewWithTag("game-webview").getLocationOnScreen(offset));
+        CountDownLatch located=new CountDownLatch(1);WebView web=gameWebView.get();
+        assertTrue("WebView rejected the location probe",web.post(()->{web.getLocationOnScreen(offset);located.countDown();}));
+        assertTrue("WebView location probe did not respond",located.await(10,TimeUnit.SECONDS));
         float x=offset[0]+(float)point.getDouble("x"), y=offset[1]+(float)point.getDouble("y");long now=SystemClock.uptimeMillis();
         MotionEvent down=MotionEvent.obtain(now,now,MotionEvent.ACTION_DOWN,x,y,0),up=MotionEvent.obtain(now,now+40,MotionEvent.ACTION_UP,x,y,0);
         InstrumentationRegistry.getInstrumentation().sendPointerSync(down);InstrumentationRegistry.getInstrumentation().sendPointerSync(up);down.recycle();up.recycle();SystemClock.sleep(160);
