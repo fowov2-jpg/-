@@ -7,7 +7,7 @@ android {
         minSdk 26
         targetSdk 35
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
-        versionCode 9
+        versionCode 10
         versionName '0.8.2-alpha'
     }
     sourceSets { main { assets.srcDirs = ['../../web'] } }
