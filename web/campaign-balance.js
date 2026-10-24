@@ -19,7 +19,10 @@ export function deadlineFor(s,m){
  for(const cr of s.crews){if(cr.service!==m.service)continue;const model=VEHICLE_MODELS.find(mod=>mod.id===s.vehicles.find(v=>v.id===cr.vehicle).model);if(model.capacity<m.quantity||model.supportedTypes&&!model.supportedTypes.includes(m.type))continue;
   const travel=Math.max(3,Math.ceil(pathLength(streetRoute(cr.point,destination))/(300*model.speed)));fastest=Math.min(fastest,travel+7+repairTime(s,m,cr));
  }
- return Math.max(m.deadline,Math.ceil((Number.isFinite(fastest)?fastest:70+m.duration)+25));
+ // Give each already waiting same-service job enough time for a work cycle and return trip.
+ // A newly issued call must not be overdue merely because the only compatible crew is busy.
+ const waiting=s.calls.filter(c=>c.status==='new'&&c.spec?.service===m.service).length;
+ return Math.max(m.deadline,Math.ceil((Number.isFinite(fastest)?fastest:70+m.duration)+25))+waiting*(m.duration+80);
 }
 export const cadence=s=>Math.max(12,38-s.crews.length*3);
 export function payment(m,late){return Number.isInteger(m.fee)?m.materialsCost+Math.round(m.fee*(late?.65:1)):Math.round(m.reward*(late?.8:1));}
