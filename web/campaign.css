@@ -2,3 +2,34 @@ body.campaignMode{background:#06151c}.campaignApp{max-width:760px!important;back
 @media(max-width:380px){.campaignHeader{gap:6px;padding:9px}.campaignHeader strong{font-size:14px}.campaignHeader>span{font-size:11px}.campaignScroll{padding:10px}.dispatchCrew{padding:10px}.workerTile{padding:4px}.workerSlots{gap:4px}.campaignTabs button{font-size:11px;padding:8px}.campaignBrand h1{font-size:46px}}
 
 .campaignIncoming{position:absolute;left:10px;right:10px;top:60px;pointer-events:none}.incomingCall{width:100%;background:#102c36ed;border:1px solid #cfb568;border-radius:9px;box-shadow:0 4px 12px #0006;justify-content:flex-start;text-align:left;padding:8px 10px;gap:10px;pointer-events:auto}.incomingCall>span:first-child{color:#f0c56b}.incomingCall>span:last-child{min-width:0;flex:1}.incomingCall strong{display:block;font-size:12px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}.incomingCall small{font-size:9px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+
+/* Operator-style mobile dispatch HUD. Original teal-green colors retained. */
+.campaignMenuButtons button.primary{border-color:#6fe5b6;background:linear-gradient(135deg,#0f946d,#087459);font-weight:800;letter-spacing:.3px}
+.campaignBrand h1{filter:drop-shadow(0 6px 24px #011b21)}
+.campaignHeader{background:linear-gradient(110deg,#071921,#102b34);box-shadow:0 6px 20px #00151f77;z-index:2}
+.campaignMapArea{isolation:isolate}
+.dispatchToolbar{z-index:4;top:8px;left:8px;right:8px}
+.dispatchToolbar button,.dispatchToolbar strong{border-radius:10px;background:#071c27ef;backdrop-filter:blur(8px)}
+.campaignIncoming{position:absolute;z-index:3;top:57px;left:8px;right:8px;pointer-events:none}
+.opsPanel{pointer-events:auto;background:#071923e9;border:1px solid #4b7787;border-radius:13px;box-shadow:0 8px 24px #00152190;overflow:hidden;backdrop-filter:blur(10px)}
+.opsToggle{width:100%;min-height:42px;background:transparent!important;padding:6px 9px;display:flex;align-items:center;gap:7px;border:0!important;border-radius:0!important;box-shadow:none!important;text-align:left;justify-content:space-between}
+.opsToggle strong{font-size:12px;color:#edfff6;white-space:nowrap}.opsToggle strong b{color:#ffcc88;font-size:14px}
+.opsToggle>span{font-size:10px;white-space:nowrap;color:#c0d5dd}.opsToggle .opsArrow{color:#5aefb3;font-size:17px}.opsPulse{width:8px;height:8px;border-radius:50%;background:#41e3a0;box-shadow:0 0 9px #41e3a0;flex:none}
+.opsList{display:grid;max-height:min(36vh,300px);overflow:auto;border-top:1px solid #31535c;overscroll-behavior:contain}
+.opsItem{width:100%;min-height:47px;display:flex;gap:9px;padding:6px 10px;align-items:center;background:#102b34bd!important;border:0!important;border-bottom:1px solid #294a55!important;border-radius:0!important;text-align:left;justify-content:flex-start}
+.opsUrgency{display:grid;place-items:center;min-width:28px;height:28px;background:#11445d;border-radius:8px;color:#98e6fc;font-size:15px;font-weight:900}
+.opsUrgency.urgent{background:#7a282b;color:#ffd7c4}.opsDescription{min-width:0;flex:1}.opsDescription strong{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.opsDescription small{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#b6cbd1}
+.opsTimer{font-size:10px;font-variant-numeric:tabular-nums;color:#a5e8bc;white-space:nowrap}.opsTimer.urgent{color:#ffc09d;font-weight:800}.opsEmpty{padding:10px;font-size:12px;color:#9fbec4}
+.mapOverlay{z-index:2}.mapHint{font-size:11px;background:#071923df;border-radius:11px;padding:7px 10px;display:inline-flex;max-width:100%}
+.callDrawer{background:#071a25f0;border:1px solid #4a7685;box-shadow:0 8px 28px #00141acc;border-radius:14px}
+.assignMission{display:flex;gap:4px;flex-direction:column;margin:0 0 8px}.assignMission strong{font-size:16px}.assignMission small{font-size:12px;color:#b2c8d0}
+.assignChoice{display:flex!important;gap:8px;min-height:96px;padding:8px!important;align-items:center!important}
+.assignChoice:disabled{opacity:.52}.assignChoice:not(:disabled){border-left:3px solid #4cdda7}
+.assignVehicle{width:70px;min-width:70px;display:grid;place-items:center;overflow:hidden}.assignVehicle .vehiclePhoto{max-width:100%;max-height:72px}.assignVehicle img{max-width:100%;height:auto}
+.assignDetails{flex:1;min-width:0}.assignDetails>strong{display:block;font-size:12px}.assignDetails em{display:inline-block;font-style:normal;background:#195b42;color:#9df9c1;padding:2px 5px;border-radius:5px;font-size:9px}
+.assignDetails small{display:block;font-size:10px;color:#aec7d0;margin:3px 0;line-height:1.25}
+.forecast{display:flex;flex-wrap:wrap;gap:6px 10px;margin-top:6px;color:#7febb4;font-size:10px}
+.forecast.late{color:#ffa5a1}.forecast.tight{color:#ffda95}.forecast.unavailable{color:#b8c5cc}
+.campaignBottom{background:linear-gradient(180deg,#0a2530,#061821);box-shadow:0 -4px 15px #00131b8c}
+.campaignBottom button.active{background:#144b3e;border-top:2px solid #4ae8aa}
+@media(max-width:390px){.opsToggle{gap:4px;padding:5px 7px}.opsToggle>span{font-size:9px}.opsToggle strong{font-size:11px}.assignVehicle{width:58px;min-width:58px}}
