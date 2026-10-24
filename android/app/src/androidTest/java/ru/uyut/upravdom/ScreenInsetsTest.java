@@ -43,6 +43,8 @@ public class ScreenInsetsTest {
     }
     private void waitForPage() throws Exception {
         for (int n = 0; n < 100; n++) {
+            // Existing regression suite intentionally exercises the preserved 0.3 company.
+            evaluate("if(document.querySelector('.campaignMenu')) location.href='?legacy=1'");
             if ("true".equals(evaluate("!!document.querySelector('#nav button') && document.querySelector('#map').dataset.renderer==='illustrated'"))) return;
             SystemClock.sleep(100);
         }
@@ -163,5 +165,32 @@ public class ScreenInsetsTest {
     @Test public void systemPanelsNeverCoverGameControls() throws Exception {
         verify("threebutton");
         verify("gestural");
+    }
+    @Test public void campaignMenuPreparationMapAndLifecycle() throws Exception {
+        boolean ready=false;
+        for(int wait=0;wait<100;wait++){
+            if("true".equals(evaluate("!!document.querySelector('.campaignMenu')"))){ready=true;break;}
+            SystemClock.sleep(100);
+        }
+        assertTrue("Campaign menu did not load",ready);
+        assertEquals("3",evaluate("document.querySelectorAll('.campaignMenu button').length"));
+        tap("[data-cmd=new]");
+        if("true".equals(evaluate("!!document.querySelector('[data-cmd=confirmNew]')"))) tap("[data-cmd=confirmNew]");
+        assertEquals("3",evaluate("document.querySelectorAll('.dispatchCrew').length"));
+        tap("[data-cmd=start]");
+        ready=false;
+        for(int wait=0;wait<100;wait++){
+            if("true".equals(evaluate("document.querySelector('#campaignMap')?.dataset.renderer==='ready'"))){ready=true;break;}
+            SystemClock.sleep(100);
+        }
+        assertTrue("Campaign map art did not load",ready);
+        assertEquals("true",evaluate("document.querySelector('.campaignBottom').getBoundingClientRect().bottom<=innerHeight+1"));
+        assertEquals("999",evaluate("Number(document.querySelector('#campaignMap').dataset.positions)"));
+        assertEquals("3",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).cursor"));
+        activity.getScenario().moveToState(Lifecycle.State.CREATED);SystemClock.sleep(500);
+        activity.getScenario().moveToState(Lifecycle.State.RESUMED);SystemClock.sleep(300);
+        String minute=evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).minute");
+        SystemClock.sleep(1300);
+        assertEquals("Campaign resumed behind lifecycle pause",minute,evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).minute"));
     }
 }

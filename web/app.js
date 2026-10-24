@@ -88,7 +88,7 @@ function action(el){
   else if(a==='subpage'){subpages[tab]=el.dataset.sub;$('#page').scrollTop=0;}
   else if(a==='contracts'){tab='finance';subpages.finance='contracts';contractDistrict=el.dataset.district===undefined?null:Number(el.dataset.district);$('#page').scrollTop=0;close();}
   else if(a==='contractDistrict'){contractDistrict=el.dataset.district==='all'?null:Number(el.dataset.district);$('#page').scrollTop=0;}
-  else if(a==='focusDistrict'){view.district=id;view.focus=null;view.zoom=1;view.x=view.y=0;tab='map';close();}
+  else if(a==='focusDistrict'){view.district=id;view.focus=null;const w=canvas.clientWidth,h=canvas.clientHeight;view.zoom=w&&h?Math.min(w/1536,h/1024)/Math.max(w/1536,h/1024):1;view.x=view.y=0;tab='map';close();}
   else if(a==='start'){gameClock.reset(performance.now());E.start(state);paused=false;lastTick=performance.now();changed=true;if(settings.sound)notifySound(true);}
   else if(a==='pause'){paused=!paused;lastTick=performance.now();}
   else if(a==='speed'){speed=speed===1?2:speed===2?4:1;lastTick=performance.now();}

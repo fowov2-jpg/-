@@ -15,7 +15,7 @@ const fs=require('node:fs/promises');
   const errors=[];page.on('pageerror',error=>errors.push(error.message));page.on('console',message=>{if(message.type()==='error'&&/THREE|shader|WebGL/i.test(message.text()))errors.push(message.text());});
   const origin=`http://127.0.0.1:${server.address().port}`;
   await page.route('**/save-fixture',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><title>Storage fixture</title>'}));
-  await page.goto(origin);await page.locator('[data-action="start"]').waitFor();
+  await page.goto(origin+'?legacy=1');await page.locator('[data-action="start"]').waitFor();
   await page.waitForFunction(()=>document.querySelector('#map').dataset.renderer==='illustrated'&&document.querySelector('#map').dataset.vehicles==='ready');
   await page.locator('[data-tab="services"]').click();await page.locator('.segmented [data-action="subpage"][data-sub="hire"]').click();
   const candidateIds=await page.evaluate(()=>JSON.parse(localStorage.getItem('upravdom.v1')||'null')?.candidates?.filter(c=>c.service===0).map(c=>c.id)||[100,101]);
@@ -67,8 +67,13 @@ const fs=require('node:fs/promises');
       assert.equal(await page.locator('[data-action="'+action+'"]').count(),0,'Unexpected debug action '+action);
      const bounds=await page.locator('#map').boundingBox();
      for(const id of [0,1,2,3]){
+      // A gesture camera may cull distant houses. Focus each address through the real UI.
+      await page.locator('[data-tab="finance"]').click();
+      await page.locator('.segmented [data-sub="contracts"]').click();
+      await page.locator(`#page [data-action="home"][data-id="${id}"]`).click();
+      await page.locator('dialog [data-action="focusHome"]').click();
       const label=await page.locator(`.mapLabels [data-action="home"][data-id="${id}"]`).boundingBox();
-      assert.ok(label&&label.x>=bounds.x&&label.x+label.width<=bounds.x+bounds.width,`Starting home ${id} clipped at ${width}`);
+      assert.ok(label&&label.x>=bounds.x&&label.x+label.width<=bounds.x+bounds.width,`Focused home ${id} clipped at ${width}`);
      }
     }
     if(width===412){await page.screenshot({path:`test-results/screenshots/${tab}-412.png`,animations:'disabled'});if(process.env.CI&&['map','garage','services'].includes(tab)){const preview=await page.screenshot({type:'jpeg',quality:72,scale:'css',animations:'disabled'});console.log('UPRAVDOM_PREVIEW_'+tab.toUpperCase()+' '+preview.toString('base64'));}}
@@ -110,13 +115,13 @@ const fs=require('node:fs/promises');
   await page.getByRole('button',{name:'К следующему дню'}).click();
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('upravdom.v1')).day),2);
   // Automatic recovery, then explicit preservation when both records are damaged.
-  await page.goto(origin+'/save-fixture');await page.evaluate(()=>localStorage.setItem('upravdom.v1','broken'));await page.goto(origin);
+  await page.goto(origin+'/save-fixture');await page.evaluate(()=>localStorage.setItem('upravdom.v1','broken'));await page.goto(origin+'?legacy=1');
   assert.equal(await page.locator('dialog').isVisible(),false);
   await page.locator('[data-tab="garage"]').click();await page.getByRole('button',{name:'Настройки',exact:true}).click();
   const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Экспорт',exact:true}).click();
   const download=await downloadPromise;await download.saveAs('test-results/exported-company.json');
   await page.getByRole('button',{name:'Закрыть',exact:true}).click();
-  await page.goto(origin+'/save-fixture');await page.evaluate(()=>{localStorage.setItem('upravdom.v1','broken');localStorage.setItem('upravdom.backup.v1','broken backup');});await page.goto(origin);
+  await page.goto(origin+'/save-fixture');await page.evaluate(()=>{localStorage.setItem('upravdom.v1','broken');localStorage.setItem('upravdom.backup.v1','broken backup');});await page.goto(origin+'?legacy=1');
   await page.getByRole('heading',{name:'Сохраним ваши данные'}).waitFor();
   await page.getByRole('button',{name:'Закрыть',exact:true}).click();await page.locator('[data-tab="finance"]').click();
   assert.equal(await page.evaluate(()=>localStorage.getItem('upravdom.v1')),'broken');

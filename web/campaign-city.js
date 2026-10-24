@@ -1,0 +1,56 @@
+import {TYPES} from './content-missions.js';
+export const ADDRESS_COUNT=999,DISTRICT_COUNT=20,TW=1536,TH=1024,SIDE=8,DW=TW*SIDE,DH=TH*SIDE;
+export const ART=['residential.jpg','nine.png','towers.png','mixed.png','industrial.png','factory.jpg'];
+export const DISTRICT_NAMES=['Северный','Садовый','Центральный','Заречный','Восточный','Промышленный','Берёзовый','Высотный','Солнечный','Вокзальный','Озёрный','Южный','Новый город','Заводской','Лесной','Западный','Парковый','Прибрежный','Академический','Столичный'];
+export function hash(seed,index){let h=(seed^Math.imul(index+1,0x9e3779b1))>>>0;h=Math.imul(h^(h>>>16),0x85ebca6b);h=Math.imul(h^(h>>>13),0xc2b2ae35);return (h^(h>>>16))>>>0;}
+export function districtOrigin(d){const row=Math.floor(d/5),col=row%2?4-d%5:d%5;return [col*DW,row*DH];}
+export function tileKind(seed,d,tile){const h=hash(seed+d*307,tile);if(d===0&&tile===0)return 3;return d%5===4&&tile%4===0?4+h%2:h%5;}
+// Four address entrances per quarter; multiple entrances may belong to one long slab.
+const anchors=[
+ [[190,210],[580,190],[190,395],[585,385],[945,190],[1370,210],[980,390],[1310,385],[195,645],[580,665],[200,900],[585,900],[960,645],[1345,635],[960,895],[1350,895]],
+ [[190,210],[420,210],[205,420],[665,340],[1020,205],[1300,205],[1030,440],[1300,440],[195,680],[655,680],[340,880],[570,880],[995,665],[1370,680],[960,820],[1200,885]],
+ [[215,220],[600,195],[205,435],[650,430],[960,220],[1340,215],[1250,440],[970,425],[215,675],[595,690],[250,880],[630,880],[950,700],[1320,790],[975,880],[1120,640]],
+ [[200,220],[340,215],[570,215],[670,365],[1030,200],[1260,200],[915,350],[1200,410],[190,695],[620,700],[300,875],[480,875],[970,650],[1370,715],[1000,875],[1150,820]],
+ [[200,225],[380,220],[610,215],[350,410],[980,220],[1190,200],[1350,350],[920,400],[230,675],[460,710],[620,825],[250,870],[1040,650],[1330,700],[1000,870],[1250,900]],
+ [[200,200],[400,200],[500,350],[250,400],[900,215],[1000,300],[1300,210],[1350,370],[215,650],[420,650],[240,875],[400,875],[1000,650],[1260,650],[1000,875],[1260,875]]
+];
+const streets=['Садовая','Лесная','Молодёжная','Строителей','Парковая','Рабочая','Центральная','Зелёная','Солнечная','Школьная','Полевая','Заводская','Новая','Мира','Речная','Северная'];
+const cache=new Map();
+export function district(seed,d){
+ if(!Number.isInteger(d)||d<0||d>=DISTRICT_COUNT)throw Error('Неизвестный район');
+ const key=seed+':'+d;if(cache.has(key))return cache.get(key);
+ const origin=districtOrigin(d),tiles=Array.from({length:64},(_,i)=>tileKind(seed,d,i));
+ const homes=Array.from({length:ADDRESS_COUNT},(_,id)=>{
+  const tile=Math.floor(id/16),col=tile%SIDE,row=Math.floor(tile/SIDE),kind=tiles[tile],a=anchors[kind][id%16];
+  const x=origin[0]+col*TW+a[0],y=origin[1]+row*TH+a[1],j=hash(seed+d*999,id);
+  return {id,globalId:d*ADDRESS_COUNT+id,district:d,name:`ул. ${streets[(Math.floor(id/32)+d)%streets.length]}, ${Math.floor(id/16)+1}, корп. ${id%16+1}`,x,y,
+   floors:kind===2?16:kind===1?9:kind>=4?1+j%4:kind===3?[5,9,16][j%3]:5,kind,tile};
+ });
+ const result={id:d,name:DISTRICT_NAMES[d],origin,tiles,homes};cache.set(key,result);return result;
+}
+function axes(value,step,offsets){const tile=Math.floor(value/step);return offsets.flatMap(o=>[-1,0,1].map(t=>(tile+t)*step+o));}
+export function roadStop(home){
+ const xs=axes(home.x,TW,[60,768,1476]),ys=axes(home.y,TH,[76,510,950]);
+ const x=xs.reduce((a,b)=>Math.abs(a-home.x)<Math.abs(b-home.x)?a:b),y=ys.reduce((a,b)=>Math.abs(a-home.y)<Math.abs(b-home.y)?a:b);
+ return Math.abs(x-home.x)<Math.abs(y-home.y)?[x,home.y]:[home.x,y];
+}
+function onVertical(p){return [60,768,1476].some(x=>Math.abs(((p[0]%TW)+TW)%TW-x)<.001);}
+function nearestAxis(v,step,os){return axes(v,step,os).reduce((a,b)=>Math.abs(a-v)<Math.abs(b-v)?a:b);}
+export function streetRoute(a,b){
+ if(a[0]===b[0]&&a[1]===b[1])return [[...a]];
+ let path;
+ if(onVertical(a)&&onVertical(b)){const y=nearestAxis((a[1]+b[1])/2,TH,[76,510,950]);path=[a,[a[0],y],[b[0],y],b];}
+ else if(!onVertical(a)&&!onVertical(b)){const x=nearestAxis((a[0]+b[0])/2,TW,[60,768,1476]);path=[a,[x,a[1]],[x,b[1]],b];}
+ else if(onVertical(a))path=[a,[a[0],b[1]],b];else path=[a,[b[0],a[1]],b];
+ return path.filter((p,i)=>!i||p.some((v,j)=>v!==path[i-1][j])).map(p=>[...p]);
+}
+export function pathLength(p){return p.slice(1).reduce((s,b,i)=>s+Math.hypot(b[0]-p[i][0],b[1]-p[i][1]),0);}
+export function pathPose(path,progress){let left=pathLength(path)*Math.max(0,Math.min(1,progress));for(let i=1;i<path.length;i++){const a=path[i-1],b=path[i],l=Math.hypot(b[0]-a[0],b[1]-a[1]);if(left<=l)return {point:[a[0]+(b[0]-a[0])*left/l,a[1]+(b[1]-a[1])*left/l],angle:Math.atan2(b[1]-a[1],b[0]-a[0])};left-=l;}return {point:path.at(-1),angle:0};}
+export function depot(seed,d){const [x,y]=districtOrigin(d);return [x+768,y+510];}
+export function missionOrder(seed,d){const ids=Array.from({length:ADDRESS_COUNT},(_,i)=>i);for(let i=ids.length-1;i>0;i--){const j=hash(seed+d*997,i)%(i+1);[ids[i],ids[j]]=[ids[j],ids[i]];}return ids;}
+const locations=['подвал, секция А','второй подъезд','технический этаж','дворовой фасад','вход со двора','служебная часть здания','первый подъезд'];
+export function missions(seed,d){const city=district(seed,d);return city.homes.map((home,i)=>{
+ const type=(i+hash(seed,d)%20)%20,variant=Math.floor(i/20),scene=TYPES[type],cause=scene.causes[Math.floor(variant/7)%scene.causes.length],place=scene.places?.[variant%7]??locations[variant%7],scope=1+hash(seed+d,i)%6;
+ return {id:d*ADDRESS_COUNT+i,home:i,type,title:`${scene.title} · ${place}`,brief:`${cause}. Место: ${place}. Объём работ (${scene.unit}): ${scope}. ${scene.access[variant%scene.access.length]}`,
+  answer:`Осмотр подтвердил: ${cause.toLowerCase()}. ${scene.action}. Контроль результата: ${scene.check}.`,action:scene.action,service:scene.service,priority:scene.priority,
+  quantity:Math.min(7,2+scope),duration:scene.duration+scope*2,deadline:[180,120,80][scene.priority-1],reward:18000+scope*3200+scene.priority*2500,homeName:home.name};});}
