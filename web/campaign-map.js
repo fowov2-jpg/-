@@ -24,6 +24,7 @@ const serviceCache=new Map();
 function EFFECTIVE_SERVICE(c,s){if(Number.isInteger(c.spec?.service))return c.spec.service;const key=s.seed+':'+s.region;if(!serviceCache.has(key))serviceCache.set(key,missions(s.seed,s.region).map(m=>m.service));return serviceCache.get(key)[c.mission]??0;}
 const trafficController=new TrafficController();
 const thumbnails=new Map();
+const sceneCache=new WeakMap();
 const images=[],fleet=new Image();fleet.src=new URL(FLEET_IMAGE,import.meta.url).href;
 export function loadArt(redraw){for(let i=0;i<ART.length;i++){const im=new Image();images[i]=im;im.onload=()=>{thumbnails.clear();redraw();};im.onerror=redraw;im.src=new URL('./assets/districts/'+ART[i],import.meta.url).href;}fleet.onload=redraw;}
 function thumbnail(city){
@@ -38,11 +39,21 @@ export function screenPoint(view,width,height,p){return [(p[0]-view.x)*view.scal
 export function render(canvas,s,view,{selected=null,selectedCrew=null,labels=true,motion=true,progress=0,traffic=true,equipment=true,annotationBottom=null}={}){
  const {width:w,height:h}=canvas.getBoundingClientRect();if(!w||!h)return;const dpr=Math.min(devicePixelRatio||1,2);
  if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);}
- const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#071b22';ctx.fillRect(0,0,w,h);view.hits=[];
+ let ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#071b22';ctx.fillRect(0,0,w,h);view.hits=[];
  view.scale=Math.max(.004,Math.min(1.5,view.scale));view.x=Math.max(-TW,Math.min(DW*5+TW,view.x));view.y=Math.max(-TH,Math.min(DH*4+TH,view.y));
  if(view.scale>.05){const halfW=w/(2*view.scale),halfH=h/(2*view.scale);view.x=Math.max(halfW,Math.min(DW*5-halfW,view.x));view.y=Math.max(halfH,Math.min(DH*4-halfH,view.y));}
  const project=p=>screenPoint(view,w,h,p),visible=(x,y,width,height)=>x+width>=0&&y+height>=0&&x<=w&&y<=h;
  let tileCount=0;const trafficTiles=[],clock=(s.clock??0)+progress,rigs=[],fleetPoses=[];
+ // The city is static between camera changes; moving units and calls remain separate.
+ const sceneKey=[s.seed,s.region,s.done.length,view.x,view.y,view.scale,w,h,dpr,...images.map(im=>im.naturalWidth)].join(':');
+ const previous=sceneCache.get(canvas);
+ if(previous?.key===sceneKey){
+  ctx.drawImage(previous.image,0,0,w,h);tileCount=previous.tiles;
+  trafficTiles.push(...previous.trafficTiles);view.hits.push(...previous.hits);
+ }else{
+  const screenContext=ctx,scene=previous?.image??document.createElement('canvas');
+  if(scene.width!==canvas.width||scene.height!==canvas.height){scene.width=canvas.width;scene.height=canvas.height;}
+  ctx=scene.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#071b22';ctx.fillRect(0,0,w,h);
  for(let d=0;d<20;d++){
   const origin=districtOrigin(d),p=project(origin),rw=DW*view.scale,rh=DH*view.scale;if(!visible(...p,rw,rh))continue;
   {
@@ -60,6 +71,9 @@ export function render(canvas,s,view,{selected=null,selectedCrew=null,labels=tru
   }
   ctx.strokeStyle=d>s.region?'#55717b55':d===s.region?(view.scale<.07?'#48dba6':'#48dba630'):'#8cc99d55';ctx.lineWidth=1.5;ctx.strokeRect(...p,rw,rh);
   if(view.scale<.07||d>s.region){const c=project([origin[0]+DW/2,origin[1]+DH/2]),font=Math.max(7,Math.min(13,rw/10));ctx.save();ctx.beginPath();ctx.rect(p[0]+1,p[1]+1,rw-2,rh-2);ctx.clip();ctx.textAlign='center';ctx.font=`600 ${font}px system-ui`;ctx.fillStyle=d>s.region?'#a4b7bc':'#ecf5eb';ctx.fillText((d>s.region?'':d<s.region?'✓ ':'')+DISTRICT_NAMES[d],...c);ctx.font=`${Math.max(7,font-1)}px system-ui`;ctx.fillText(d>s.region?'Закрыт':d<s.region?'999 / 999':s.done.length+' / 999',c[0],c[1]+font+6);ctx.restore();view.hits.push({kind:'district',id:d,x:p[0],y:p[1],w:rw,h:rh});}
+ }
+  sceneCache.set(canvas,{key:sceneKey,image:scene,tiles:tileCount,trafficTiles:[...trafficTiles],hits:[...view.hits]});
+  ctx=screenContext;ctx.drawImage(scene,0,0,w,h);
  }
  // The district art already contains real streets and parking spaces. Never paint
  // replacement parking rectangles, extra roads, or visual placeholders over it.

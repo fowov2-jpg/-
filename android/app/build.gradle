@@ -1,14 +1,36 @@
 plugins { id 'com.android.application' }
+// Release credentials belong to the publisher and are supplied only at build time.
+def releaseKeys = ['UPRAVDOM_KEYSTORE', 'UPRAVDOM_KEY_ALIAS', 'UPRAVDOM_KEYSTORE_PASSWORD', 'UPRAVDOM_KEY_PASSWORD']
+def suppliedKeys = releaseKeys.findAll { System.getenv(it) }
+if (!suppliedKeys.isEmpty() && suppliedKeys.size() != releaseKeys.size()) {
+    throw new GradleException('Supply all four UPRAVDOM signing variables together; see docs/RELEASE.md')
+}
+def signedRelease = suppliedKeys.size() == releaseKeys.size()
 android {
     namespace 'ru.uyut.upravdom'
-    compileSdk 35
+    compileSdk 36
     defaultConfig {
         applicationId 'ru.uyut.upravdom'
         minSdk 26
-        targetSdk 35
+        targetSdk 36
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
-        versionCode 10
-        versionName '0.8.2-alpha'
+        versionCode 11
+        versionName '0.8.2-rc.1'
+    }
+    signingConfigs {
+        if (signedRelease) {
+            publisher {
+                storeFile file(System.getenv('UPRAVDOM_KEYSTORE'))
+                storePassword System.getenv('UPRAVDOM_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('UPRAVDOM_KEY_ALIAS')
+                keyPassword System.getenv('UPRAVDOM_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (signedRelease) signingConfig signingConfigs.publisher
+        }
     }
     sourceSets { main { assets.srcDirs = ['../../web'] } }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }

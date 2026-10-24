@@ -200,4 +200,38 @@ public class ScreenInsetsTest {
         SystemClock.sleep(1300);
         assertEquals("Campaign resumed behind lifecycle pause",minute,evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).minute"));
     }
+    @Test public void campaignTrainingFinanceAndNativeReportImport() throws Exception {
+        boolean ready=false;
+        for(int wait=0;wait<100;wait++){
+            if("true".equals(evaluate("!!document.querySelector('.campaignMenu')"))){ready=true;break;}
+            SystemClock.sleep(100);
+        }
+        assertTrue("Campaign menu did not load",ready);
+        tap("[data-cmd=new]");
+        if("true".equals(evaluate("!!document.querySelector('[data-cmd=confirmNew]')"))) tap("[data-cmd=confirmNew]");
+        tap("[data-cmd=regionProceed]");tap("[data-cmd=sub][data-sub=people]");
+        tap("[data-cmd=train][data-id='0']");
+        assertEquals("3",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).employees[0].level"));
+        assertEquals("2976000",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).money"));
+        tap("[data-cmd=map]");tap("[data-cmd=finance]");
+        assertEquals("true",evaluate("document.querySelector('.transactionList').textContent.includes('Обучение')"));
+        evaluate("import('./campaign-engine.js').then(E=>{const s=E.fresh(112);E.start(s);E.tick(s,480);window.nativeReportFixture=E.encode(s);})");
+        for(int wait=0;wait<50;wait++){if("true".equals(evaluate("typeof window.nativeReportFixture==='string'")))break;SystemClock.sleep(100);}
+        String raw=new org.json.JSONTokener(evaluate("window.nativeReportFixture")).nextValue().toString();
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        ContentValues values=new ContentValues();values.put(MediaStore.Downloads.DISPLAY_NAME,"upravdom-campaign-report.json");values.put(MediaStore.Downloads.MIME_TYPE,"application/json");values.put(MediaStore.Downloads.RELATIVE_PATH,"Download");
+        Uri document=context.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,values);assertNotNull(document);
+        try {
+            try(OutputStream output=context.getContentResolver().openOutputStream(document)){assertNotNull(output);output.write(raw.getBytes(java.nio.charset.StandardCharsets.UTF_8));}
+            activity.getScenario().onActivity(a->a.onActivityResult(100,android.app.Activity.RESULT_OK,new android.content.Intent().setData(document)));
+            boolean imported=false;
+            for(int wait=0;wait<70;wait++){if("true".equals(evaluate("!!document.querySelector('dialog[open] [data-cmd=nextDay]')"))){imported=true;break;}SystemClock.sleep(100);}
+            assertTrue("Native report import did not open results",imported);
+            assertEquals("4",evaluate("document.querySelectorAll('.reportStats>div').length"));
+            tap("dialog [data-cmd=nextDay]");
+            assertEquals("2",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).day"));
+            assertEquals("true",evaluate("!!document.querySelector('.campaignTabs')"));
+        } finally {context.getContentResolver().delete(document,null,null);}
+    }
+
 }
