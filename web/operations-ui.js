@@ -5,6 +5,7 @@ import {VEHICLE_MODELS} from './content.js';
 import {icon} from './icons.js';
 import {vehicle} from './graphics.js';
 import {shiftSummary} from './company-reports.js';
+import {NEIGHBORHOODS} from './blender-manifest.js';
 
 export const esc = v => String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const rub = n => Math.round(n).toLocaleString('ru-RU')+' ₽';
@@ -27,7 +28,7 @@ export function crewRack(s,selectedCrew) {
     const pair=O.assignmentFor(s,cr.id),a=pair?.assignment;
     const operation=a?.task?O.definitions(pair.call).find(w=>w.id===a.task)?.label:null;
     const vehicleModel=s.vehicles.find(v=>v.id===cr.vehicle).model;
-    return b('op-crew',`<span class="opRackVehicle">${vehicle(cr.service,vehicleModel)}</span><span><strong>Б${cr.id+1}</strong><small>${cr.status==='repair'?esc(operation):states[cr.status]}${cr.status==='travel'?' · '+a.remaining+' мин':cr.status==='returning'?' · '+cr.returnTrip.remaining+' мин':''}</small></span><i class="opCrewDot ${cr.status}"></i>`,`data-id="${cr.id}" aria-label="Бригада ${cr.id+1}, ${services[cr.service]}, ${states[cr.status]}" aria-pressed="${cr.id===selectedCrew}"`,'opRackUnit opServiceBorder'+cr.service+' '+(cr.id===selectedCrew?'picked':''));
+    return b('op-crew',`<span class="opRackVehicle">${vehicle(cr.service,vehicleModel,{overhead:true})}</span><span><strong>Б${cr.id+1}</strong><small>${cr.status==='repair'?esc(operation):states[cr.status]}${cr.status==='travel'?' · '+a.remaining+' мин':cr.status==='returning'?' · '+cr.returnTrip.remaining+' мин':''}</small></span><i class="opCrewDot ${cr.status}"></i>`,`data-id="${cr.id}" aria-label="Бригада ${cr.id+1}, ${services[cr.service]}, ${states[cr.status]}" aria-pressed="${cr.id===selectedCrew}"`,'opRackUnit opServiceBorder'+cr.service+' '+(cr.id===selectedCrew?'picked':''));
   }).join('')}</div>`;
 }
 
@@ -136,7 +137,9 @@ export function houses(s) {
 
 export function houseDetail(s,id) {
   const h=O.currentHouses(s).find(h=>h.id===id);
-  return `<div class="opHouseDetail"><div class="opBriefMetrics"><div><small>Доверие</small><strong>${Math.round(h.trust)}%</strong></div><div><small>Без воды за всё время</small><strong>${h.waterMinutes} мин</strong></div><div><small>Без питания</small><strong>${h.electricMinutes} мин</strong></div></div><h3>Профилактика</h3><p class="opMuted">+20 к состоянию системы и снижение роста ущерба на 35% в течение трёх смен.</p>${[['water','Водоснабжение'],['electric','Электросеть'],['structure','Кровля и входы']].map(([k,n])=>`<div class="opPrevent"><span><strong>${n} · ${Math.round(h[k])}%</strong><small>${h.prevention[k]>=s.day?'Обслужено · защита до дня '+h.prevention[k]:'Плановый осмотр и обслуживание'}</small></span>${b('op-prevent','12 000 ₽',`data-id="${id}" data-system="${k}" ${s.phase!=='prep'||s.money<12000||h.prevention[k]>=s.day||h[k]>=95?'disabled':''}`,'subtle')}</div>`).join('')}<h3>История дома</h3><ol class="opHouseHistory">${h.history.map(e=>`<li><small>День ${e.day}</small><span>${esc(e.text)}</span></li>`).join('')||'<li>Пока нет записей.</li>'}</ol></div>`;
+  const home=district(s.seed,s.region).homes[id],image=NEIGHBORHOODS[home.kind];
+  const artwork=image?`<figure class="opHouseArtwork"><img src="${image}" alt="Объёмная иллюстрация квартала" width="960" height="600"><figcaption>Иллюстрация квартала</figcaption></figure>`:'';
+  return `<div class="opHouseDetail">${artwork}<div class="opBriefMetrics"><div><small>Доверие</small><strong>${Math.round(h.trust)}%</strong></div><div><small>Без воды за всё время</small><strong>${h.waterMinutes} мин</strong></div><div><small>Без питания</small><strong>${h.electricMinutes} мин</strong></div></div><h3>Профилактика</h3><p class="opMuted">+20 к состоянию системы и снижение роста ущерба на 35% в течение трёх смен.</p>${[['water','Водоснабжение'],['electric','Электросеть'],['structure','Кровля и входы']].map(([k,n])=>`<div class="opPrevent"><span><strong>${n} · ${Math.round(h[k])}%</strong><small>${h.prevention[k]>=s.day?'Обслужено · защита до дня '+h.prevention[k]:'Плановый осмотр и обслуживание'}</small></span>${b('op-prevent','12 000 ₽',`data-id="${id}" data-system="${k}" ${s.phase!=='prep'||s.money<12000||h.prevention[k]>=s.day||h[k]>=95?'disabled':''}`,'subtle')}</div>`).join('')}<h3>История дома</h3><ol class="opHouseHistory">${h.history.map(e=>`<li><small>День ${e.day}</small><span>${esc(e.text)}</span></li>`).join('')||'<li>Пока нет записей.</li>'}</ol></div>`;
 }
 
 export function report(s) {

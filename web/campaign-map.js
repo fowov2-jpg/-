@@ -8,6 +8,8 @@ import {placeEdgeIndicators} from './map-annotations.js';
 import {drawTerrain,terrainKey} from './campaign-terrain.js';
 import {SCENARIOS} from './operations-content.js';
 import {assignmentFor,currentHouses} from './shift-operations.js';
+import {BLENDER_MODELS} from './blender-manifest.js';
+import {loadBlenderArt,blenderArtReady,drawBlenderVehicle,drawBlenderWorksite} from './blender-art.js';
 // Original ЖКХ iconography drawn as vector shapes; no third-party symbols or font dependency.
 function drawIncident(ctx,x,y,service,active,late,status,clock){
  const color=late?'#e8a79c':['#9ac9e1','#e9c58d','#a1c9b4'][service];
@@ -28,7 +30,7 @@ const trafficController=new TrafficController();
 const thumbnails=new Map();
 const sceneCache=new WeakMap();
 const images=[],fleet=new Image();fleet.src=new URL(FLEET_IMAGE,import.meta.url).href;
-export function loadArt(redraw){for(let i=0;i<ART.length;i++){const im=new Image();images[i]=im;im.onload=()=>{thumbnails.clear();redraw();};im.onerror=redraw;im.src=new URL('./assets/districts/'+ART[i],import.meta.url).href;}fleet.onload=redraw;}
+export function loadArt(redraw){for(let i=0;i<ART.length;i++){const im=new Image();images[i]=im;im.onload=()=>{thumbnails.clear();redraw();};im.onerror=redraw;im.src=new URL('./assets/districts/'+ART[i],import.meta.url).href;}fleet.onload=redraw;loadBlenderArt(redraw);}
 function thumbnail(city){
  if(!images.every(i=>i.complete&&i.naturalWidth))return null;
  const key=terrainKey(city);if(thumbnails.has(key))return thumbnails.get(key);
@@ -52,7 +54,8 @@ function crewDisplayPoint(s,cr,assignment,pose,progress){
   const clamp=v=>Math.max(0,Math.min(1,v));
   const factor=assignment?(assignment.status==='travel'?clamp((3-assignment.remaining+progress)/3):1):cr.returnTrip?clamp(1-(cr.returnTrip.total-cr.returnTrip.remaining+progress)/3):0;
   if(assignment)angle=drivingPose(assignment.path,1).angle;
-  offset=(cr.service-1)*62*factor;
+  const gap=Math.max(54,...s.crews.map(unit=>{const id=s.vehicles.find(v=>v.id===unit.vehicle)?.model;return FLEET_ART[id]?.length??BLENDER_MODELS[id]?.worldLength??54;}))+8;
+  offset=(cr.service-1)*gap*factor;
  }
  return [pose.point[0]+Math.cos(angle)*offset-Math.sin(pose.angle)*8,pose.point[1]+Math.sin(angle)*offset+Math.cos(pose.angle)*8];
 }
@@ -146,19 +149,28 @@ export function render(canvas,s,view,{selected=null,selectedCrew=null,labels=tru
     ctx.beginPath();cr.returnTrip.path.forEach((pt,i)=>{const q=project(pt);i?ctx.lineTo(...q):ctx.moveTo(...q);});
     ctx.strokeStyle='#6ebbf0bc';ctx.lineWidth=2.5;ctx.setLineDash([7,5]);ctx.stroke();ctx.setLineDash([]);
    }
-   fleetPoses.push({id:cr.id,point:pose.point,angle:pose.angle});if(!visible(p[0]-90,p[1]-90,180,180))continue;
+   fleetPoses.push({id:cr.id,point:pose.point,angle:pose.angle});if(!visible(p[0]-220,p[1]-220,440,440))continue;
    const frame=equipmentState(model,c?.status==='waiting'?null:c,progress,motion&&equipment);rigs.push({id:cr.id,kind:model.kind??'service',...frame});
-   ctx.save();ctx.translate(...p);ctx.rotate(pose.angle+Math.PI/2);
-   const l=Math.max(18,Math.min(36,(sprite?.length??54)*view.scale)),ww=l*(sprite?sprite.rect[2]/sprite.rect[3]:.47),working=frame.phase!=='stowed'&&frame.phase!=='inspection';
-   if(working)drawRig(ctx,model,frame,l,ww,motion?clock:0,['#58bfee','#f4cd62','#61d9a0'][cr.service],c?Math.atan2(city.homes[c.home??c.mission].y-pose.point[1],city.homes[c.home??c.mission].x-pose.point[0])-pose.angle-Math.PI/2:0);
-   else if(sprite&&fleet.complete&&fleet.naturalWidth){const [x,y,sw,sh]=sprite.rect;ctx.drawImage(fleet,x,y,sw,sh,-ww/2,-l/2,ww,l);}else drawBasicVehicle(ctx,l,ww,model.id,['#58bfee','#f4cd62','#61d9a0'][cr.service]);
-   drawVehicleLights(ctx,l,ww,motion?clock:0,{braking:pose.braking,turning:pose.turning,working:!!c&&(s.operations?c.status==='repair':c.status!=='travel')});if(c)drawWorksite(ctx,l,ww,c,cr.service,clock,progress,motion&&equipment,Math.atan2(city.homes[c.home??c.mission].y-pose.point[1],city.homes[c.home??c.mission].x-pose.point[0])-pose.angle-Math.PI/2);ctx.restore();
+   ctx.save();ctx.translate(...p);
+   const art=BLENDER_MODELS[v.model],l=Math.max(18,Math.min(144,(sprite?.length??art?.worldLength??54)*view.scale)),ww=l*(art?art.width/art.metres:sprite?sprite.rect[2]/sprite.rect[3]:.47),working=frame.phase!=='stowed'&&frame.phase!=='inspection';
+   const target=c?project([city.homes[c.home??c.mission].x,city.homes[c.home??c.mission].y]):null;
+   const aim=target?Math.atan2(target[1]-p[1],target[0]-p[0]):pose.angle;
+   const detailed=drawBlenderVehicle(ctx,v.model,frame,l,pose.angle,aim);
+   ctx.rotate(pose.angle+Math.PI/2);
+   if(!detailed){
+    if(working)drawRig(ctx,model,frame,l,ww,motion?clock:0,['#58bfee','#f4cd62','#61d9a0'][cr.service],aim-pose.angle-Math.PI/2);
+    else if(sprite&&fleet.complete&&fleet.naturalWidth){const [x,y,sw,sh]=sprite.rect;ctx.drawImage(fleet,x,y,sw,sh,-ww/2,-l/2,ww,l);}else drawBasicVehicle(ctx,l,ww,model.id,['#58bfee','#f4cd62','#61d9a0'][cr.service]);
+   }
+   drawVehicleLights(ctx,l,ww,motion?clock:0,{braking:pose.braking,turning:pose.turning,working:!!c&&(s.operations?c.status==='repair':c.status!=='travel')});
+   if(c&&!drawBlenderWorksite(ctx,v.model,l,ww,c,cr.service,clock,progress,motion&&equipment,aim-pose.angle-Math.PI/2))drawWorksite(ctx,l,ww,c,cr.service,clock,progress,motion&&equipment,aim-pose.angle-Math.PI/2);ctx.restore();
    // The actual sprite is the unit icon. Show a concise designation only;
    // full crew detail belongs in the tap sheet, not on the street.
    const isSelected=cr.id===selectedCrew||c?.mission===selected;
    const color=cr.id===selectedCrew?'#e9c58d':cr.status==='idle'?'#a1c9b4':cr.status==='returning'?'#9ac9e1':'#e9c58d';
    const bw=30,bh=19;
-   const positions=[[13,-20],[-42,-20],[13,5],[-42,5],[13,-44],[-42,-44]];
+   const halfX=(Math.abs(Math.cos(pose.angle))*l+Math.abs(Math.sin(pose.angle))*ww)/2,halfY=(Math.abs(Math.sin(pose.angle))*l+Math.abs(Math.cos(pose.angle))*ww)/2;
+   const right=Math.max(13,halfX+5),left=-right-bw,above=-halfY-bh-5,below=halfY+5;
+   const positions=[[-bw/2,above],[-bw/2,below],[right,-bh/2],[left,-bh/2],[right,above],[left,below]];
    const candidates=positions.map(([dx,dy])=>({x:Math.max(3,Math.min(w-bw-3,p[0]+dx)),y:Math.max(45,Math.min(h-bh-8,p[1]+dy)),w:bw,h:bh}));
    const badge=candidates.find(a=>!cards.some(b=>a.x<b.x+b.w+3&&a.x+a.w+3>b.x&&a.y<b.y+b.h+3&&a.y+a.h+3>b.y))??candidates[0];
    cards.push(badge);
@@ -167,9 +179,10 @@ export function render(canvas,s,view,{selected=null,selectedCrew=null,labels=tru
    ctx.fillStyle='#f0fff7';ctx.font='800 10px system-ui';ctx.textAlign='center';ctx.fillText('Б'+(cr.id+1),badge.x+bw/2,badge.y+13);ctx.restore();
    // Both the physical vehicle and its small badge are accessible tap targets.
    view.hits.unshift({kind:'crew',id:cr.id,...badge});
-   view.hits.unshift({kind:'crew',id:cr.id,x:p[0]-16,y:p[1]-22,w:32,h:44});
+   view.hits.unshift({kind:'crew',id:cr.id,x:p[0]-Math.max(16,halfX),y:p[1]-Math.max(22,halfY),w:Math.max(32,halfX*2),h:Math.max(44,halfY*2)});
 
   }
  }
- ctx.textBaseline='alphabetic';canvas.dataset.tiles=tileCount;canvas.dataset.lod=view.scale<.025?'district':'street';canvas.dataset.renderer=images.length===ART.length&&images.every(i=>i.complete&&i.naturalWidth)?'ready':'loading';canvas.dataset.equipment=JSON.stringify(rigs);canvas.dataset.fleet=JSON.stringify(fleetPoses);canvas.dataset.motionClock=String(clock);canvas.dataset.positions=s.operations?.career?'99':'999';canvas.dataset.region=String(s.region);canvas.dataset.camera=JSON.stringify({x:view.x,y:view.y,scale:view.scale});canvas.dataset.markers=JSON.stringify(view.hits.filter(h=>h.kind==='call'||h.kind==='crew'));canvas.dataset.operations=s.operations?'original-art':'classic';
+ canvas.dataset.graphics=blenderArtReady()?'blender':'loading';
+ ctx.textBaseline='alphabetic';canvas.dataset.tiles=tileCount;canvas.dataset.lod=view.scale<.025?'district':'street';canvas.dataset.renderer=images.length===ART.length&&images.every(i=>i.complete&&i.naturalWidth)&&blenderArtReady()?'ready':'loading';canvas.dataset.equipment=JSON.stringify(rigs);canvas.dataset.fleet=JSON.stringify(fleetPoses);canvas.dataset.motionClock=String(clock);canvas.dataset.positions=s.operations?.career?'99':'999';canvas.dataset.region=String(s.region);canvas.dataset.camera=JSON.stringify({x:view.x,y:view.y,scale:view.scale});canvas.dataset.markers=JSON.stringify(view.hits.filter(h=>h.kind==='call'||h.kind==='crew'));canvas.dataset.operations=s.operations?'original-art':'classic';
 }

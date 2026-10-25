@@ -253,6 +253,7 @@ public class ScreenInsetsTest {
             SystemClock.sleep(100);
         }
         assertTrue("Campaign map art did not load",ready);
+        assertEquals("\"blender\"",evaluate("document.querySelector('#campaignMap').dataset.graphics"));
         assertEquals("true",evaluate("document.querySelector('.campaignBottom').getBoundingClientRect().bottom<=innerHeight+1"));
         assertEquals("99",evaluate("Number(document.querySelector('#campaignMap').dataset.positions)"));
         // The emulator keeps real game time running during UI/asset checks.

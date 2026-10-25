@@ -7,3 +7,7 @@ android/local.properties
 .DS_Store
 playwright-report/
 test-results/
+
+# Blender intermediates; editable source .blend files are versioned.
+__pycache__/
+*.blend1
