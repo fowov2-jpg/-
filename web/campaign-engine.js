@@ -4,12 +4,14 @@ import {fuelFor,repairTime,deadlineFor,cadence,payment,expenses,serviceCost,supp
 import {trainingCost} from './company-reports.js';
 import {migrateV4,migrateV5} from './campaign-migrate.js';
 import * as Operations from './shift-operations.js';
+import {storageRecord,storedJSON,storedVersion} from './company-storage.js';
 export {Operations};
 export {VEHICLE_MODELS,repairTime,expenses,supplyCost,payment,efficiency};
 export const maintainCost=(s,id)=>serviceCost(s.vehicles.find(v=>v.id===id));
 export const SAVE='upravdom.campaign.v4',BACKUP=SAVE+'.backup',SHIFT=480;
 export const MIGRATION_ARCHIVE=SAVE+'.before-v6';
 export const OPERATION_ARCHIVE=SAVE+'.before-v7';
+export const PROGRESSION_ARCHIVE=SAVE+'.before-v8';
 const requireThat=(v,m)=>{if(!v)throw Error(m);},clamp=n=>Math.max(0,Math.min(100,n));
 const catalogs=new Map();
 export function catalog(s){const key=s.seed+':'+s.region;if(!catalogs.has(key))catalogs.set(key,missions(s.seed,s.region));return catalogs.get(key);}
@@ -18,7 +20,8 @@ export function fresh(seed=112){const s={version:6,clock:0,seed:seed>>>0,region:
  vehicles:[{id:0,model:'uaz39094-utility',fuel:100,condition:100},{id:1,model:'gazelle-next-van',fuel:100,condition:100},{id:2,model:'gazelle-business-flatbed',fuel:100,condition:100}],
  crews:[0,1,2].map(id=>({id,service:id,members:[id*2,id*2+1],vehicle:id,point:parkingBay(seed,0,id),angle:-Math.PI/2,status:'idle',job:null})),
  stock:[40,40,40],nextVehicle:3,nextEmployee:6,nextCrew:3,ledger:[],report:null};catalog(s);return s;}
-export function freshCompany(seed=112){return Operations.enable(fresh(seed));}
+export function freshCompany(seed=112,{gradual=true}={}){return Operations.enable(fresh(seed),gradual);}
+export function upgradeCompany(s){return s?.version===7?Operations.upgrade(s):s;}
 export function task(s,call){return s.operations?Operations.spec(s,call):call.spec??catalog(s)[call.mission];}
 export function log(s,amount,label){s.money+=amount;if(s.shift?.day===s.day){if(amount>=0)s.shift.income+=amount;else s.shift.costs-=amount;}s.ledger.unshift({day:s.day,amount,label});s.ledger.length=Math.min(s.ledger.length,60);}
 function pay(s,amount,label){requireThat(s.money>=amount,'Недостаточно средств');log(s,-amount,label);}
@@ -116,7 +119,7 @@ export function form(s,members,vehicle){prep(s);requireThat(s.crews.length<8&&me
 export function sell(s,id){prep(s);const v=s.vehicles.find(v=>v.id===id);requireThat(v&&!s.crews.some(c=>c.vehicle===id),'Сначала освободите машину');log(s,Math.floor(VEHICLE_MODELS.find(m=>m.id===v.model).price*.6*v.condition/100),'Продажа машины');s.vehicles=s.vehicles.filter(item=>item!==v);}
 export function encode(s){return JSON.stringify(s);}
 export function decode(raw){
- const parsed=JSON.parse(raw);if(parsed?.version===7)return Operations.validate(parsed);
+ const parsed=JSON.parse(storedJSON(raw));if(parsed&&[7,8].includes(parsed.version))return Operations.validate(parsed);
  const s=migrateV5(migrateV4(parsed)),valid=v=>requireThat(v,'Сохранение кампании повреждено'),int=(n,a=0,b=Number.MAX_SAFE_INTEGER)=>Number.isSafeInteger(n)&&n>=a&&n<=b,pct=n=>Number.isFinite(n)&&n>=0&&n<=100;
  const point=p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)&&p[0]>=0&&p[0]<=DW*5&&p[1]>=0&&p[1]<=DH*4;
  valid(s&&s.version===6&&int(s.clock)&&int(s.seed,0,0xffffffff)&&int(s.region,0,19)&&int(s.day,1)&&int(s.minute,0,SHIFT)&&Number.isSafeInteger(s.money)&&['prep','active','report','cleared','won'].includes(s.phase));
@@ -147,18 +150,22 @@ export function decode(raw){
  valid(s.phase==='cleared'?s.done.length===999&&s.region<19:s.phase==='won'?s.done.length===999&&s.region===19:s.done.length<999);
  return s;
 }
-export function load(storage){try{const raw=storage.getItem(SAVE),backup=storage.getItem(BACKUP);if(raw!==null){try{return {state:decode(raw),blocked:false};}catch{}}if(backup!==null){try{return {state:decode(backup),blocked:false,recovered:true};}catch{}}return {state:null,blocked:raw!==null||backup!==null};}catch{return {state:null,blocked:true};}}
-export function save(storage,s){
+export function load(storage){try{const raw=storage.getItem(SAVE),backup=storage.getItem(BACKUP);if(raw!==null){try{return {state:upgradeCompany(decode(raw)),blocked:false};}catch{}}if(backup!==null){try{return {state:upgradeCompany(decode(backup)),blocked:false,recovered:true};}catch{}}return {state:null,blocked:raw!==null||backup!==null};}catch{return {state:null,blocked:true};}}
+export function save(storage,s,progressionSource=null){
  const raw=encode(s);decode(raw);
+ const record=s.version>=8?storageRecord(raw):raw;
+ if(progressionSource!==null)requireThat(s.version>=8&&decode(progressionSource).version===7,'Некорректный исходный архив компании');
  let previous=storage.getItem(SAVE);
- let backup=raw,previousVersion=null;
- if(previous!==null){try{decode(previous);backup=previous;previousVersion=JSON.parse(previous).version;}catch{/* Keep the recovered state as backup. */}}
+ let backup=record,previousVersion=null;
+ if(previous!==null){try{decode(previous);previousVersion=storedVersion(previous);backup=previous;}catch{/* Keep the recovered state as backup. */}}
  if(previousVersion===null){
   const recovered=storage.getItem(BACKUP);
-  if(recovered!==null){try{decode(recovered);previous=recovered;backup=recovered;previousVersion=JSON.parse(recovered).version;}catch{/* Both records are unreadable; the explicit import supplies the next valid copy. */}}
+  if(recovered!==null){try{decode(recovered);previousVersion=storedVersion(recovered);previous=recovered;backup=recovered;}catch{/* Both records are unreadable; the explicit import supplies the next valid copy. */}}
  }
  if(previousVersion!==null&&previousVersion<6&&storage.getItem(MIGRATION_ARCHIVE)===null)storage.setItem(MIGRATION_ARCHIVE,previous);
- if(s.version===7&&previousVersion!==null&&previousVersion<7&&storage.getItem(OPERATION_ARCHIVE)===null)storage.setItem(OPERATION_ARCHIVE,previous);
+ if(s.version>=7&&previousVersion!==null&&previousVersion<7&&storage.getItem(OPERATION_ARCHIVE)===null)storage.setItem(OPERATION_ARCHIVE,previous);
+ if(progressionSource!==null&&storage.getItem(PROGRESSION_ARCHIVE)===null)storage.setItem(PROGRESSION_ARCHIVE,progressionSource);
+ if(s.version>=8&&previousVersion!==null&&previousVersion<8&&storage.getItem(PROGRESSION_ARCHIVE)===null)storage.setItem(PROGRESSION_ARCHIVE,previous);
  storage.setItem(BACKUP,backup);
- storage.setItem(SAVE,raw);
+ storage.setItem(SAVE,record);
 }

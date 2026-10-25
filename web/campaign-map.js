@@ -66,7 +66,7 @@ export function render(canvas,s,view,{selected=null,selectedCrew=null,labels=tru
  const project=p=>screenPoint(view,w,h,p),visible=(x,y,width,height)=>x+width>=0&&y+height>=0&&x<=w&&y<=h;
  let tileCount=0;const trafficTiles=[],clock=(s.clock??0)+progress,rigs=[],fleetPoses=[];
  // The city is static between camera changes; moving units and calls remain separate.
- const sceneKey=[s.seed,s.region,s.done.length,view.x,view.y,view.scale,w,h,dpr,...images.map(im=>im.naturalWidth)].join(':');
+ const sceneKey=[s.seed,s.region,s.done.length,s.operations?.houses.length??0,view.x,view.y,view.scale,w,h,dpr,...images.map(im=>im.naturalWidth)].join(':');
  const previous=sceneCache.get(canvas);
  if(previous?.key===sceneKey){
   ctx.drawImage(previous.image,0,0,w,h);tileCount=previous.tiles;
@@ -171,5 +171,5 @@ export function render(canvas,s,view,{selected=null,selectedCrew=null,labels=tru
 
   }
  }
- ctx.textBaseline='alphabetic';canvas.dataset.tiles=tileCount;canvas.dataset.lod=view.scale<.025?'district':'street';canvas.dataset.renderer=images.length===ART.length&&images.every(i=>i.complete&&i.naturalWidth)?'ready':'loading';canvas.dataset.equipment=JSON.stringify(rigs);canvas.dataset.fleet=JSON.stringify(fleetPoses);canvas.dataset.motionClock=String(clock);canvas.dataset.positions='999';canvas.dataset.region=String(s.region);canvas.dataset.camera=JSON.stringify({x:view.x,y:view.y,scale:view.scale});canvas.dataset.markers=JSON.stringify(view.hits.filter(h=>h.kind==='call'||h.kind==='crew'));canvas.dataset.operations=s.operations?'original-art':'classic';
+ ctx.textBaseline='alphabetic';canvas.dataset.tiles=tileCount;canvas.dataset.lod=view.scale<.025?'district':'street';canvas.dataset.renderer=images.length===ART.length&&images.every(i=>i.complete&&i.naturalWidth)?'ready':'loading';canvas.dataset.equipment=JSON.stringify(rigs);canvas.dataset.fleet=JSON.stringify(fleetPoses);canvas.dataset.motionClock=String(clock);canvas.dataset.positions=s.operations?.career?'99':'999';canvas.dataset.region=String(s.region);canvas.dataset.camera=JSON.stringify({x:view.x,y:view.y,scale:view.scale});canvas.dataset.markers=JSON.stringify(view.hits.filter(h=>h.kind==='call'||h.kind==='crew'));canvas.dataset.operations=s.operations?'original-art':'classic';
 }

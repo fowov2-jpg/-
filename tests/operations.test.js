@@ -4,9 +4,10 @@ import * as E from '../web/campaign-engine.js';
 import {SCENARIOS} from '../web/operations-content.js';
 import {district,roadStop} from '../web/campaign-city.js';
 const O=E.Operations;
+const freshV7=seed=>E.freshCompany(seed,{gradual:false});
 
 function incident(kind='flood'){
-  const s=E.freshCompany(112);E.start(s);
+  const s=freshV7(112);E.start(s);
   s.calls=[];s.cursor=0;s.done=[];s.operations.planIndex=8;
   const c=O.issue(s,kind,s.operations.houses[1].id);
   return {s,c};
@@ -17,7 +18,7 @@ function run(s,minutes=480){for(let i=0;i<minutes&&s.phase==='active';i++){dispa
 function until(s,predicate,limit=300){for(let i=0;i<limit&&!predicate();i++)E.tick(s);assert.ok(predicate(),'condition reached within '+limit+' minutes');}
 
 test('updated company keeps original assets and opens a paced authored shift',()=>{
- const s=E.freshCompany();assert.equal(s.money,3000000);assert.equal(s.crews.length,3);assert.equal(s.vehicles.length,3);assert.equal(s.employees.length,6);assert.equal(s.operations.houses.length,3);
+ const s=freshV7();assert.equal(s.money,3000000);assert.equal(s.crews.length,3);assert.equal(s.vehicles.length,3);assert.equal(s.employees.length,6);assert.equal(s.operations.houses.length,3);
  E.start(s);assert.equal(s.calls.length,1);assert.equal(s.calls[0].kind,'lights');assert.equal(s.version,7);
  assert.deepEqual(E.decode(E.encode(s)),s);assert.ok(s.shift.income>0,'contracts pay actual income');
  E.tick(s,29);assert.equal(s.calls.length,1);E.tick(s);assert.equal(s.calls.length,2);
@@ -92,7 +93,7 @@ test('a roof decision changes the restoration plan; cover consumes time and supp
 });
 
 test('equipment changes real stage duration with a cost and a specialization tradeoff',()=>{
- const s=E.freshCompany(),c={kind:'flood',flags:{}},cr=s.crews[2],defs=O.definitions(c);
+ const s=freshV7(),c={kind:'flood',flags:{}},cr=s.crews[2],defs=O.definitions(c);
  const standardDrain=O.workTime(s,c,cr,defs.find(d=>d.id==='drain'));
  const roof={kind:'roof',flags:{}},standardRoof=O.workTime(s,roof,cr,O.definitions(roof)[0]);
  const before=s.money;O.equip(s,2,'repair-pump',E.log);assert.equal(s.money,before-36000);
@@ -110,7 +111,7 @@ test('weather and congestion change actual travel and the displayed estimate mat
 });
 
 test('contract income, house wear, prevention and a new contract persist across days',()=>{
- const s=E.freshCompany(),h=s.operations.houses[0],initial=h.water;
+ const s=freshV7(),h=s.operations.houses[0],initial=h.water;
  O.prevent(s,h.id,'water',E.log);assert.equal(h.water,initial+20);assert.equal(h.prevention.water,3);
  assert.throws(()=>O.prevent(s,h.id,'water',E.log));
  E.start(s);run(s);const money=s.money,wear=h.water;
@@ -134,7 +135,7 @@ test('external contractor costs once, finishes asynchronously and can be saved m
 });
 
 test('three successful shifts and four contracts unlock growth without a 999-job grind',()=>{
- const s=E.freshCompany();assert.throws(()=>E.nextDistrict(s));
+ const s=freshV7();assert.throws(()=>E.nextDistrict(s));
  for(let day=1;day<=3;day++){
    if(day>1){E.nextDay(s);for(const v of s.vehicles)if(v.fuel<100||v.condition<100)E.maintain(s,v.id);for(let service=0;service<3;service++)if(s.stock[service]<25)E.procure(s,service);}
    if(day===2)O.sign(s,O.candidates(s)[0].id,E.log);
@@ -159,18 +160,18 @@ test('v7 recovery rejects broken task dependencies, reservations and crew links 
   x=>x.phase='report'
  ];
  for(const mutate of mutations){const bad=structuredClone(s);mutate(bad);assert.throws(()=>E.save(storage,bad));assert.equal(data.get(E.SAVE),original);}
- data.set(E.SAVE,'broken');assert.equal(E.load(storage).recovered,true);assert.equal(E.load(storage).state.version,7);
+ data.set(E.SAVE,'broken');assert.equal(E.load(storage).recovered,true);assert.equal(E.load(storage).state.version,8);
 });
 
 test('switching from v6 archives the exact company; archive write failure preserves the active save',()=>{
- const previous=E.fresh(99),next=E.freshCompany(112),data=new Map(),storage={getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,v)};
+ const previous=E.fresh(99),next=freshV7(112),data=new Map(),storage={getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,v)};
  E.save(storage,previous);const raw=data.get(E.SAVE);E.save(storage,next);
- assert.equal(data.get(E.OPERATION_ARCHIVE),raw);assert.equal(E.load(storage).state.version,7);
+ assert.equal(data.get(E.OPERATION_ARCHIVE),raw);assert.equal(E.load(storage).state.version,8);
  data.clear();E.save(storage,previous);
  const full={getItem:storage.getItem,setItem(k,v){if(k===E.OPERATION_ARCHIVE)throw Error('Disk full');storage.setItem(k,v);}};
  assert.throws(()=>E.save(full,next),/Disk full/);assert.equal(data.get(E.SAVE),raw);
  data.clear();data.set(E.SAVE,'broken primary');data.set(E.BACKUP,raw);
  assert.equal(E.load(storage).recovered,true);E.save(storage,next);
  assert.equal(data.get(E.OPERATION_ARCHIVE),raw,'the only valid recovered v6 company is archived before the backup is replaced');
- assert.equal(data.get(E.BACKUP),raw);assert.equal(E.load(storage).state.version,7);
+ assert.equal(data.get(E.BACKUP),raw);assert.equal(E.load(storage).state.version,8);
 });

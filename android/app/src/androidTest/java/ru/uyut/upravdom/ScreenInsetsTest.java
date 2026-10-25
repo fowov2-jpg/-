@@ -254,10 +254,10 @@ public class ScreenInsetsTest {
         }
         assertTrue("Campaign map art did not load",ready);
         assertEquals("true",evaluate("document.querySelector('.campaignBottom').getBoundingClientRect().bottom<=innerHeight+1"));
-        assertEquals("999",evaluate("Number(document.querySelector('#campaignMap').dataset.positions)"));
+        assertEquals("99",evaluate("Number(document.querySelector('#campaignMap').dataset.positions)"));
         // The emulator keeps real game time running during UI/asset checks.
         // More calls may arrive; validate the real queue instead of assuming zero elapsed time.
-        assertEquals("true",evaluate("(()=>{const s=JSON.parse(localStorage.getItem('upravdom.campaign.v4'));return s.version===7&&s.phase==='active'&&s.cursor===1&&s.calls.length===s.cursor&&new Set(s.calls.map(c=>c.mission)).size===s.cursor;})()"));
+        assertEquals("true",evaluate("(()=>{const s=JSON.parse(localStorage.getItem('upravdom.campaign.v4'));return s.version===8&&s.phase==='active'&&s.cursor===1&&s.calls.length===s.cursor&&new Set(s.calls.map(c=>c.mission)).size===s.cursor;})()"));
         assertEquals("true",evaluate("Number(document.querySelector('#campaignMap').dataset.trafficCount)>0"));
         tap("[data-cmd=pause]"); // The first incoming call opens on pause.
         String traffic=evaluate("document.querySelector('#campaignMap').dataset.traffic");SystemClock.sleep(1300);
@@ -306,6 +306,53 @@ public class ScreenInsetsTest {
         } finally {context.getContentResolver().delete(document,null,null);}
     }
 
+    @Test public void careerPointsAssistantAndDistrictUnlock() throws Exception {
+        waitForTrue("!!document.querySelector('.campaignMenu')","Campaign menu did not load");
+        evaluate("import(new URL('./campaign-engine.js',location.href).href).then(E=>{const s=E.freshCompany(112);for(let day=0;day<3;day++){if(s.phase==='report')E.nextDay(s);E.start(s);for(let minute=0;minute<480;minute++){for(const c of [...s.calls]){if(c.kind==='flood'&&c.dialogue==='start'){E.answer(s,c.mission,'network');E.answer(s,c.mission,'branch');}for(const cr of s.crews)if(!E.reason(s,c,cr))E.dispatch(s,c.mission,cr.id);}E.tick(s);}}E.nextDay(s);window.dispatchEvent(new CustomEvent('upravdom-import',{detail:E.encode(s)}));})");
+        waitForTrue("!!document.querySelector('.opShiftBrief')&&JSON.parse(localStorage.getItem('upravdom.campaign.v4')).day===4","Career fixture did not open preparation");
+        assertEquals("true",evaluate("(()=>{const s=JSON.parse(localStorage.getItem('upravdom.campaign.v4'));return s.version===8&&s.operations.career.earned>=100&&s.operations.houses.length===2;})()"));
+        tap("[data-cmd=op-dispatchers]");tap("[data-cmd=op-assistant]");
+        assertEquals("true",evaluate("document.querySelector('[data-cmd=op-assistant]').getAttribute('aria-pressed')==='true'"));
+        tap("[data-cmd=op-autoCrew][data-id='1']");
+        assertEquals("true",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).operations.career.assistant.reservedCrews.includes(1)"));
+        tap("[data-cmd=op-autoCrew][data-id='1']");tap("dialog [data-cmd=close]");
+        tap("[data-cmd=map]");tap("[data-cmd=finance]");tap("[data-cmd=nextDistrict]");
+        waitForTrue("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).region===1","District purchase did not persist");
+        assertEquals("true",evaluate("(()=>{const s=JSON.parse(localStorage.getItem('upravdom.campaign.v4'));return s.operations.career.spent===100&&s.operations.career.areas.length===2&&s.operations.houses.filter(h=>h.region===1).length===2;})()"));
+        tap("[data-cmd=op-dispatchers]");assertEquals("2",evaluate("document.querySelectorAll('.opDesk').length"));
+        Bitmap shot=InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
+        assertNotNull(shot);saveShared(shot,"career-districts.png",Bitmap.CompressFormat.PNG,100);shot.recycle();
+    }
+
+    @Test public void largeCareerCompanyNativeExport() throws Exception {
+        waitForTrue("!!document.querySelector('.campaignMenu')","Campaign menu did not load");
+        assertEquals("true",evaluate("typeof window.UpravdomFiles?.postMessage==='function'"));
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        ContentValues values=new ContentValues();values.put(MediaStore.Downloads.DISPLAY_NAME,"upravdom-large-company.json");values.put(MediaStore.Downloads.MIME_TYPE,"application/json");values.put(MediaStore.Downloads.RELATIVE_PATH,"Download");
+        Uri document=context.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,values);assertNotNull(document);
+        android.content.IntentFilter filter=new android.content.IntentFilter(android.content.Intent.ACTION_CREATE_DOCUMENT);
+        filter.addCategory(android.content.Intent.CATEGORY_OPENABLE);filter.addDataType("application/json");
+        android.app.Instrumentation instrumentation=InstrumentationRegistry.getInstrumentation();
+        android.app.Instrumentation.ActivityMonitor monitor=instrumentation.addMonitor(filter,
+                new android.app.Instrumentation.ActivityResult(Activity.RESULT_OK,new android.content.Intent().setData(document)),true);
+        try {
+            evaluate("window.nativeExportCompleted=false;window.addEventListener('upravdom-export-result',e=>{window.nativeExportCompleted=e.detail;},{once:true});import(new URL('./campaign-engine.js',location.href).href).then(async E=>{const s=E.freshCompany(112),base=s.operations.houses[0];s.region=19;s.operations.houses=Array.from({length:20},(_,region)=>Array.from({length:99},(_,id)=>({...structuredClone(base),id,region,history:Array.from({length:12},()=>({day:1,text:'Районный диспетчер: протечка устранена, подача воды восстановлена. Доступ в подвал проверен.'}))}))).flat();s.operations.career.earned=20000;s.operations.career.spent=7030;s.operations.career.areas=Array.from({length:20},(_,region)=>({region,openedDay:1,points:1000,handled:0,shift:null,lastReport:null}));E.save(localStorage,s);E.save(localStorage,s);window.nativePackedGood=localStorage.getItem(E.SAVE).startsWith('UD8P1:')&&E.load(localStorage).state.operations.houses.length===1980;const raw=E.encode(s),bytes=new TextEncoder().encode(raw);window.nativeLargeBytes=bytes.length;const digest=await crypto.subtle.digest('SHA-256',bytes);window.nativeLargeHash=[...new Uint8Array(digest)].map(n=>n.toString(16).padStart(2,'0')).join('');window.UpravdomFiles.postMessage(raw);})");
+            waitForTrue("window.nativeExportCompleted===true","Large company export did not finish");
+            assertEquals("true",evaluate("window.nativePackedGood"));
+            java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();
+            try(java.io.InputStream input=context.getContentResolver().openInputStream(document)){
+                assertNotNull(input);byte[] buffer=new byte[8192];int count;while((count=input.read(buffer))!=-1)bytes.write(buffer,0,count);
+            }
+            byte[] written=bytes.toByteArray();assertTrue("Large export did not exercise a multi-megabyte company",written.length>2000000);
+            assertEquals(Integer.parseInt(evaluate("window.nativeLargeBytes")),written.length);
+            byte[] digest=java.security.MessageDigest.getInstance("SHA-256").digest(written);StringBuilder hex=new StringBuilder();
+            for(byte value:digest)hex.append(String.format(java.util.Locale.ROOT,"%02x",value&255));
+            assertEquals(new org.json.JSONTokener(evaluate("window.nativeLargeHash")).nextValue().toString(),hex.toString());
+            JSONObject exported=new JSONObject(new String(written,java.nio.charset.StandardCharsets.UTF_8));
+            assertEquals(1980,exported.getJSONObject("operations").getJSONArray("houses").length());
+        } finally {instrumentation.removeMonitor(monitor);context.getContentResolver().delete(document,null,null);}
+    }
+
     @Test public void linkedFloodConversationThreeCrewsAndRestoration() throws Exception {
         boolean ready=false;
         for(int wait=0;wait<100;wait++){
@@ -313,7 +360,7 @@ public class ScreenInsetsTest {
             SystemClock.sleep(100);
         }
         assertTrue("Campaign menu did not load",ready);
-        evaluate("import(new URL('./campaign-engine.js',location.href).href).then(E=>{const s=E.freshCompany(112);E.start(s);s.calls=[];s.done=[];s.cursor=0;s.operations.planIndex=8;E.Operations.issue(s,'flood',s.operations.houses[1].id);window.dispatchEvent(new CustomEvent('upravdom-import',{detail:E.encode(s)}));})");
+        evaluate("import(new URL('./campaign-engine.js',location.href).href).then(E=>{const s=E.freshCompany(112);E.start(s);s.calls=[];s.done=[];s.cursor=0;s.operations.planIndex=0;s.operations.shift.schedule=[];s.operations.shift.admitted=0;E.Operations.issue(s,'flood',s.operations.houses[1].id);window.dispatchEvent(new CustomEvent('upravdom-import',{detail:E.encode(s)}));})");
         for(int wait=0;wait<70;wait++){
             if("true".equals(evaluate("!!document.querySelector('.opQueue')")))break;
             SystemClock.sleep(100);
@@ -321,7 +368,7 @@ public class ScreenInsetsTest {
         assertEquals("Updated dispatch fixture did not open","true",evaluate("!!document.querySelector('.opQueue')"));
         tap("[data-cmd=queue]");tap("[data-cmd=select][data-id='0']");
         tap("[data-cmd=op-answer][data-choice=network]");tap("[data-cmd=op-answer][data-choice=branch]");
-        assertEquals("3",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).operations.houses.filter(h=>h.outages.water).length"));
+        assertEquals("2",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).operations.houses.filter(h=>h.outages.water).length"));
         for(int id=0;id<3;id++){tap("[data-cmd=op-options][data-service='"+id+"']");tap("dialog [data-cmd=op-assign][data-id='"+id+"']");}
         assertEquals("3",evaluate("JSON.parse(localStorage.getItem('upravdom.campaign.v4')).calls[0].assignments.length"));
         assertEquals("Planning assignments unexpectedly resumed time","Продолжить время",new org.json.JSONTokener(evaluate("document.querySelector('[data-cmd=pause]').getAttribute('aria-label')")).nextValue());
@@ -343,7 +390,7 @@ public class ScreenInsetsTest {
         assertNotNull(shot);saveShared(shot,"dispatch-restored.png",Bitmap.CompressFormat.PNG,100);shot.recycle();
         assertTrue("Three-service flood did not complete in real WebView time: "+observation,completed);
         assertTrue("No inter-service waiting control was observed: "+observation,dependencyWait);
-        assertEquals("true",evaluate("(()=>{const s=JSON.parse(localStorage.getItem('upravdom.campaign.v4'));return s.version===7&&s.operations.completed===1&&s.calls.length===0&&s.operations.houses.every(h=>!h.outages.water&&!h.outages.electric);})()"));
+        assertEquals("true",evaluate("(()=>{const s=JSON.parse(localStorage.getItem('upravdom.campaign.v4'));return s.version===8&&s.operations.completed===1&&s.calls.length===0&&s.operations.houses.every(h=>!h.outages.water&&!h.outages.electric);})()"));
     }
 
 }

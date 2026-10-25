@@ -2,13 +2,15 @@ import {SCENARIOS, EQUIPMENT, WEATHER, shiftPlan} from './operations-content.js'
 import {district, roadStop, streetRoute, pathLength, pathPose, parkingBay, hash} from './campaign-city.js';
 import {VEHICLE_MODELS} from './content.js';
 import {fuelFor, repairTime, expenses} from './campaign-balance.js';
+import * as Career from './career-progression.js';
+export {Career};
 
 const SHIFT = 480;
 const check = (value, message) => {if (!value) throw Error(message);};
 const clamp = n => Math.max(0, Math.min(100, n));
 const own = (s, id) => s.operations.houses.find(h => h.id === id && h.region === s.region);
 const currentHouses = s => s.operations.houses.filter(h => h.region === s.region);
-export const planFor = s => shiftPlan(s.day,s.region,currentHouses(s).length);
+export const planFor = s => s.operations.career?(s.phase!=='prep'&&s.operations.shift?.schedule?s.operations.shift.schedule:Career.schedule(s)):shiftPlan(s.day,s.region,currentHouses(s).length);
 export function parkingPosition(s,id){const p=parkingBay(s.seed,s.region,id);return [p[0]+1416,p[1]+874];}
 const kitFor = (s, crew) => EQUIPMENT.find(k => k.id === s.operations.kits[crew.id]) ?? EQUIPMENT.find(k => k.service === crew.service);
 const assignmentFor = (s, crewId) => s.calls.flatMap(c => c.assignments.map(a => ({call:c, assignment:a}))).find(v => v.assignment.crew === crewId);
@@ -22,16 +24,22 @@ function newHouse(s, id, index = 0) {
     prevention:{water:0, electric:0, structure:0}, history:[]};
 }
 
-export function enable(s) {
+export function enable(s,gradual=true) {
   check(s.phase === 'prep' && s.calls.length === 0 && s.crews.every(c=>c.status==='idle'), 'Обновление компании доступно перед сменой без незавершённых выездов');
   s.version = 7;
   s.operations = {schema:1, houses:[], kits:{}, equipment:[], completed:0, failed:0, districtShifts:0,
     districtMajor:0, districtStartDay:s.day, planIndex:0, nextEvent:1, radio:[], history:[], decisions:[], weather:0, shift:null};
   s.done = []; s.cursor = 0; s.report = null;
-  for (const [i,id] of [144,151,156].entries()) s.operations.houses.push(newHouse(s,id,i));
+  for (const [i,id] of (gradual?[144,151]:[144,151,156]).entries()) s.operations.houses.push(newHouse(s,id,i));
   for (const cr of s.crews) {s.operations.kits[cr.id] = EQUIPMENT.find(k => k.service === cr.service).id;cr.point=parkingPosition(s,cr.id);}
   s.operations.weather=(s.day-1)%WEATHER.length;
+  if(gradual)Career.initialize(s);
   return s;
+}
+
+export function upgrade(s){
+ if(s.version!==7)return s;
+ validate(s);return validate(Career.initialize(s,true));
 }
 
 export function radio(s, text, kind = 'radio', call = null, crew = null) {
@@ -88,15 +96,20 @@ export function issue(s, kind = null, homeId = null) {
   if (!kind && !plan || s.calls.length >= 8) return null;
   const type = kind ?? plan.kind;
   check(SCENARIOS[type], 'Неизвестный сценарий');
+  if(!kind&&s.operations.career&&!Career.canAdmit(s,type))return null;
   const home = homeId ?? chooseHome(s,plan);
   if (home === null) return null;
   check(own(s,home), 'Нет договора с этим домом');
   const d = SCENARIOS[type];
-  const c = {mission:s.cursor++, home, kind:type, created:s.clock, due:s.minute+d.deadline,
+  const c = {mission:s.cursor, home, kind:type, created:s.clock, due:s.minute+d.deadline,
     status:'new', late:false, asked:false, contained:false, dialogue:'start', answers:[], flags:{},
     damage:0, escalations:0, assignments:[], work:[], informed:false, deferred:false};
-  syncWork(c); s.calls.push(c);
-  if (!kind) s.operations.planIndex++;
+  if(s.operations.career){c.channel=kind?(['flood','pump','leak','outage'].includes(type)?'phone':'report'):plan.channel;c.manual=false;c.assistant=false;}
+  syncWork(c);
+  if(!kind&&s.operations.career&&![...new Set(definitions(c).map(w=>w.service))].every(service=>s.crews.some(cr=>cr.service===service&&!reason(s,c,cr))))return null;
+  s.cursor++;s.calls.push(c);
+  if(s.operations.career)s.operations.shift.peak=Math.max(s.operations.shift.peak,s.calls.filter(c=>!c.deferred).length);
+  if (!kind) {s.operations.planIndex++;if(s.operations.career)Career.admitted(s);}
   radio(s,d.title+' · '+district(s.seed,s.region).homes[home].name,'incoming',c.mission);
   recomputeNetwork(s);
   return c;
@@ -284,6 +297,7 @@ function finish(s,c,success,log) {
   if (c.kind==='flood' && success) o.districtMajor++;
   const outcome={id:c.mission,kind:c.kind,home:c.home,region:s.region,day:s.day,title:d.title,
     success,late:c.late,damage:cost,trust:trustDelta,external:!!c.external,decisions:c.answers.length};
+  if(o.career){outcome.points=Career.award(s,c,success);outcome.assistant=!!c.assistant;}
   o.history.unshift(outcome);o.history.length=Math.min(80,o.history.length);
   if (o.shift) o.shift.results.push(outcome);
   recordHouse(s,h,(success?'Устранено: ':'Авария не устранена: ')+d.title+(cost?' · ущерб '+cost.toLocaleString('ru-RU')+' ₽':''));
@@ -296,11 +310,16 @@ function finish(s,c,success,log) {
 
 export function start(s,log) {
   check(s.phase==='prep' && s.crews.length>0,'Подготовьте хотя бы одну бригаду');
+  if(s.operations.career){
+   check([0,1,2].every(service=>s.crews.some(cr=>cr.service===service)),'Для смены нужны сантехники, электрики и ремонтники. Подготовьте три службы.');
+   check(Career.budget(s).minimumClosing>=0,'Поступлений не хватит на обязательные расходы. Сократите содержание перед сменой.');
+  }
   s.phase='active';s.minute=0;s.report=null;
   s.shift={day:s.day,openingMoney:s.money,income:0,costs:0,completed:0,late:0};
   const o=s.operations;
   o.weather=(s.day-1)%WEATHER.length;o.planIndex=0;
   o.shift={results:[],waterMinutes:0,electricMinutes:0,openingTrust:reputation(s),houses:currentHouses(s).map(h=>({id:h.id,trust:h.trust,water:h.water,electric:h.electric,structure:h.structure}))};
+  if(o.career)Career.beginShift(s);
   log(s,o.houses.reduce((sum,h)=>sum+h.rate,0),'Поступления по договорам домов');
   radio(s,'Диспетчерская «Уют». Смена '+s.day+'. '+weather(s).label+', '+weather(s).temperature+' °C. Бригады на связи.','briefing');
   if (!s.calls.length) issue(s);
@@ -353,6 +372,10 @@ export function tick(s,minutes,log) {
       if(h.outages.water){h.waterMinutes++;s.operations.shift.waterMinutes++;h.trust=clamp(h.trust-.018);}
       if(h.outages.electric){h.electricMinutes++;s.operations.shift.electricMinutes++;h.trust=clamp(h.trust-.012);}
     }
+    if(s.operations.career){
+      Career.tickRegionalDesks(s);
+      Career.runAssistant(s,{reason,answer,dispatch,radio,travelEstimate},log);
+    }
     const next=planFor(s)[s.operations.planIndex];
     if(next&&s.minute>=next.minute)issue(s);
     if(s.minute>=SHIFT)endShift(s,log);
@@ -364,6 +387,7 @@ export function reputation(s) {
   return Math.round(houses.reduce((sum,h)=>sum+h.trust,0)/houses.length);
 }
 export function canExpand(s) {
+  if(s.operations.career)return Career.licenceProgress(s).ready;
   return s.operations.districtShifts>=3 && currentHouses(s).length>=4 && reputation(s)>=68 && s.operations.districtMajor>=1 && s.calls.length===0;
 }
 function endShift(s,log) {
@@ -371,6 +395,11 @@ function endShift(s,log) {
   const o=s.operations;
   const districtService=Math.round(o.houses.filter(h=>h.region!==s.region).reduce((n,h)=>n+h.rate,0)*.92);
   if(districtService)log(s,-districtService,'Обслуживание домов в прежних районах');
+  if(o.career){
+    const b=Career.budget(s);
+    if(b.routineCost)log(s,-b.routineCost,'Плановое обслуживание договоров района');
+    if(b.dispatcher)log(s,-b.dispatcher,'Работа помощника диспетчера');
+  }
   const compensation=o.shift.waterMinutes*12+o.shift.electricMinutes*18;
   if(compensation)log(s,-compensation,'Перерасчёт за перерывы снабжения');
   o.districtShifts++;
@@ -380,6 +409,7 @@ function endShift(s,log) {
     waterMinutes:o.shift.waterMinutes,electricMinutes:o.shift.electricMinutes,
     grade:failures?'Сложная смена':trust>=70&&damage<18000?'Надёжная работа':'Есть над чем работать',
     decisions:o.decisions.filter(d=>d.day===s.day).slice(0,24)};
+  if(o.career)s.report.career=Career.finishShift(s);
   s.phase=s.money<0||trust<25?'lost':s.region===19&&canExpand(s)?'won':'report';
   radio(s,'Смена завершена. '+s.report.grade+'.','briefing');
 }
@@ -393,11 +423,12 @@ export function nextDay(s) {
   s.operations.weather=(s.day-1)%WEATHER.length;
 }
 export function nextDistrict(s,log) {
-  check(['report','prep'].includes(s.phase)&&canExpand(s)&&s.region<19,'Для расширения нужны 3 смены, 4 договора, доверие 68 и устранённая крупная авария; закройте остаток заявок');
+  check(['report','prep'].includes(s.phase)&&canExpand(s)&&s.region<19,s.operations.career?'Для нового района нужны карьерные баллы, две смены, доверие от 60 и закрытая очередь.':'Для расширения нужны 3 смены, 4 договора, доверие 68 и устранённая крупная авария; закройте остаток заявок');
+  if(s.operations.career)Career.openArea(s);
   if(s.phase==='report')s.day++;
   s.region++;s.minute=0;s.phase='prep';s.calls=[];s.done=[];s.cursor=0;s.report=null;
   s.operations.districtShifts=0;s.operations.districtMajor=0;s.operations.districtStartDay=s.day;
-  for(const [i,id] of [144,151,156].entries())s.operations.houses.push(newHouse(s,id,i));
+  for(const [i,id] of (s.operations.career?[144,151]:[144,151,156]).entries())s.operations.houses.push(newHouse(s,id,i));
   for(const cr of s.crews){cr.point=parkingPosition(s,cr.id);cr.angle=-Math.PI/2;cr.status='idle';cr.job=null;delete cr.returnTrip;}
   for(const p of s.employees)p.fatigue=0;
   log(s,150000,'Развитие компании: новый район');
@@ -406,6 +437,7 @@ export function nextDistrict(s,log) {
 
 export function candidates(s) {
   const owned=new Set(currentHouses(s).map(h=>h.id));
+  if(s.operations.career)return Career.addressPool(s).filter(id=>!owned.has(id)).map((id,i)=>({id,fee:65000+Math.min(4,i)*12000,home:district(s.seed,s.region).homes[id]}));
   return [147,152,159,162,164].filter(id=>!owned.has(id)).map((id,i)=>({id,fee:65000+i*12000,home:district(s.seed,s.region).homes[id]}));
 }
 export function sign(s,id,log) {
@@ -413,6 +445,7 @@ export function sign(s,id,log) {
   const offer=candidates(s).find(c=>c.id===id);
   check(offer&&s.money>=offer.fee,'Недостаточно средств или договор уже заключён');
   check(s.operations.districtShifts>=1&&reputation(s)>=65,'Для нового договора завершите смену и сохраните доверие не ниже 65');
+  if(s.operations.career)check(currentHouses(s).length<Career.contractLimit(s),'Лимит договоров вырастет после следующих 20 баллов района');
   log(s,-offer.fee,'Приём дома: '+offer.home.name);
   s.operations.houses.push(newHouse(s,id,currentHouses(s).length));
 }
@@ -451,7 +484,7 @@ export function validate(s) {
   const str=(v,max=2000)=>typeof v==='string'&&v.length<=max;
   const point=p=>Array.isArray(p)&&p.length===2&&p.every(n=>Number.isFinite(n)&&n>=0&&n<=60000);
   const path=p=>Array.isArray(p)&&p.length>=1&&p.length<=4&&p.every(point);
-  valid(s&&s.version===7&&int(s.seed,0,0xffffffff)&&int(s.clock)&&int(s.region,0,19)&&int(s.day,1)&&int(s.minute,0,SHIFT)&&Number.isSafeInteger(s.money));
+  valid(s&&[7,8].includes(s.version)&&int(s.seed,0,0xffffffff)&&int(s.clock)&&int(s.region,0,19)&&int(s.day,1)&&int(s.minute,0,SHIFT)&&Number.isSafeInteger(s.money));
   valid(['prep','active','report','lost','won'].includes(s.phase)&& (s.phase!=='active'||s.minute<SHIFT) && (!['report','lost','won'].includes(s.phase)||s.minute===SHIFT));
   valid(Array.isArray(s.vehicles)&&s.vehicles.length<=12&&Array.isArray(s.employees)&&s.employees.length<=24&&Array.isArray(s.crews)&&s.crews.length<=8);
   valid(int(s.nextVehicle)&&int(s.nextEmployee)&&int(s.nextCrew)&&int(s.nextCall));
@@ -468,14 +501,15 @@ export function validate(s) {
   valid(Array.isArray(s.stock)&&s.stock.length===3&&s.stock.every(n=>int(n,0,200)));
   valid(Array.isArray(s.ledger)&&s.ledger.length<=60&&s.ledger.every(e=>e&&int(e.day,1,s.day)&&Number.isSafeInteger(e.amount)&&str(e.label,300)));
   const o=s.operations;
-  valid(o&&o.schema===1&&Array.isArray(o.houses)&&o.houses.length>=3&&o.houses.length<=160&&int(o.completed)&&int(o.failed)&&int(o.districtShifts)&&int(o.districtMajor)&&int(o.districtStartDay,1,s.day)&&int(o.planIndex,0,16)&&int(o.nextEvent,1)&&int(o.weather,0,WEATHER.length-1));
+  const gradual=s.version===8;
+  valid(o&&o.schema===(gradual?2:1)&&Array.isArray(o.houses)&&o.houses.length>=(gradual?2:3)&&o.houses.length<=(gradual?1980:160)&&int(o.completed)&&int(o.failed)&&int(o.districtShifts)&&int(o.districtMajor)&&int(o.districtStartDay,1,s.day)&&int(o.planIndex,0,16)&&int(o.nextEvent,1)&&int(o.weather,0,WEATHER.length-1));
   const homes=new Set();
   for(const h of o.houses){
     const key=h.region+':'+h.id;
     valid(h&&int(h.id,0,998)&&int(h.region,0,s.region)&&!homes.has(key)&&pct(h.trust)&&pct(h.water)&&pct(h.electric)&&pct(h.structure)&&int(h.rate,1,100000)&&int(h.since,1,s.day)&&h.outages&&typeof h.outages.water==='boolean'&&typeof h.outages.electric==='boolean'&&int(h.waterMinutes)&&int(h.electricMinutes));homes.add(key);
     valid(h.prevention&&['water','electric','structure'].every(k=>int(h.prevention[k],0,s.day+2))&&Array.isArray(h.history)&&h.history.length<=12&&h.history.every(e=>e&&int(e.day,1,s.day)&&str(e.text)));
   }
-  valid(currentHouses(s).length>=3&&o.kits&&typeof o.kits==='object'&&Array.isArray(o.equipment)&&o.equipment.length<=64&&o.equipment.every(id=>EQUIPMENT.some(k=>k.id===id)));
+  valid(currentHouses(s).length>=(gradual?2:3)&&o.kits&&typeof o.kits==='object'&&Array.isArray(o.equipment)&&o.equipment.length<=64&&o.equipment.every(id=>EQUIPMENT.some(k=>k.id===id)));
   for(const [id,kitId] of Object.entries(o.kits)){const cr=crews.get(Number(id));valid(int(Number(id))&&EQUIPMENT.some(k=>k.id===kitId&&(!cr||k.service===cr.service)));}
   for(const kit of EQUIPMENT)if(kit.price)valid(s.crews.filter(cr=>kitFor(s,cr).id===kit.id).length<=o.equipment.filter(id=>id===kit.id).length);
   valid(Array.isArray(o.radio)&&o.radio.length<=50&&o.radio.every(e=>e&&int(e.id,1,o.nextEvent-1)&&int(e.day,1,s.day)&&int(e.minute,0,SHIFT)&&str(e.text)&&str(e.kind,40)&&(e.call===null||int(e.call))&&(e.crew===null||int(e.crew))));
@@ -506,8 +540,40 @@ export function validate(s) {
   for(const cr of s.crews)valid(['idle','returning'].includes(cr.status)?cr.job===null:assigned.has(cr.id));
   for(let service=0;service<3;service++)valid(reserved(s,service)<=s.stock[service]);
   const network=networkFlags(s);for(const h of currentHouses(s))valid(h.outages.water===network.get(h.id).water&&h.outages.electric===network.get(h.id).electric);
+  if(gradual)validateCareer(s,valid,int,pct);
+  else valid(o.career===undefined);
   valid(s.phase!=='prep'||s.minute===0);
   valid(s.phase==='prep'||s.shift?.day===s.day&&o.shift!==null);
   if(['report','lost','won'].includes(s.phase)){const r=s.report;valid(r&&int(r.day,1,s.day)&&Array.isArray(r.results)&&r.results.every(outcome)&&int(r.pending,0,8)&&int(r.damage)&&int(r.compensation)&&pct(r.trust)&&Number.isInteger(r.trustDelta)&&int(r.waterMinutes)&&int(r.electricMinutes)&&str(r.grade,100)&&Array.isArray(r.decisions)&&r.decisions.every(decision));}
   return s;
+}
+
+function validateCareer(s,valid,int,pct){
+ const o=s.operations,c=o.career;
+ valid(c&&int(c.earned)&&int(c.spent,0,c.earned)&&Array.isArray(c.areas)&&c.areas.length===s.region+1);
+ valid(c.spent===Array.from({length:s.region},(_,i)=>100+i*30).reduce((n,v)=>n+v,0));
+ const helper=c.assistant;
+ valid(helper&&typeof helper.enabled==='boolean'&&(!helper.enabled||Career.assistantUnlocked(s))&&int(helper.assigned)&&int(helper.completed,0,helper.assigned)&&Array.isArray(helper.reservedCrews)&&new Set(helper.reservedCrews).size===helper.reservedCrews.length&&helper.reservedCrews.every(id=>int(id,0,s.nextCrew-1)));
+ let localPoints=0;
+ for(const [region,area] of c.areas.entries()){
+  valid(area&&area.region===region&&int(area.openedDay,1,s.day)&&int(area.points)&&int(area.handled));localPoints+=area.points;
+  const homes=o.houses.filter(h=>h.region===region),ids=new Set(homes.map(h=>h.id));
+  valid(homes.length>=2&&homes.length<=Career.DISTRICT_CAPACITY);
+  if(area.shift!==null){
+   const shift=area.shift;
+   valid(region!==s.region&&shift&&int(shift.day,1,s.day)&&int(shift.completed,0,6)&&Array.isArray(shift.jobs)&&shift.jobs.length>=2&&shift.jobs.length<=6);
+   valid(shift.jobs.every(j=>j&&ids.has(j.home)&&['lights','door','entrance','sewer','roof'].includes(j.kind)&&int(j.minute,0,370)&&int(j.duration,1,300)&&int(j.remaining,0,j.duration)&&['scheduled','working','done'].includes(j.status)&&(j.status==='working'?j.remaining>0:j.remaining===0)));
+   valid(shift.completed===shift.jobs.filter(j=>j.status==='done').length);
+  }
+  if(area.lastReport!==null){const r=area.lastReport;valid(r&&int(r.day,1,s.day)&&int(r.total,2,6)&&int(r.completed,0,r.total)&&int(r.income)&&int(r.cost,0,r.income));}
+ }
+ valid(localPoints<=c.earned);
+ for(const call of s.calls)valid(['phone','report'].includes(call.channel)&&typeof call.manual==='boolean'&&typeof call.assistant==='boolean'&&(!call.assistant||call.channel==='report'));
+ for(const r of [...o.history,...(o.shift?.results??[])])valid((r.points===undefined||int(r.points,0,10))&&(r.assistant===undefined||typeof r.assistant==='boolean'));
+ if(o.shift!==null){
+  const shift=o.shift;
+  valid(Array.isArray(shift.schedule)&&shift.schedule.length<=10&&int(shift.admitted,0,shift.schedule.length)&&o.planIndex===shift.admitted&&int(shift.nextAdmission,0,SHIFT+70)&&int(shift.peak,0,8)&&int(shift.points,0,c.earned)&&int(shift.carried,0,8)&&typeof shift.assistantUsed==='boolean');
+  valid(shift.schedule.every((p,i)=>p&&int(p.minute,0,370)&&SCENARIOS[p.kind]&&int(p.home,0,98)&&['phone','report'].includes(p.channel)&&(!i||p.minute>=shift.schedule[i-1].minute)));
+ }
+ if(s.report){const r=s.report.career;valid(r&&int(r.gained,0,c.earned)&&r.balance===Career.points(s)&&r.earned===c.earned&&r.price===Career.expansionPrice(s));}
 }
