@@ -19,24 +19,37 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import androidx.webkit.WebViewAssetLoader;
 import androidx.webkit.WebViewClientCompat;
+import androidx.webkit.WebViewCompat;
+import androidx.webkit.WebViewFeature;
+import androidx.webkit.WebMessageCompat;
 import java.io.ByteArrayInputStream;
 import java.io.OutputStream;
 import java.io.InputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
 
 /** Offline host. Local assets only; document transfers require the system picker. */
 public class MainActivity extends Activity {
     private static final int IMPORT_FILE = 100;
     private static final int EXPORT_FILE = 101;
+    private static final int MAX_DOCUMENT_BYTES = 8_000_000;
     private static final String ORIGIN = "https://appassets.androidplatform.net/";
     private WebView web;
     private OnBackInvokedCallback backCallback;
-    private String pendingExport;
+    private File pendingExport;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        if (state != null) pendingExport = state.getString("pendingExport");
+        if (state != null) {
+            String name=state.getString("pendingExportFile");
+            if(name!=null && name.matches("upravdom-export-[A-Za-z0-9_-]+\\.json")) {
+                File snapshot=new File(getCacheDir(),name);
+                if(snapshot.isFile() && snapshot.length()<=MAX_DOCUMENT_BYTES)pendingExport=snapshot;
+            }
+        }
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         WindowInsetsControllerCompat bars = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
         bars.setAppearanceLightStatusBars(false);
@@ -66,7 +79,18 @@ public class MainActivity extends Activity {
         web.getSettings().setAllowFileAccess(false);
         web.getSettings().setAllowContentAccess(false);
         web.getSettings().setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        web.getSettings().setUserAgentString(web.getSettings().getUserAgentString() + " UpravdomAndroid/0.8.2");
+        web.getSettings().setUserAgentString(web.getSettings().getUserAgentString() + " UpravdomAndroid/0.8.3");
+        // A large company must not travel inside a navigation URL. The message
+        // object is available only to our HTTPS asset origin and its main frame.
+        if(WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            WebViewCompat.addWebMessageListener(web,"UpravdomFiles",
+                    java.util.Collections.singleton("https://appassets.androidplatform.net"),
+                    (view,message,sourceOrigin,isMainFrame,reply)-> {
+                        if(isMainFrame && "https".equals(sourceOrigin.getScheme())
+                                && "appassets.androidplatform.net".equals(sourceOrigin.getHost())
+                                && message.getType()==WebMessageCompat.TYPE_STRING)requestExport(message.getData());
+                    });
+        }
         WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
                 .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this)).build();
         web.setWebViewClient(new WebViewClientCompat() {
@@ -94,18 +118,7 @@ public class MainActivity extends Activity {
                 }
                 if ("upravdom".equals(url.getScheme()) && "export".equals(url.getHost())
                         && request.isForMainFrame() && view.getUrl() != null && view.getUrl().startsWith(ORIGIN)) {
-                    String content = url.getQueryParameter("data");
-                    if (content != null && content.length() <= 2000000 && pendingExport == null) {
-                        pendingExport = content;
-                        Intent picker = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-                        picker.addCategory(Intent.CATEGORY_OPENABLE);
-                        picker.setType("application/json");
-                        picker.putExtra(Intent.EXTRA_TITLE, "upravdom-company.json");
-                        try { startActivityForResult(picker, EXPORT_FILE); }
-                        catch (android.content.ActivityNotFoundException e) {
-                            pendingExport = null; exportResult(false);
-                        }
-                    }
+                    requestExport(url.getQueryParameter("data"));
                     return true;
                 }
                 return !"https".equals(url.getScheme()) || !"appassets.androidplatform.net".equals(url.getHost())
@@ -118,6 +131,22 @@ public class MainActivity extends Activity {
             backCallback = this::handleBack;
             getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
                     OnBackInvokedDispatcher.PRIORITY_DEFAULT, backCallback);
+        }
+    }
+    private void requestExport(String content) {
+        if(pendingExport!=null)return;
+        if(content==null || content.length()>MAX_DOCUMENT_BYTES){exportResult(false);return;}
+        byte[] bytes=content.getBytes(StandardCharsets.UTF_8);
+        if(bytes.length>MAX_DOCUMENT_BYTES){exportResult(false);return;}
+        try {
+            pendingExport=File.createTempFile("upravdom-export-",".json",getCacheDir());
+            try(OutputStream output=new FileOutputStream(pendingExport)){output.write(bytes);}
+            Intent picker=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            picker.addCategory(Intent.CATEGORY_OPENABLE);picker.setType("application/json");
+            picker.putExtra(Intent.EXTRA_TITLE,"upravdom-company.json");
+            startActivityForResult(picker,EXPORT_FILE);
+        } catch(java.io.IOException | android.content.ActivityNotFoundException | SecurityException e) {
+            if(pendingExport!=null)pendingExport.delete();pendingExport=null;exportResult(false);
         }
     }
     private void syncViewport() {
@@ -141,7 +170,7 @@ public class MainActivity extends Activity {
                         if (input == null) throw new java.io.IOException("Document unavailable");
                         byte[] buffer = new byte[8192];int count;
                         while ((count = input.read(buffer)) != -1) {
-                            if (bytes.size() + count > 2000000) throw new java.io.IOException("Document too large");
+                            if (bytes.size() + count > MAX_DOCUMENT_BYTES) throw new java.io.IOException("Document too large");
                             bytes.write(buffer, 0, count);
                         }
                         raw = new String(bytes.toByteArray(), StandardCharsets.UTF_8);
@@ -151,14 +180,23 @@ public class MainActivity extends Activity {
                 }, "company-import").start();
             }
         } else if (request == EXPORT_FILE) {
-            if (result == RESULT_OK && data != null && data.getData() != null && pendingExport != null) {
-                try (OutputStream output = getContentResolver().openOutputStream(data.getData())) {
-                    if (output == null) throw new java.io.IOException("Document unavailable");
-                    output.write(pendingExport.getBytes(StandardCharsets.UTF_8));
-                    exportResult(true);
-                } catch (java.io.IOException | SecurityException e) { exportResult(false); }
-            }
-            pendingExport = null;
+            final File snapshot=pendingExport;pendingExport=null;
+            if(result==RESULT_OK && data!=null && data.getData()!=null && snapshot!=null) {
+                final Uri destination=data.getData();
+                new Thread(()->{
+                    boolean success=false;
+                    try(InputStream input=new FileInputStream(snapshot);
+                            OutputStream output=getContentResolver().openOutputStream(destination)) {
+                        if(output==null)throw new java.io.IOException("Document unavailable");
+                        byte[] buffer=new byte[8192];int count;
+                        while((count=input.read(buffer))!=-1)output.write(buffer,0,count);
+                        success=true;
+                    }catch(java.io.IOException | SecurityException e){success=false;}
+                    finally{snapshot.delete();}
+                    final boolean written=success;
+                    runOnUiThread(()->{if(!isFinishing()&&!isDestroyed())exportResult(written);});
+                },"company-export").start();
+            } else if(snapshot!=null)snapshot.delete();
         }
     }
     private void importResult(String raw) {
@@ -171,7 +209,7 @@ public class MainActivity extends Activity {
     }
     @Override protected void onSaveInstanceState(Bundle out) {
         super.onSaveInstanceState(out);
-        if (pendingExport != null && pendingExport.length() < 100000) out.putString("pendingExport", pendingExport);
+        if (pendingExport != null) out.putString("pendingExportFile", pendingExport.getName());
     }
     @Override protected void onPause() {
         web.evaluateJavascript("window.dispatchEvent(new Event('upravdom-pause'));window.dispatchEvent(new Event('pagehide'));", null);

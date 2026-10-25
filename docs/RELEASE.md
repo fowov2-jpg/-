@@ -1,4 +1,4 @@
-# Сборка для выпуска — 0.8.2-rc.1
+# Сборка для выпуска — 0.8.3-rc.1
 
 Требования: JDK 17, Gradle 8.11.1, Android SDK platform 36. Android Gradle Plugin 8.10.1. Минимальная ОС: Android 8.0 с актуальным System WebView. Target/compile SDK: 36.
 

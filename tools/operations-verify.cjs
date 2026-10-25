@@ -29,7 +29,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   await page.locator('#campaignMap[data-renderer=ready]').waitFor();assert.equal((await saved()).calls.length,1);assert.equal(await page.locator('[data-cmd=pause]').getAttribute('aria-label'),'Продолжить время');
   await capture('412-first-call');
   await click('speed');await click('speed');
-  let floodScreenshot=false,guard=0;
+  let guard=0;
   while((await saved()).phase==='active'&&guard++<50){
    await pause();let s=await saved();
    for(const c of s.calls){
@@ -44,22 +44,19 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
     }
     await click('op-tab','[data-tab="work"][role=tab]');
     while(await page.locator('[data-cmd=op-options]').count()){await page.locator('[data-cmd=op-options]').first().click();await page.locator('dialog [data-cmd=op-assign]:not(:disabled)').first().click();}
-    if(c.kind==='flood'&&!floodScreenshot){
-      assert.equal((await saved()).calls.find(v=>v.mission===c.mission).assignments.length,3);
-      await capture('412-flood-dispatch');floodScreenshot=true;
-    }
+
    }
    if(await page.locator('[data-cmd=deselect]').count())await click('deselect');
    await resume();await page.clock.runFor(10000);await pause();
   }
   let s=await saved();assert.equal(s.phase,'report','first shift reached report through browser time');
-  assert.equal(s.report.results.filter(r=>r.success).length,8);assert.equal(s.report.pending,0);assert.ok(s.report.waterMinutes>0);assert.ok(s.report.compensation>0);
-  assert.ok(s.report.results.some(r=>r.kind==='flood'&&r.success));assert.ok(s.report.decisions.length>=8);
-  await capture('412-report');report.checks.push('complete authored first shift: conversations, 3-service flood, dependency waits, restoration, monetary and house consequences');
+  assert.equal(s.report.results.filter(r=>r.success).length,3);assert.equal(s.report.pending,0);assert.ok(s.report.waterMinutes>0);assert.ok(s.report.compensation>0);
+  assert.equal(s.report.career.gained,28);assert.equal(s.operations.shift.peak,1);assert.ok(s.report.decisions.length>=6);
+  await capture('412-report');report.checks.push('two-house first shift: three conversations, one active call, positive budget, points and house consequences');
   await click('nextDay');await click('map');await click('addresses');
   await page.locator('[data-cmd=op-house]').first().click();
   assert.match(await page.locator('dialog').textContent(),/История дома/);await page.locator('[data-cmd=op-prevent]:not(:disabled)').first().click();
-  await page.locator('dialog [data-cmd=close]').click();await page.locator('[data-cmd=op-sign]:not(:disabled)').first().click();
+  await page.locator('dialog [data-cmd=close]').click();for(let i=0;i<2;i++)await page.locator('[data-cmd=op-sign]:not(:disabled)').first().click();
   s=await saved();assert.equal(s.operations.houses.length,4);assert.ok(s.operations.houses.some(h=>Object.values(h.prevention).includes(4)));
   await capture('412-houses');report.checks.push('next day retains house history, pays for prevention and accepts a fourth contract');
   await click('map');await click('prep');await page.locator('[data-cmd=sub][data-sub=people]').click();await click('train','[data-id="0"]');
@@ -69,14 +66,14 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
 
   // A running linked incident survives an export/import boundary with all three
   // participants and unfinished stage dependencies. It is never flattened to v6.
-  const fixture=E.freshCompany(112);E.start(fixture);fixture.calls=[];fixture.cursor=0;fixture.done=[];fixture.operations.planIndex=8;
+  const fixture=E.freshCompany(112);E.start(fixture);fixture.calls=[];fixture.cursor=0;fixture.done=[];fixture.operations.planIndex=0;fixture.operations.shift.schedule=[];fixture.operations.shift.admitted=0;
   const flood=E.Operations.issue(fixture,'flood',fixture.operations.houses[1].id);E.answer(fixture,0,'risk');E.answer(fixture,0,'local');
   for(const cr of fixture.crews)E.dispatch(fixture,0,cr.id);E.tick(fixture,23);
   for(const width of [344,412,960]){
     await page.setViewportSize({width,height:width===344?689:915});
     await page.evaluate(raw=>window.dispatchEvent(new CustomEvent('upravdom-import',{detail:raw})),E.encode(fixture));
     await click('queue');await click('select','[data-id="0"]');await click('op-tab','[data-tab="work"][role=tab]');
-    await capture(width+'-linked-incident');
+    await capture(width+'-linked-incident');if(width===412)await capture('412-flood-dispatch');
     const restored=await saved();assert.deepEqual(restored.calls[0].work,fixture.calls[0].work);assert.deepEqual(restored.calls[0].assignments,fixture.calls[0].assignments);
     const sheet=await page.locator('.opIncident').boundingBox(),nav=await page.locator('.campaignBottom').boundingBox();assert.ok(sheet.y+sheet.height<=nav.y+2,'incident sheet covers bottom menu');
     const queue=await page.locator('.opIncoming').boundingBox();assert.ok(sheet.y>=queue.y+queue.height-1,'incident sheet covers queue');

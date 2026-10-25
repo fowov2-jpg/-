@@ -14,8 +14,8 @@ android {
         minSdk 26
         targetSdk 36
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
-        versionCode 13
-        versionName '0.8.2-gameplay.2'
+        versionCode 14
+        versionName '0.8.3-rc.1'
     }
     signingConfigs {
         if (signedRelease) {
