@@ -11,8 +11,9 @@ test('Road graph connects all three homes with real orthogonal segments', () => 
     assert.deepEqual(path.points.at(-1),R.ROAD_STOPS[b]);
     assert.ok(path.minutes>=10);
     for(let i=1;i<path.points.length;i++)
-      assert.ok(path.points[i][0]===path.points[i-1][0] ||
-        path.points[i][1]===path.points[i-1][1], 'Route must stay on axis-aligned roads');
+      assert.ok((path.points[i][0]===path.points[i-1][0] && [0,4,8].includes(path.points[i][0])) ||
+        (path.points[i][1]===path.points[i-1][1] && [0,4,8].includes(path.points[i][1])),
+        'Route must stay on a drawn road, not just any straight line');
   }
   assert.equal(R.routePlan(0,0).minutes,10);
   assert.equal(R.routePlan(0,1,{day:1,minute:200}).distance,4);
