@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --check web/app.js && node --check web/map.js && node --check web/dispatch-view.js && node --test tests/*.test.js",
+    "test": "node --check web/app.js && node --check web/map.js && node --check web/routing.js && node --check web/dispatch-view.js && node --check web/buildings-view.js && node --check web/buildings.js && node --test tests/*.test.js",
     "start": "node tools/serve.js"
   },
   "engines": {
