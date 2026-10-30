@@ -65,7 +65,7 @@ test('Legacy version-one saves without routes still load and continue', () => {
   delete s.crews[0].route; // old versions had no polyline field
   const restored=E.decode(E.encode(s));
   assert.equal(restored.crews[0].route,undefined);
-  E.tick(restored,42);
+  E.tick(restored,46); // 10 road + 8 diagnosis (not asked) + 28 repair
   assert.equal(restored.calls[0].status,'done');
 });
 
