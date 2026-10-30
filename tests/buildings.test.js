@@ -59,7 +59,7 @@ test('Targeted prevention modifies only one system and charges exactly once',()=
   assert.throws(()=>E.prevent(s,0,'invalid'),/Неизвестная система/);
   assert.equal(s.money,last);
   E.start(s);
-  assert.throws(()=>E.prevent(s,0,'roof'),/подготовке/);
+  assert.throws(()=>E.prevent(s,0,'roof'),/перед сменой/);
   assert.equal(s.money,last);
 });
 
