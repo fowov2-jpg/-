@@ -4,12 +4,14 @@ import {renderMap} from './map.js';
 import {dispatcherTop, dispatcherList, dispatcherDialog} from './dispatch-view.js';
 import {weatherForDay} from './routing.js';
 import {homeCard,homeDialog} from './buildings-view.js';
+import {loadLocal,archiveAndRestart,SAVE_KEY} from './save.js';
 const $=s=>document.querySelector(s),rub=n=>Math.round(n).toLocaleString('ru-RU')+' ₽', serviceIcons=['water','bolt','tool'];
 const status={new:'Ожидает назначения',travel:'В пути',diagnosis:'Диагностика',repair:'Ремонт',done:'Выполнено',contractor:'Подрядчик',idle:'Свободна'};
-let state,saveError=false;try{state=E.decode(localStorage.getItem('upravdom.v1'));}catch{state=E.fresh();}
+let state,saveError=false,damagedSave=null;
+try{const loaded=loadLocal(localStorage);state=loaded.state;damagedSave=loaded.damaged;}catch{state=E.fresh();}
 let tab='map',filter='active',paused=true,speed=1,selected=null,homeSelected=null;
 const view={zoom:1,x:0,y:0,hits:[]};const canvas=$('#map');
-function save(){try{localStorage.setItem('upravdom.v1',E.encode(state));}catch{if(!saveError){toast('Не удалось сохранить: проверьте доступное место');saveError=true;}}}
+function save(){if(damagedSave!==null)return;try{localStorage.setItem(SAVE_KEY,E.encode(state));}catch{if(!saveError){toast('Не удалось сохранить: проверьте доступное место');saveError=true;}}}
 function toast(text){$('#toast').textContent=text;$('#toast').style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').style.display='none',3200);}
 function time(){const t=480+state.minute;return `${String(Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`;}
 function phaseText(){return {prep:'Подготовка к смене',active:paused?'Смена на паузе':'Смена идёт',report:'Смена завершена'}[state.phase];}
@@ -26,6 +28,7 @@ function render(){
  }else renderPage();
  if(selected!==null)renderCall();if(homeSelected!==null)renderHome();
  draw();
+ if(damagedSave!==null)showDamagedSave();
 }
 function renderPage(){
  const p=$('#page');
@@ -40,6 +43,7 @@ function renderPage(){
 }
 function openDialog(html){$('#dialog').innerHTML=html;if(!$('#dialog').open)$('#dialog').showModal();}
 function shell(title,body){return `<div class="row"><h2>${title}</h2>${button('close',icon('close'),'aria-label="Закрыть"','close')}</div><div class="dialogBody">${body}</div>`;}
+function showDamagedSave(){openDialog(`<h2>Сохранение требует восстановления</h2><div class="dialogBody"><p>Не удалось прочитать прежний прогресс. Мы не перезаписали исходные данные.</p><p class="muted" style="margin:14px 0">Для новой игры сначала создадим резервную копию на этом устройстве. Если свободного места не хватает, прежние данные останутся без изменений.</p>${button('recoverRestart','Сохранить архив и начать новую игру','','primary wide')}</div>`);}
 function renderCall(){const c=state.calls.find(c=>c.id===selected);if(!c)return;openDialog(dispatcherDialog(state,c,{button,icon,pill,rub,shell,status}));}
 function renderHome(){const h=state.homes[homeSelected];if(!h)return;openDialog(homeDialog(h,state.phase,state.money,{button,shell,rub}));}
 function showReport(){const r=state.report;openDialog(shell('Смена завершена',`<p class="muted">Северный район · день ${state.day}</p><div class="grid" style="margin:20px 0"><div class="metric"><small>Выполнено</small><b>${r.done} / ${r.total}</b></div><div class="metric"><small>Результат</small><b class="${r.net>=0?'green':'danger'}">${rub(r.net)}</b></div></div><p>С просрочкой: ${r.late}. Переходят на завтра: ${r.pending}.</p><p class="muted" style="margin:12px 0">Бригады отдохнут. Незавершённые работы и назначения сохраняются.</p>${button('next','Следующий день', '', 'primary wide')}`));}
@@ -67,10 +71,15 @@ function action(el){const a=el.dataset.action,id=Number(el.dataset.id);try{
  else if(a==='help'){openDialog(shell('Добро пожаловать в «Уют»',`<div class="stack"><p>Вы управляете тремя домами и тремя коммунальными бригадами.</p><p><b>1.</b> Перед сменой проверьте топливо и состояние машин в «Службах».</p><p><b>2.</b> Начните смену. Откройте заявку, уточните обстоятельства и отправьте подходящую бригаду.</p><p><b>3.</b> Следите за сроками. Если все заняты, можно привлечь подрядчика.</p><p><b>4.</b> В 16:00 появится отчёт. Договорные платежи поступают в конце смены.</p><p class="muted">Карта перемещается пальцем, масштабируется двумя пальцами или кнопками. При открытом окне, сворачивании приложения и выходе время не идёт. Прогресс сохраняется автоматически.</p></div>`));return;}
  else if(a==='reset'){openDialog(shell('Начать заново?',`<p>Текущая компания и её сохранение будут заменены. Это действие нельзя отменить.</p><div class="actions" style="margin-top:20px">${button('confirmReset','Начать новую игру','','danger')} ${button('close','Отмена')}</div>`));return;}
  else if(a==='confirmReset'){state=E.fresh();paused=true;close();tab='map';}
+ else if(a==='recoverRestart'){
+  const recovered=archiveAndRestart(localStorage,damagedSave,Date.now());
+  state=recovered.state;damagedSave=null;paused=true;selected=null;homeSelected=null;tab='map';
+  close();toast('Старое сохранение помещено в резервный архив');save();render();return;
+ }
  save();render();
  }catch(e){toast(e.message);}}
  document.addEventListener('click',e=>{const el=e.target.closest('button[data-action]');if(el&&!el.disabled)action(el);});
- $('#dialog').addEventListener('cancel',()=>{selected=null;homeSelected=null;});
+ $('#dialog').addEventListener('cancel',e=>{if(damagedSave!==null){e.preventDefault();return;}selected=null;homeSelected=null;});
  window.addEventListener('upravdom-pause',()=>{paused=true;save();render();});
  document.addEventListener('visibilitychange',()=>{if(document.hidden){paused=true;save();}render();});window.addEventListener('pagehide',save);window.addEventListener('resize',draw);
  const pointers=new Map();let last=null,drag=0,pinch=0;
