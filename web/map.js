@@ -1,8 +1,9 @@
 import {COLORS,TYPES} from './engine.js';
 import {deadline,queue} from './dispatch.js';
-const houses=[[2,2],[6,2],[2,6]],stops=[[2,4],[6,4],[2,8]];
+import {ROAD_STOPS,routePlan} from './routing.js';
+const houses=[[2,2],[6,2],[2,6]],stops=ROAD_STOPS;
 const iso=(x,y,z=0)=>[500+(x-y)*49,100+(x+y)*27-z];
-export function route(from,to){const a=stops[from]||[8,8],b=stops[to];return [a,[4,a[1]],[4,b[1]],b];}
+export function route(from,to){return routePlan(from,to).points;}
 export function renderMap(canvas,state,view){
  const dpr=Math.min(devicePixelRatio||1,2),rect=canvas.getBoundingClientRect();if(!rect.width||!rect.height)return;
  if(canvas.width!==Math.round(rect.width*dpr)||canvas.height!==Math.round(rect.height*dpr)){canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);}
@@ -25,7 +26,7 @@ export function renderMap(canvas,state,view){
  function label(text,p,bg,size=12){ctx.font=`600 ${size}px sans-serif`;const width=ctx.measureText(text).width+18;ctx.fillStyle=bg;ctx.beginPath();ctx.roundRect(p[0]-width/2,p[1]-14,width,24,6);ctx.fill();ctx.fillStyle='#f0f6ef';ctx.textAlign='center';ctx.fillText(text,p[0],p[1]+2);}
  [[10,2],[2,10],[6,10],[10,6]].forEach(([x,y])=>building(x,y,false));houses.forEach(([x,y],i)=>building(x,y,true,i));
  ground(5,5,1.5,1.8,'#426f62');line([iso(5,5),iso(6.5,5),iso(6.5,6.8),iso(5,6.8),iso(5,5)],'#c4d3a8',2);label('УК «Уют» · гараж',iso(8,8,-28),'#0b202be0');
- for(const cr of state.crews){let pos=stops[cr.home];if(cr.status==='travel'){const c=state.calls.find(c=>c.id===cr.job),r=route(cr.home,c.home),segments=r.slice(1).map((p,i)=>Math.hypot(p[0]-r[i][0],p[1]-r[i][1])),total=segments.reduce((a,b)=>a+b,0);line(r.map(p=>iso(...p)),COLORS[cr.service],3,[8,5]);let distance=(1-cr.remaining/cr.total)*total;for(let i=0;i<segments.length;i++){if(distance<=segments[i]||i===segments.length-1){const t=segments[i]?distance/segments[i]:0;pos=[r[i][0]+(r[i+1][0]-r[i][0])*t,r[i][1]+(r[i+1][1]-r[i][1])*t];break;}distance-=segments[i];}}
+ for(const cr of state.crews){let pos=stops[cr.home];if(cr.status==='travel'){const c=state.calls.find(c=>c.id===cr.job);if(!c)continue;const r=Array.isArray(cr.route)&&cr.route.length?cr.route:routePlan(cr.home,c.home,{day:state.day,minute:state.minute}).points,segments=r.slice(1).map((p,i)=>Math.hypot(p[0]-r[i][0],p[1]-r[i][1])),total=segments.reduce((a,b)=>a+b,0);line(r.map(p=>iso(...p)),COLORS[cr.service],3,[8,5]);let distance=(1-cr.remaining/cr.total)*total;for(let i=0;i<segments.length;i++){if(distance<=segments[i]||i===segments.length-1){const t=segments[i]?distance/segments[i]:0;pos=[r[i][0]+(r[i+1][0]-r[i][0])*t,r[i][1]+(r[i+1][1]-r[i][1])*t];break;}distance-=segments[i];}}
  const p=iso(...pos);ctx.save();ctx.translate(p[0]+cr.id*8,p[1]);ctx.fillStyle=COLORS[cr.service];ctx.beginPath();ctx.roundRect(-13,-9,26,15,4);ctx.fill();ctx.fillStyle='#12303f';ctx.fillRect(3,-7,7,10);ctx.fillStyle='#e4e8e2';ctx.fillRect(-10,-5,10,6);ctx.restore();}
  for(let i=0;i<3;i++){const calls=state.calls.filter(c=>c.home===i&&c.status!=='done');if(!calls.length)continue;const c=queue(state).find(item=>item.home===i),p=iso(...houses[i],125);const urgency=deadline(state,c).level;ctx.shadowBlur=16;ctx.shadowColor=COLORS[TYPES[c.type][1]];ctx.fillStyle=COLORS[TYPES[c.type][1]];ctx.beginPath();ctx.arc(...p,19,0,7);ctx.fill();ctx.shadowBlur=0;if(urgency==='critical'||urgency==='overdue'){ctx.strokeStyle=urgency==='overdue'?'#ffdddd':'#ffd78b';ctx.lineWidth=5;ctx.beginPath();ctx.arc(...p,23,0,Math.PI*2);ctx.stroke();}ctx.fillStyle='#071b24';ctx.font='bold 20px sans-serif';ctx.textAlign='center';ctx.fillText(['В','Э','Р'][TYPES[c.type][1]],p[0],p[1]+7);view.hits.unshift({point:view.project(p),call:c.id});}
 }
