@@ -76,7 +76,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
    if(await page.locator('[data-cmd=deselect]').isVisible())await click('deselect');
    await capture('joint-worksite');
    const frozen=await canvas.evaluate(n=>n.toDataURL());await page.waitForTimeout(350);assert.equal(await canvas.evaluate(n=>n.toDataURL()),frozen,'Paused art moved');
-   await click('addresses');await page.locator('[data-cmd=op-house]').first().click();
+   await click('plan');await page.locator('[data-cmd=territory-tab][data-tab=houses]').click();await page.locator('[data-cmd=op-house]').first().click();
    await page.locator('.opHouseArtwork img').evaluate(im=>im.decode());await capture('house');await click('close');
    await page.reload();await click('continue');await page.locator('#campaignMap[data-graphics=blender]').waitFor();
    assert.equal(await page.locator('#campaignMap').getAttribute('data-operations'),'original-art');

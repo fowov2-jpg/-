@@ -1,6 +1,13 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {placeEdgeIndicators} from '../web/map-annotations.js';
+
+test('edge call targets avoid the mobile crew rail, focus button and vehicle dock',()=>{
+ const avoid=[{x:8,y:300,w:44,h:150},{x:358,y:500,w:44,h:44},{x:10,y:760,w:392,h:70}];
+ const result=placeEdgeIndicators([{id:1,point:[-500,314]},{id:2,point:[800,520]},{id:3,point:[200,1300]}],{width:412,height:915,top:72,bottom:803,avoid});
+ assert.equal(result.length,3);
+ for(const p of result)for(const r of avoid)assert.ok(p.x+22<=r.x||p.x-22>=r.x+r.w||p.y+22<=r.y||p.y-22>=r.y+r.h);
+});
 test('Eight offscreen incidents get non-overlapping controls above the incident drawer',()=>{
  for(const width of [344,360,412,760]){
   const items=Array.from({length:8},(_,mission)=>({mission,point:[2000,2000+mission*20]}));
