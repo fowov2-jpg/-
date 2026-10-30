@@ -44,6 +44,9 @@ function neighbors(index,blocked) {
     if(i===index)continue;
     const b=NODES[i];
     if(a[0]!==b[0] && a[1]!==b[1])continue;
+    // Vertical road segments exist only at x=0,4,8; horizontal only at y=0,4,8.
+    if(a[0]===b[0] && ![0,4,8].includes(a[0]))continue;
+    if(a[1]===b[1] && ![0,4,8].includes(a[1]))continue;
     if(NODES.some((p,k)=>k!==index&&k!==i &&
       (a[0]===b[0] ? p[0]===a[0]&&p[1]>Math.min(a[1],b[1])&&p[1]<Math.max(a[1],b[1]) :
         p[1]===a[1]&&p[0]>Math.min(a[0],b[0])&&p[0]<Math.max(a[0],b[0]))))continue;
