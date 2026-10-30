@@ -1,4 +1,5 @@
 // Deterministic simulation. No DOM, clocks, network or storage dependencies.
+import {routePlan,weatherForDay} from './routing.js';
 export const SERVICES = ['Сантехническая №1','Электротехническая №2','Ремонтная №3'];
 export const COLORS = ['#ff665e','#ffc64a','#58b9ff'];
 export const TYPES = [
@@ -30,15 +31,17 @@ export const HOMES = [
 ];
 export const SHIFT = 480;
 // Approximate travel time shared with the dispatcher until weighted road routing is implemented.
-export function travelMinutes(crew, call) {return 10 + Math.abs(crew.home - call.home) * 5;}
+export function travelMinutes(crew, call, state) {return routePlan(crew.home,call.home,{day:state?.day??1,minute:state?.minute??0}).minutes;}
 export function fresh() { return {version:1,day:1,minute:0,phase:'prep',money:3000000,reputation:70,seed:112,sequence:0,nextCall:0,homes:structuredClone(HOMES),calls:[],ledger:[],report:null,opening:3000000,crews:SERVICES.map((name,id)=>({id,name,service:id,level:1,xp:0,fatigue:0,fuel:100,condition:100,equipment:1,status:'idle',job:null,remaining:0,total:0,home:0}))}; }
 function rand(s) { s.seed=(Math.imul(s.seed,1664525)+1013904223)>>>0; return s.seed/4294967296; }
 export function book(s,amount,label) { s.money+=amount;s.ledger.unshift({day:s.day,minute:s.minute,amount,label});s.ledger=s.ledger.slice(0,100); }
 function spend(s,amount,label) { if(s.money<amount) throw Error('Недостаточно средств');book(s,-amount,label); }
 export function spawn(s,typeIndex=null,homeIndex=null) {
- const winter=(Math.floor((s.day-1)/7)%4)===0;
+ const weather=weatherForDay(s.day);
+ const winter=weather.season===0;
  const pool=TYPES.map((_,i)=>i).filter(i=>winter||i!==17);
- if(winter)pool.push(5,5,17,17);
+ if(weather.kind==='snow'||weather.kind==='frost')pool.push(5,5,17,17);
+ if(weather.kind==='rain')pool.push(14,14,19,19);
  const t=typeIndex??pool[Math.floor(rand(s)*pool.length)];
  const weights=s.homes.map(h=>20+h.wear);let roll=rand(s)*weights.reduce((a,b)=>a+b,0), h=0;
  while(h<weights.length-1 && (roll-=weights[h])>0)h++;
@@ -59,9 +62,10 @@ export function dispatch(s,id,crewId) {
  if(crew.status!=='idle')throw Error('Бригада занята');
  if(crew.service!==TYPES[c.type][1])throw Error('Нужна другая специализация');
  if(crew.fuel<8||crew.condition<20||crew.fatigue>90)throw Error('Бригаде нужен отдых или обслуживание');
+ const plan=routePlan(crew.home,c.home,{day:s.day,minute:s.minute});
  spend(s,TYPES[c.type][4],'Материалы: '+TYPES[c.type][0]);
  c.status='travel';c.crew=crew.id;crew.status='travel';crew.job=c.id;
- crew.remaining=crew.total=travelMinutes(crew,c);crew.fuel-=8;
+ crew.route=plan.points;crew.remaining=crew.total=plan.minutes;crew.fuel-=8;
 }
 export function outsource(s,id) {
  if(s.phase!=='active')throw Error('Смена не запущена');const c=s.calls.find(c=>c.id===id);
@@ -84,7 +88,7 @@ export function tick(s,minutes=1) {
  const c=s.calls.find(c=>c.id===cr.job);
  if(cr.status==='travel'){cr.status=c.status='diagnosis';cr.home=c.home;cr.remaining=cr.total=c.asked?4:8;}
  else if(cr.status==='diagnosis'){c.diagnosed=true;cr.status=c.status='repair';cr.remaining=cr.total=Math.ceil(TYPES[c.type][3]/(1+(cr.level-1)*.1+(cr.equipment-1)*.15));}
- else {complete(s,c);cr.status='idle';cr.job=null;cr.xp+=10;cr.fatigue=Math.min(100,cr.fatigue+12);cr.condition=Math.max(0,cr.condition-3);}
+ else {complete(s,c);cr.status='idle';cr.job=null;cr.route=null;cr.xp+=10;cr.fatigue=Math.min(100,cr.fatigue+12);cr.condition=Math.max(0,cr.condition-3);}
  }
  if(s.minute>=SHIFT)finish(s);
  }
