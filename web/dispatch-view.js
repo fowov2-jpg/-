@@ -1,11 +1,13 @@
 import * as E from './engine.js';
 import * as D from './dispatch.js';
+import {weatherForDay} from './routing.js';
 
 // Presentation only: buttons retain the single event handler in app.js.
 export function dispatcherTop(state, {icon, button, status, pill}) {
   const count = D.counts(state), current = D.queue(state)[0];
   const summary = `<div class="dispatch-summary">
     <span>Ожидают: <b>${count.new}</b></span>
+    <span class="weather-chip">${weatherForDay(state.day).label}</span>
     <span class="${count.overdue ? 'danger' : ''}">Просрочено: <b>${count.overdue}</b></span>
     ${button('tab', 'Вся очередь', 'data-tab="calls" aria-label="Открыть очередь заявок"', 'queue-link')}
   </div>`;
