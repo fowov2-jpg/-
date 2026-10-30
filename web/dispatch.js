@@ -63,7 +63,7 @@ export function crewOption(state, call, crew) {
     crew.condition < 20 ? 'Машине требуется ТО' :
     crew.fatigue > 90 ? 'Бригада устала — нужен отдых' :
     state.money < type[4] ? 'Недостаточно денег на материалы' : null;
-  const arrival = travelMinutes(crew, call);
+  const arrival = travelMinutes(crew, call, state);
   const diagnosis = call.asked ? 4 : 8;
   const repair = Math.ceil(type[3] / (1 + (crew.level - 1) * .1 + (crew.equipment - 1) * .15));
   return {available: !reason, reason, arrival, total: arrival + diagnosis + repair, materials: type[4]};
