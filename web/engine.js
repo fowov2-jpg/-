@@ -29,6 +29,8 @@ export const HOMES = [
  {id:2,name:'ул. Молодёжная, 8',x:310,y:820,wear:48}
 ];
 export const SHIFT = 480;
+// Approximate travel time shared with the dispatcher until weighted road routing is implemented.
+export function travelMinutes(crew, call) {return 10 + Math.abs(crew.home - call.home) * 5;}
 export function fresh() { return {version:1,day:1,minute:0,phase:'prep',money:3000000,reputation:70,seed:112,sequence:0,nextCall:0,homes:structuredClone(HOMES),calls:[],ledger:[],report:null,opening:3000000,crews:SERVICES.map((name,id)=>({id,name,service:id,level:1,xp:0,fatigue:0,fuel:100,condition:100,equipment:1,status:'idle',job:null,remaining:0,total:0,home:0}))}; }
 function rand(s) { s.seed=(Math.imul(s.seed,1664525)+1013904223)>>>0; return s.seed/4294967296; }
 export function book(s,amount,label) { s.money+=amount;s.ledger.unshift({day:s.day,minute:s.minute,amount,label});s.ledger=s.ledger.slice(0,100); }
@@ -59,7 +61,7 @@ export function dispatch(s,id,crewId) {
  if(crew.fuel<8||crew.condition<20||crew.fatigue>90)throw Error('Бригаде нужен отдых или обслуживание');
  spend(s,TYPES[c.type][4],'Материалы: '+TYPES[c.type][0]);
  c.status='travel';c.crew=crew.id;crew.status='travel';crew.job=c.id;
- crew.remaining=crew.total=10+Math.abs(crew.home-c.home)*5;crew.fuel-=8;
+ crew.remaining=crew.total=travelMinutes(crew,c);crew.fuel-=8;
 }
 export function outsource(s,id) {
  if(s.phase!=='active')throw Error('Смена не запущена');const c=s.calls.find(c=>c.id===id);
