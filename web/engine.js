@@ -1,5 +1,6 @@
 // Deterministic simulation. No DOM, clocks, network or storage dependencies.
 import {routePlan,weatherForDay} from './routing.js';
+import {SYSTEM_KEYS,systemForType,normalizeHome,changeWear,applyDailyWear,averageWear} from './buildings.js';
 export const SERVICES = ['Сантехническая №1','Электротехническая №2','Ремонтная №3'];
 export const COLORS = ['#ff665e','#ffc64a','#58b9ff'];
 export const TYPES = [
@@ -30,22 +31,37 @@ export const HOMES = [
  {id:2,name:'ул. Молодёжная, 8',x:310,y:820,wear:48}
 ];
 export const SHIFT = 480;
-// Approximate travel time shared with the dispatcher until weighted road routing is implemented.
+// One shared travel estimate is used by the game and the dispatch UI.
 export function travelMinutes(crew, call, state) {return routePlan(crew.home,call.home,{day:state?.day??1,minute:state?.minute??0}).minutes;}
-export function fresh() { return {version:1,day:1,minute:0,phase:'prep',money:3000000,reputation:70,seed:112,sequence:0,nextCall:0,homes:structuredClone(HOMES),calls:[],ledger:[],report:null,opening:3000000,crews:SERVICES.map((name,id)=>({id,name,service:id,level:1,xp:0,fatigue:0,fuel:100,condition:100,equipment:1,status:'idle',job:null,remaining:0,total:0,home:0}))}; }
+export function fresh() { return {version:2,day:1,minute:0,phase:'prep',money:3000000,reputation:70,seed:112,sequence:0,nextCall:0,homes:structuredClone(HOMES).map(normalizeHome),calls:[],ledger:[],report:null,opening:3000000,crews:SERVICES.map((name,id)=>({id,name,service:id,level:1,xp:0,fatigue:0,fuel:100,condition:100,equipment:1,status:'idle',job:null,remaining:0,total:0,home:0}))}; }
 function rand(s) { s.seed=(Math.imul(s.seed,1664525)+1013904223)>>>0; return s.seed/4294967296; }
 export function book(s,amount,label) { s.money+=amount;s.ledger.unshift({day:s.day,minute:s.minute,amount,label});s.ledger=s.ledger.slice(0,100); }
 function spend(s,amount,label) { if(s.money<amount) throw Error('Недостаточно средств');book(s,-amount,label); }
 export function spawn(s,typeIndex=null,homeIndex=null) {
  const weather=weatherForDay(s.day);
- const winter=weather.season===0;
- const pool=TYPES.map((_,i)=>i).filter(i=>winter||i!==17);
- if(weather.kind==='snow'||weather.kind==='frost')pool.push(5,5,17,17);
- if(weather.kind==='rain')pool.push(14,14,19,19);
- const t=typeIndex??pool[Math.floor(rand(s)*pool.length)];
- const weights=s.homes.map(h=>20+h.wear);let roll=rand(s)*weights.reduce((a,b)=>a+b,0), h=0;
+ const cold=weather.kind==='snow'||weather.kind==='frost';
+ // Per-system risk selects the incident; the condition of THAT system
+ // then biases which property receives it. PRNG is saved with the game.
+ const typeWeights=TYPES.map((_,i)=>{
+   if(i===17&&!cold)return 0; // ice is a cold-season event
+   const base=1+averageWear(s.homes,systemForType(i))/50;
+   return base*((cold&&(i===5||i===17))?3:1)*
+     ((weather.kind==='rain'&&(i===14||i===19))?3:1);
+ });
+ let t=typeIndex;
+ if(t===null){
+   let roll=rand(s)*typeWeights.reduce((a,b)=>a+b,0);
+   t=typeWeights.length-1;
+   for(let i=0;i<typeWeights.length;i++)if((roll-=typeWeights[i])<0){t=i;break;}
+ }
+ if(!TYPES[t])throw Error('Неизвестное происшествие');
+ const system=systemForType(t);
+ const weights=s.homes.map(h=>20+h.systems[system]);
+ let roll=rand(s)*weights.reduce((a,b)=>a+b,0), h=0;
  while(h<weights.length-1 && (roll-=weights[h])>0)h++;
- const home=homeIndex??h, spec=TYPES[t];
+ const home=homeIndex??h;
+ if(!s.homes[home])throw Error('Дом не найден');
+ const spec=TYPES[t];
  const call={id:++s.sequence,type:t,home,priority:spec[2],created:s.minute,status:'new',asked:false,diagnosed:false,crew:null,due:s.minute+[180,110,65][spec[2]-1],late:false};
  s.calls.push(call);return call;
 }
@@ -72,14 +88,14 @@ export function outsource(s,id) {
  if(!c||c.status!=='new')throw Error('Заявка недоступна');
  spend(s,TYPES[c.type][4]*3,'Подрядчик: '+TYPES[c.type][0]);c.status='contractor';c.remaining=45;
 }
-function complete(s,c) { c.status='done';c.completed=s.minute;s.reputation=Math.min(100,s.reputation+(c.late?0:1));s.homes[c.home].wear=Math.max(0,s.homes[c.home].wear-2); }
+function complete(s,c) { c.status='done';c.completed=s.minute;s.reputation=Math.min(100,s.reputation+(c.late?0:1));changeWear(s.homes[c.home],systemForType(c.type),-10); }
 export function tick(s,minutes=1) {
  if(s.phase!=='active')return;
  for(let n=0;n<Math.min(480,Math.max(0,Math.floor(minutes)))&&s.phase==='active';n++) {
  s.minute++;
  if(s.minute>=s.nextCall&&s.minute<400) { if(s.calls.filter(c=>c.status!=='done').length<7 && rand(s)<.35+s.homes.reduce((n,h)=>n+h.wear,0)/300)spawn(s);s.nextCall=s.minute+35+Math.floor(rand(s)*25); }
  for(const c of s.calls) {
- if(c.status!=='done'&&!c.late&&s.minute>c.due) {c.late=true;s.reputation=Math.max(0,s.reputation-3);book(s,-1500*c.priority,'Ущерб: '+TYPES[c.type][0]);s.homes[c.home].wear=Math.min(100,s.homes[c.home].wear+3);}
+ if(c.status!=='done'&&!c.late&&s.minute>c.due) {c.late=true;s.reputation=Math.max(0,s.reputation-3);book(s,-1500*c.priority,'Ущерб: '+TYPES[c.type][0]);changeWear(s.homes[c.home],systemForType(c.type),12);}
  if(c.status==='contractor'&&--c.remaining<=0)complete(s,c);
  }
  for(const cr of s.crews) {
@@ -105,7 +121,7 @@ export function nextDay(s) {
  s.calls=s.calls.filter(c=>c.status!=='done');
  for(const c of s.calls){c.created-=SHIFT;c.due-=SHIFT;}
  for(const cr of s.crews)cr.fatigue=Math.max(0,cr.fatigue-50);
- for(const h of s.homes)h.wear=Math.min(100,h.wear+1);
+ for(const h of s.homes)applyDailyWear(h,weatherForDay(s.day));
 }
 export function maintain(s,id,kind) {
  const c=s.crews[id];if(!c||c.status!=='idle')throw Error('Дождитесь освобождения бригады');
@@ -114,6 +130,30 @@ export function maintain(s,id,kind) {
  else if(kind==='train'){if(c.xp<30)throw Error('Нужно 30 опыта');spend(s,15000,'Обучение: '+c.name);c.xp-=30;c.level++;}
  else throw Error('Неизвестное действие');
 }
-export function prevent(s,id) {if(s.phase!=='prep')throw Error('Профилактика доступна перед сменой');const h=s.homes[id];if(!h)throw Error('Дом не найден');spend(s,12000,'Профилактика: '+h.name);h.wear=Math.max(0,h.wear-15);}
+export function prevent(s,id,systemKey=null) {
+ if(s.phase!=='prep')throw Error('Профилактика доступна перед сменой');
+ const h=s.homes[id];if(!h)throw Error('Дом не найден');
+ if(systemKey!==null && !SYSTEM_KEYS.includes(systemKey))throw Error('Неизвестная система дома');
+ const amount=systemKey===null?12000:8000;
+ spend(s,amount,'Профилактика: '+h.name+(systemKey===null?'':' / '+systemKey));
+ if(systemKey===null)for(const key of SYSTEM_KEYS)changeWear(h,key,-15);
+ else changeWear(h,systemKey,-20);
+}
 export function encode(s){return JSON.stringify(s);}
-export function decode(raw){const s=JSON.parse(raw);if(s?.version!==1||!['prep','active','report'].includes(s.phase)||!Number.isFinite(s.money)||!Number.isInteger(s.day)||s.day<1||!Number.isFinite(s.minute)||s.minute<0||s.minute>480||!Array.isArray(s.crews)||s.crews.length!==3||!Array.isArray(s.homes)||s.homes.length!==3||!Array.isArray(s.calls)||!Array.isArray(s.ledger))throw Error('Сохранение повреждено');for(const c of s.calls)if(!TYPES[c.type]||!s.homes[c.home])throw Error('Неизвестная заявка');return s;}
+export function decode(raw){
+ const s=JSON.parse(raw);
+ if(![1,2].includes(s?.version)||!['prep','active','report'].includes(s.phase)||
+    !Number.isFinite(s.money)||!Number.isInteger(s.day)||s.day<1||
+    !Number.isFinite(s.minute)||s.minute<0||s.minute>480||
+    !Array.isArray(s.crews)||s.crews.length!==3||
+    !Array.isArray(s.homes)||s.homes.length!==3||
+    !Array.isArray(s.calls)||!Array.isArray(s.ledger))
+   throw Error('Сохранение повреждено');
+ for(const h of s.homes){
+   if(s.version===2 && !h.systems)throw Error('Отсутствует состояние дома');
+   normalizeHome(h);
+ }
+ for(const c of s.calls)if(!TYPES[c.type]||!s.homes[c.home])throw Error('Неизвестная заявка');
+ s.version=2; // migration from version 1: every system inherits the former aggregate wear
+ return s;
+}
