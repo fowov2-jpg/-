@@ -1,5 +1,5 @@
 // Read-only selectors for the dispatcher UI. The simulation remains the single source of truth.
-import {TYPES} from './engine.js';
+import {TYPES, travelMinutes} from './engine.js';
 
 export const FILTERS = [
   ['active', 'Активные'],
@@ -50,12 +50,6 @@ export function queue(state, filter = 'active') {
     return diff || b.priority - a.priority || (a.status === 'new' ? 0 : 1) - (b.status === 'new' ? 0 : 1) ||
       a.due - b.due || a.id - b.id;
   });
-}
-
-// This is the travel formula used by engine.dispatch today; update both together
-// when replacing the index-based travel model with a proper road graph.
-export function travelMinutes(crew, call) {
-  return 10 + Math.abs(crew.home - call.home) * 5;
 }
 
 export function crewOption(state, call, crew) {
