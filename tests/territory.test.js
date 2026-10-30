@@ -91,6 +91,13 @@ test('new authored heating, gutter, steps and cable jobs finish through their re
   assert.equal(s.calls.length,0,kind);assert.ok(s.operations.history[0].success,kind);assert.ok(c.work.every(w=>w.status==='done'));
  }
 });
+test('securing a worksite reduces harm while preserving the required electrical safety stages',()=>{
+ for(const kind of ['gutters','delivery','cable']){
+  const secured=isolated(kind),unsecured=isolated(kind);talk(secured.s,secured.c);
+  E.tick(secured.s,20);E.tick(unsecured.s,20);assert.ok(secured.c.damage<unsecured.c.damage,kind);
+  if(kind==='cable')assert.ok(O.definitions(secured.c).find(d=>d.id==='trench').requires.includes('isolate'));
+ }
+});
 test('specialist purchases have real career gates, speed benefits and compatibility limits',()=>{
  const s=E.freshTerritoryCompany(),before=E.encode(s);assert.throws(()=>E.buy(s,'gazelle-next-aerial-lift'));assert.equal(E.encode(s),before);
  s.operations.career.earned=220;T.area(s).points=220;T.record(s).points=220;E.buy(s,'gazelle-next-aerial-lift');

@@ -302,7 +302,7 @@ function damageRate(s,c) {
   if (c.kind==='roof') rate*=weather(s).roof;
   if (h.prevention[d.system]>=s.day) rate*=.65;
   if (c.flags.branchWater || c.flags.localWater || isDone(c,'stop')) rate=0;
-  if (c.flags.restrict || c.flags.guarded && c.kind==='entrance' || c.flags.watch && s.clock-c.created<45) rate*=.35;
+  if (c.flags.restrict || c.flags.guarded && ['entrance','gutters','delivery','cable'].includes(c.kind) || c.flags.watch && s.clock-c.created<45) rate*=.35;
   if (isDone(c,'cover')) rate*=.15;
   if (c.informed && ['light','power','pump','door'].includes(d.impact)) rate*=.7;
   return rate;
