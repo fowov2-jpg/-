@@ -2,6 +2,7 @@ import * as E from './engine.js';
 import {icon} from './icons.js';
 import {renderMap} from './map.js';
 import {dispatcherTop, dispatcherList, dispatcherDialog} from './dispatch-view.js';
+import {weatherForDay} from './routing.js';
 const $=s=>document.querySelector(s),rub=n=>Math.round(n).toLocaleString('ru-RU')+' ₽', serviceIcons=['water','bolt','tool'];
 const status={new:'Ожидает назначения',travel:'В пути',diagnosis:'Диагностика',repair:'Ремонт',done:'Выполнено',contractor:'Подрядчик',idle:'Свободна'};
 let state,saveError=false;try{state=E.decode(localStorage.getItem('upravdom.v1'));}catch{state=E.fresh();}
@@ -15,7 +16,7 @@ function active(){return state.calls.filter(c=>c.status!=='done');}
 function pill(c){return `<span class="badge ${c.priority===3?'red':''}">${['','ОБЫЧНЫЙ','ВЫСОКИЙ','КРИТИЧЕСКИЙ'][c.priority]} ПРИОРИТЕТ</span>`;}
 function button(action,text,extra='',cls=''){return `<button data-action="${action}" ${extra} class="${cls}">${text}</button>`;}
 function render(){
- $('#header').innerHTML=`<div class="brand">${icon('home')}<div><h1>Управдом</h1><small>УК «УЮТ» · СМЕНА ${state.day}</small></div></div><div class="stats"><div class="stat weather"><strong>${['−2° · Снег','+8° · Дождь','+23° · Ясно','+5° · Дождь'][Math.floor((state.day-1)/7)%4]}</strong><small>Северный район</small></div><div class="stat"><strong class="money">${rub(state.money)}</strong><small>Репутация ${state.reputation}/100</small></div></div>`;
+ $('#header').innerHTML=`<div class="brand">${icon('home')}<div><h1>Управдом</h1><small>УК «УЮТ» · СМЕНА ${state.day}</small></div></div><div class="stats"><div class="stat weather"><strong>${weatherForDay(state.day).label}</strong><small>Северный район</small></div><div class="stat"><strong class="money">${rub(state.money)}</strong><small>Репутация ${state.reputation}/100</small></div></div>`;
  $('#nav').innerHTML=[['map','map','Карта'],['calls','calls','Заявки'],['services','crew','Службы'],['finance','money','Финансы']].map(([id,ico,name])=>button('tab',`${icon(ico)}<span>${name}${id==='calls'&&active().length?' · '+active().length:''}</span>`,`data-tab="${id}" aria-current="${tab===id?'page':'false'}"`,tab===id?'active':'')).join('');
  $('#mapView').hidden=tab!=='map';$('#page').hidden=tab==='map';
  if(tab==='map'){
