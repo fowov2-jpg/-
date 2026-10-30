@@ -46,3 +46,7 @@
   #mapView .zoom{top:180px}
   .district{display:none}
 }
+
+/* Road-condition HUD: visible on narrow Android screens where header weather hides. */
+.dispatch-summary .weather-chip{color:#d0e6f0;padding:2px 6px;border:1px solid #486575;border-radius:7px;font-variant-numeric:tabular-nums}
+@media(max-width:500px){.dispatch-summary .weather-chip{font-size:11px}}
