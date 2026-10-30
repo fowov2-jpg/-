@@ -4,7 +4,7 @@ import {fuelFor,repairTime,deadlineFor,cadence,payment,expenses,serviceCost,supp
 import {trainingCost} from './company-reports.js';
 import {migrateV4,migrateV5} from './campaign-migrate.js';
 import * as Operations from './shift-operations.js';
-import {storageRecord,storedJSON,storedVersion} from './company-storage.js';
+import {storageRecord,storedJSON,storedVersion,archiveRecord} from './company-storage.js';
 export {Operations};
 export {VEHICLE_MODELS,repairTime,expenses,supplyCost,payment,efficiency};
 export const maintainCost=(s,id)=>serviceCost(s.vehicles.find(v=>v.id===id));
@@ -12,6 +12,7 @@ export const SAVE='upravdom.campaign.v4',BACKUP=SAVE+'.backup',SHIFT=480;
 export const MIGRATION_ARCHIVE=SAVE+'.before-v6';
 export const OPERATION_ARCHIVE=SAVE+'.before-v7';
 export const PROGRESSION_ARCHIVE=SAVE+'.before-v8';
+export const TERRITORY_ARCHIVE=SAVE+'.before-v9';
 const requireThat=(v,m)=>{if(!v)throw Error(m);},clamp=n=>Math.max(0,Math.min(100,n));
 const catalogs=new Map();
 export function catalog(s){const key=s.seed+':'+s.region;if(!catalogs.has(key))catalogs.set(key,missions(s.seed,s.region));return catalogs.get(key);}
@@ -21,7 +22,9 @@ export function fresh(seed=112){const s={version:6,clock:0,seed:seed>>>0,region:
  crews:[0,1,2].map(id=>({id,service:id,members:[id*2,id*2+1],vehicle:id,point:parkingBay(seed,0,id),angle:-Math.PI/2,status:'idle',job:null})),
  stock:[40,40,40],nextVehicle:3,nextEmployee:6,nextCrew:3,ledger:[],report:null};catalog(s);return s;}
 export function freshCompany(seed=112,{gradual=true}={}){return Operations.enable(fresh(seed),gradual);}
+export function freshTerritoryCompany(seed=112){return Operations.enableTerritories(freshCompany(seed));}
 export function upgradeCompany(s){return s?.version===7?Operations.upgrade(s):s;}
+export function upgradeTerritoryCompany(s){return Operations.upgradeTerritories(upgradeCompany(s));}
 export function task(s,call){return s.operations?Operations.spec(s,call):call.spec??catalog(s)[call.mission];}
 export function log(s,amount,label){s.money+=amount;if(s.shift?.day===s.day){if(amount>=0)s.shift.income+=amount;else s.shift.costs-=amount;}s.ledger.unshift({day:s.day,amount,label});s.ledger.length=Math.min(s.ledger.length,60);}
 function pay(s,amount,label){requireThat(s.money>=amount,'Недостаточно средств');log(s,-amount,label);}
@@ -99,7 +102,7 @@ export function tick(s,minutes=1){
 }
 export function nextDay(s){if(s.operations)return Operations.nextDay(s);requireThat(s.phase==='report','Смена ещё не завершена');s.day++;s.minute=0;s.phase='prep';s.report=null;for(const p of s.employees)p.fatigue=clamp(p.fatigue-60);for(const c of s.calls)c.due-=SHIFT;}
 export function nextDistrict(s){if(s.operations)return Operations.nextDistrict(s,log);requireThat(s.phase==='cleared'&&s.done.length===ADDRESS_COUNT&&s.calls.length===0,'Сначала выполните все 999 заданий');requireThat(s.region<19,'Все районы пройдены');s.region++;s.done=[];s.cursor=0;s.calls=[];s.minute=0;s.day++;s.phase='prep';s.report=null;for(const cr of s.crews){cr.point=parkingBay(s.seed,s.region,cr.id);cr.angle=-Math.PI/2;cr.status='idle';cr.job=null;delete cr.returnTrip;}for(const p of s.employees)p.fatigue=0;log(s,250000,'Открыт район: '+district(s.seed,s.region).name);catalog(s);}
-export function buy(s,modelId){prep(s);const model=VEHICLE_MODELS.find(m=>m.id===modelId);requireThat(model&&s.vehicles.length<12,'В гараже максимум 12 машин');pay(s,model.price,'Покупка: '+model.name);s.vehicles.push({id:s.nextVehicle++,model:modelId,fuel:100,condition:100});}
+export function buy(s,modelId){prep(s);const model=VEHICLE_MODELS.find(m=>m.id===modelId);requireThat(model&&s.vehicles.length<12,'В гараже максимум 12 машин');requireThat(Operations.Territory.vehicleAccess(s,model).unlocked,'Спецтехника ещё не открыта: нужны карьерные баллы');pay(s,model.price,'Покупка: '+model.name);s.vehicles.push({id:s.nextVehicle++,model:modelId,fuel:100,condition:100});}
 export function maintain(s,id){requireThat(s.phase==='prep'||s.phase==='active','Сначала перейдите к подготовке');const v=s.vehicles.find(v=>v.id===id);requireThat(v,'Машина не найдена');requireThat(!s.crews.some(c=>c.vehicle===id&&c.status!=='idle'),'Машина на выезде');requireThat(v.fuel<100||v.condition<100,'Машина уже обслужена');pay(s,serviceCost(v),'Топливо и обслуживание');v.fuel=v.condition=100;}
 export function procure(s,service){requireThat(s.phase==='prep'||s.phase==='active','Закупка недоступна');requireThat(Number.isInteger(service)&&service>=0&&service<3,'Неизвестный комплект');requireThat(s.stock[service]<=180,'Запас максимум 200 комплектов каждого профиля');pay(s,supplyCost(service),'Поставка 20 комплектов');s.stock[service]+=20;}
 export function hire(s,service){prep(s);requireThat(Number.isInteger(service)&&service>=0&&service<3&&s.employees.length<24,'Найм недоступен');pay(s,22000,'Найм специалиста');const p=PEOPLE.filter(p=>p[1]===service)[s.nextEmployee%6];s.employees.push({id:s.nextEmployee++,name:p[0],service,level:1,fatigue:0});}
@@ -115,11 +118,20 @@ export function dismiss(s,id){
  s.employees=s.employees.filter(item=>item!==p);
 }
 export function disband(s,id){prep(s);const cr=s.crews.find(c=>c.id===id);requireThat(cr&&cr.status==='idle','Бригада на выезде');s.crews=s.crews.filter(c=>c!==cr);}
+export function reconfigureCrew(s,id,members,vehicle){
+ prep(s);const cr=s.crews.find(cr=>cr.id===id);
+ requireThat(cr&&cr.status==='idle','Бригада на выезде');
+ requireThat(Array.isArray(members)&&members.length===2&&members[0]!==members[1],'Выберите двух разных сотрудников');
+ const people=members.map(id=>s.employees.find(p=>p.id===id));
+ requireThat(people.every(p=>p&&p.service===cr.service)&&!s.crews.some(other=>other!==cr&&other.members.some(id=>members.includes(id))),'Нужны свободные сотрудники профиля бригады');
+ requireThat(s.vehicles.some(v=>v.id===vehicle)&&!s.crews.some(other=>other!==cr&&other.vehicle===vehicle),'Машина занята другим экипажем');
+ cr.members=[...members];cr.vehicle=vehicle;
+}
 export function form(s,members,vehicle){prep(s);requireThat(s.crews.length<8&&members.length===2&&members[0]!==members[1],'Нужны два разных сотрудника; максимум 8 бригад');const ps=members.map(id=>s.employees.find(p=>p.id===id));requireThat(ps.every(Boolean)&&ps[0].service===ps[1].service&&!s.crews.some(c=>c.members.some(id=>members.includes(id))),'Нужны свободные сотрудники одного профиля');requireThat(s.vehicles.some(v=>v.id===vehicle)&&!s.crews.some(c=>c.vehicle===vehicle),'Машина уже назначена');s.crews.push({id:s.nextCrew++,service:ps[0].service,members:[...members],vehicle,point:s.operations?Operations.parkingPosition(s,s.nextCrew-1):parkingBay(s.seed,s.region,s.nextCrew-1),angle:-Math.PI/2,status:'idle',job:null});}
 export function sell(s,id){prep(s);const v=s.vehicles.find(v=>v.id===id);requireThat(v&&!s.crews.some(c=>c.vehicle===id),'Сначала освободите машину');log(s,Math.floor(VEHICLE_MODELS.find(m=>m.id===v.model).price*.6*v.condition/100),'Продажа машины');s.vehicles=s.vehicles.filter(item=>item!==v);}
 export function encode(s){return JSON.stringify(s);}
 export function decode(raw){
- const parsed=JSON.parse(storedJSON(raw));if(parsed&&[7,8].includes(parsed.version))return Operations.validate(parsed);
+ const parsed=JSON.parse(storedJSON(raw));if(parsed&&[7,8,9].includes(parsed.version))return Operations.validate(parsed);
  const s=migrateV5(migrateV4(parsed)),valid=v=>requireThat(v,'Сохранение кампании повреждено'),int=(n,a=0,b=Number.MAX_SAFE_INTEGER)=>Number.isSafeInteger(n)&&n>=a&&n<=b,pct=n=>Number.isFinite(n)&&n>=0&&n<=100;
  const point=p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)&&p[0]>=0&&p[0]<=DW*5&&p[1]>=0&&p[1]<=DH*4;
  valid(s&&s.version===6&&int(s.clock)&&int(s.seed,0,0xffffffff)&&int(s.region,0,19)&&int(s.day,1)&&int(s.minute,0,SHIFT)&&Number.isSafeInteger(s.money)&&['prep','active','report','cleared','won'].includes(s.phase));
@@ -151,10 +163,11 @@ export function decode(raw){
  return s;
 }
 export function load(storage){try{const raw=storage.getItem(SAVE),backup=storage.getItem(BACKUP);if(raw!==null){try{return {state:upgradeCompany(decode(raw)),blocked:false};}catch{}}if(backup!==null){try{return {state:upgradeCompany(decode(backup)),blocked:false,recovered:true};}catch{}}return {state:null,blocked:raw!==null||backup!==null};}catch{return {state:null,blocked:true};}}
-export function save(storage,s,progressionSource=null){
+export function save(storage,s,progressionSource=null,territorySource=null){
  const raw=encode(s);decode(raw);
  const record=s.version>=8?storageRecord(raw):raw;
  if(progressionSource!==null)requireThat(s.version>=8&&decode(progressionSource).version===7,'Некорректный исходный архив компании');
+ if(territorySource!==null)requireThat(s.version===9&&[7,8].includes(decode(territorySource).version),'Некорректный исходный архив областей');
  let previous=storage.getItem(SAVE);
  let backup=record,previousVersion=null;
  if(previous!==null){try{decode(previous);previousVersion=storedVersion(previous);backup=previous;}catch{/* Keep the recovered state as backup. */}}
@@ -166,6 +179,8 @@ export function save(storage,s,progressionSource=null){
  if(s.version>=7&&previousVersion!==null&&previousVersion<7&&storage.getItem(OPERATION_ARCHIVE)===null)storage.setItem(OPERATION_ARCHIVE,previous);
  if(progressionSource!==null&&storage.getItem(PROGRESSION_ARCHIVE)===null)storage.setItem(PROGRESSION_ARCHIVE,progressionSource);
  if(s.version>=8&&previousVersion!==null&&previousVersion<8&&storage.getItem(PROGRESSION_ARCHIVE)===null)storage.setItem(PROGRESSION_ARCHIVE,previous);
+ if(territorySource!==null&&storage.getItem(TERRITORY_ARCHIVE)===null)storage.setItem(TERRITORY_ARCHIVE,archiveRecord(territorySource));
+ if(s.version===9&&previousVersion!==null&&previousVersion>=7&&previousVersion<9&&storage.getItem(TERRITORY_ARCHIVE)===null)storage.setItem(TERRITORY_ARCHIVE,archiveRecord(previous));
  storage.setItem(BACKUP,backup);
  storage.setItem(SAVE,record);
 }

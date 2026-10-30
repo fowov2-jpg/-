@@ -1,6 +1,6 @@
 {
   "name": "upravdom",
-  "version": "0.8.3-rc.2",
+  "version": "0.9.0-rc.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,7 +11,7 @@
     "test:fleet": "node tools/fleet-verify.cjs",
     "test:campaign": "node tools/campaign-verify.cjs",
     "test:motion": "node tools/motion-verify.cjs",
-    "test:balance": "node tools/balance-report.js && node tools/operations-balance.js",
+    "test:balance": "node tools/balance-report.js && node tools/operations-balance.js && node tools/territory-balance.js",
     "test:performance": "node tools/performance-verify.cjs",
     "test:geography": "node tools/geography-verify.cjs",
     "test:dispatch": "node tools/operations-verify.cjs",

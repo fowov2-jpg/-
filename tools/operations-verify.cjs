@@ -51,12 +51,12 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   }
   let s=await saved();assert.equal(s.phase,'report','first shift reached report through browser time');
   assert.equal(s.report.results.filter(r=>r.success).length,3);assert.equal(s.report.pending,0);assert.ok(s.report.waterMinutes>0);assert.ok(s.report.compensation>0);
-  assert.equal(s.report.career.gained,28);assert.equal(s.operations.shift.peak,1);assert.ok(s.report.decisions.length>=6);
-  await capture('412-report');report.checks.push('two-house first shift: three conversations, one active call, positive budget, points and house consequences');
-  await click('nextDay');await click('map');await click('addresses');
+  assert.equal(s.report.career.gained,38);assert.equal(s.operations.shift.peak,1);assert.ok(s.report.decisions.length>=6);
+  await capture('412-report');report.checks.push('three-house first shift: three conversations, one active call, positive budget, points and house consequences');
+  await click('nextDay');await click('map');await click('plan');await click('territory-tab','[data-tab=houses]');
   await page.locator('[data-cmd=op-house]').first().click();
   assert.match(await page.locator('dialog').textContent(),/История дома/);await page.locator('[data-cmd=op-prevent]:not(:disabled)').first().click();
-  await page.locator('dialog [data-cmd=close]').click();for(let i=0;i<2;i++)await page.locator('[data-cmd=op-sign]:not(:disabled)').first().click();
+  await page.locator('dialog [data-cmd=close]').click();await click('op-licences');await page.locator('[data-cmd=op-sign]:not(:disabled)').first().click();await page.locator('dialog [data-cmd=close]').click();
   s=await saved();assert.equal(s.operations.houses.length,4);assert.ok(s.operations.houses.some(h=>Object.values(h.prevention).includes(4)));
   await capture('412-houses');report.checks.push('next day retains house history, pays for prevention and accepts a fourth contract');
   await click('map');await click('prep');await page.locator('[data-cmd=sub][data-sub=people]').click();await click('train','[data-id="0"]');

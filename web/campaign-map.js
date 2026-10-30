@@ -8,6 +8,7 @@ import {placeEdgeIndicators} from './map-annotations.js';
 import {drawTerrain,terrainKey} from './campaign-terrain.js';
 import {SCENARIOS} from './operations-content.js';
 import {assignmentFor,currentHouses} from './shift-operations.js';
+import * as Territory from './territory-progression.js';
 import {BLENDER_MODELS} from './blender-manifest.js';
 import {loadBlenderArt,blenderArtReady,drawBlenderVehicle,drawBlenderWorksite} from './blender-art.js';
 // Original ЖКХ iconography drawn as vector shapes; no third-party symbols or font dependency.
@@ -40,7 +41,7 @@ function thumbnail(city){
 }
 export function focusDistrict(view,d,width=412,height=650,overview=false){const o=districtOrigin(d);view.x=o[0]+(overview?DW/2:708);view.y=o[1]+(overview?DH/2:434);view.scale=overview?Math.min(width/DW,height/DH)*.9:Math.min(width/TW,height/TH)*1.2;}
 export function focusServiceArea(view,s,width=412,height=800,overview=false){
- if(!overview){const p=s.crews[0]?.point??depot(s.seed,s.region);view.x=p[0];view.y=p[1]+105;view.scale=.47;view.initialized=true;return;}
+ if(!overview){const p=s.crews[0]?.point??depot(s.seed,s.region);view.x=p[0];view.y=p[1]+105;view.scale=Territory.enabled(s)?.60:.47;view.initialized=true;return;}
  const homes=currentHouses(s).map(h=>district(s.seed,s.region).homes[h.id]),xs=homes.map(h=>h.x),ys=homes.map(h=>h.y);
  const minX=Math.min(...xs)-150,maxX=Math.max(...xs)+150,minY=Math.min(...ys)-120,maxY=Math.max(...ys)+120;
  view.scale=Math.max(.1,Math.min((width-60)/Math.max(1100,maxX-minX),(height-250)/Math.max(780,maxY-minY),.47));
@@ -60,7 +61,7 @@ function crewDisplayPoint(s,cr,assignment,pose,progress){
  return [pose.point[0]+Math.cos(angle)*offset-Math.sin(pose.angle)*8,pose.point[1]+Math.sin(angle)*offset+Math.cos(pose.angle)*8];
 }
 export function screenPoint(view,width,height,p){return [(p[0]-view.x)*view.scale+width/2,(p[1]-view.y)*view.scale+height/2];}
-export function render(canvas,s,view,{selected=null,selectedCrew=null,labels=true,motion=true,progress=0,traffic=true,equipment=true,annotationBottom=null,annotationTop=144}={}){
+export function render(canvas,s,view,{selected=null,selectedCrew=null,labels=true,motion=true,progress=0,traffic=true,equipment=true,annotationBottom=null,annotationTop=144,annotationObstacles=[]}={}){
  const {width:w,height:h}=canvas.getBoundingClientRect();if(!w||!h)return;const dpr=Math.min(devicePixelRatio||1,2);
  if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);}
  let ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#071b22';ctx.fillRect(0,0,w,h);view.hits=[];
@@ -90,11 +91,11 @@ export function render(canvas,s,view,{selected=null,selectedCrew=null,labels=tru
    }
    ctx.save();ctx.beginPath();ctx.rect(...p,rw,rh);ctx.clip();drawRoads(ctx,project,origin,view.scale,w,h,s.seed);ctx.restore();
    }
-   if(d>s.region){ctx.fillStyle='#061b24bd';ctx.fillRect(...p,rw,rh);}
+   if(d>(Territory.enabled(s)?Territory.unlocked(s):s.region)){ctx.fillStyle='#061b24bd';ctx.fillRect(...p,rw,rh);}
    if(d<s.region){ctx.fillStyle='#103a2b35';ctx.fillRect(...p,rw,rh);}
   }
-  ctx.strokeStyle=d>s.region?'#55717b55':d===s.region?(view.scale<.07?'#48dba6':'#48dba630'):'#8cc99d55';ctx.lineWidth=1.5;ctx.strokeRect(...p,rw,rh);
-  if(view.scale<.07||d>s.region){const c=project([origin[0]+DW/2,origin[1]+DH/2]),font=Math.max(7,Math.min(13,rw/10));ctx.save();ctx.beginPath();ctx.rect(p[0]+1,p[1]+1,rw-2,rh-2);ctx.clip();ctx.textAlign='center';ctx.font=`600 ${font}px system-ui`;ctx.fillStyle=d>s.region?'#a4b7bc':'#ecf5eb';ctx.fillText((d>s.region?'':d<s.region?'✓ ':'')+DISTRICT_NAMES[d],...c);ctx.font=`${Math.max(7,font-1)}px system-ui`;ctx.fillText(d>s.region?'Закрыт':s.operations?s.operations.houses.filter(h=>h.region===d).length+' домов под управлением':d<s.region?'999 / 999':s.done.length+' / 999',c[0],c[1]+font+6);ctx.restore();view.hits.push({kind:'district',id:d,x:p[0],y:p[1],w:rw,h:rh});}
+  ctx.strokeStyle=d>(Territory.enabled(s)?Territory.unlocked(s):s.region)?'#55717b55':d===s.region?(view.scale<.07?'#48dba6':'#48dba630'):'#8cc99d55';ctx.lineWidth=1.5;ctx.strokeRect(...p,rw,rh);
+  if(view.scale<.07||d>(Territory.enabled(s)?Territory.unlocked(s):s.region)){const c=project([origin[0]+DW/2,origin[1]+DH/2]),font=Math.max(7,Math.min(13,rw/10));ctx.save();ctx.beginPath();ctx.rect(p[0]+1,p[1]+1,rw-2,rh-2);ctx.clip();ctx.textAlign='center';ctx.font=`600 ${font}px system-ui`;ctx.fillStyle=d>(Territory.enabled(s)?Territory.unlocked(s):s.region)?'#a4b7bc':'#ecf5eb';ctx.fillText((d>(Territory.enabled(s)?Territory.unlocked(s):s.region)?'':d<s.region?'✓ ':'')+(Territory.enabled(s)?Territory.AREA_NAMES[d]:DISTRICT_NAMES[d]),...c);ctx.font=`${Math.max(7,font-1)}px system-ui`;ctx.fillText(d>(Territory.enabled(s)?Territory.unlocked(s):s.region)?'Закрыт':s.operations?s.operations.houses.filter(h=>h.region===d).length+' домов под управлением':d<s.region?'999 / 999':s.done.length+' / 999',c[0],c[1]+font+6);ctx.restore();view.hits.push({kind:'district',id:d,x:p[0],y:p[1],w:rw,h:rh});}
  }
   sceneCache.set(canvas,{key:sceneKey,image:scene,tiles:tileCount,trafficTiles:[...trafficTiles],hits:[...view.hits]});
   ctx=screenContext;ctx.drawImage(scene,0,0,w,h);
@@ -119,14 +120,14 @@ export function render(canvas,s,view,{selected=null,selectedCrew=null,labels=tru
   const edgeCalls=[];
   for(const c of s.calls){const home=city.homes[c.home??c.mission],p=project([home.x,home.y]);
    for(const assignment of s.operations?c.assignments:[c])if(assignment.path&&assignment.crew!==null){ctx.beginPath();assignment.path.forEach((pt,i)=>{const q=project(pt);i?ctx.lineTo(...q):ctx.moveTo(...q);});ctx.strokeStyle=c.mission===selected?'#55f2ac':'#5da7ba85';ctx.lineWidth=c.mission===selected?4:2;ctx.stroke();}
-   if(!visible(p[0]-20,p[1]-20,40,40)){
+   if(!visible(p[0]-20,p[1]-20,40,40)||annotationObstacles.some(r=>p[0]+22>r.x&&p[0]-22<r.x+r.w&&p[1]+22>r.y&&p[1]-22<r.y+r.h)){
     if(c.status==='new'||s.operations)edgeCalls.push({call:c,point:p,service:EFFECTIVE_SERVICE(c,s)});
     continue;
    }
    drawIncident(ctx,p[0],p[1],EFFECTIVE_SERVICE(c,s),c.mission===selected,c.late,c.status,clock);view.hits.unshift({kind:'call',id:c.mission,x:p[0]-22,y:p[1]-22,w:44,h:44});
   }
   // Keep navigation markers clear of the clock, incoming queue and bottom dock.
-  const indicators=placeEdgeIndicators(edgeCalls.sort((a,b)=>(a.call.due??0)-(b.call.due??0)),{width:w,height:h,top:s.operations?annotationTop:selectedCrew===null?136:190,bottom:annotationBottom??h-112});
+  const indicators=placeEdgeIndicators(edgeCalls.sort((a,b)=>(a.call.due??0)-(b.call.due??0)),{width:w,height:h,top:s.operations?annotationTop:selectedCrew===null?136:190,bottom:annotationBottom??h-112,avoid:annotationObstacles});
   for(const item of indicators){
    const {x,y,angle}=item;
    const color=item.call.late?'#e8a79c':['#9ac9e1','#e9c58d','#a1c9b4'][item.service];
@@ -184,5 +185,5 @@ export function render(canvas,s,view,{selected=null,selectedCrew=null,labels=tru
   }
  }
  canvas.dataset.graphics=blenderArtReady()?'blender':'loading';
- ctx.textBaseline='alphabetic';canvas.dataset.tiles=tileCount;canvas.dataset.lod=view.scale<.025?'district':'street';canvas.dataset.renderer=images.length===ART.length&&images.every(i=>i.complete&&i.naturalWidth)&&blenderArtReady()?'ready':'loading';canvas.dataset.equipment=JSON.stringify(rigs);canvas.dataset.fleet=JSON.stringify(fleetPoses);canvas.dataset.motionClock=String(clock);canvas.dataset.positions=s.operations?.career?'99':'999';canvas.dataset.region=String(s.region);canvas.dataset.camera=JSON.stringify({x:view.x,y:view.y,scale:view.scale});canvas.dataset.markers=JSON.stringify(view.hits.filter(h=>h.kind==='call'||h.kind==='crew'));canvas.dataset.operations=s.operations?'original-art':'classic';
+ ctx.textBaseline='alphabetic';canvas.dataset.tiles=tileCount;canvas.dataset.lod=view.scale<.025?'district':'street';canvas.dataset.renderer=images.length===ART.length&&images.every(i=>i.complete&&i.naturalWidth)&&blenderArtReady()?'ready':'loading';canvas.dataset.equipment=JSON.stringify(rigs);canvas.dataset.fleet=JSON.stringify(fleetPoses);canvas.dataset.motionClock=String(clock);canvas.dataset.positions=s.version===9?'999':s.operations?.career?'99':'999';canvas.dataset.districtCapacity=s.version===9?String(s.operations.territory.transition?999:Territory.layout(s).capacity):s.operations?.career?'99':'999';canvas.dataset.region=String(s.region);canvas.dataset.camera=JSON.stringify({x:view.x,y:view.y,scale:view.scale});canvas.dataset.markers=JSON.stringify(view.hits.filter(h=>h.kind==='call'||h.kind==='crew'));canvas.dataset.operations=s.operations?'original-art':'classic';
 }

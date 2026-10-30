@@ -10,14 +10,23 @@ android {
     namespace 'ru.uyut.upravdom'
     compileSdk 36
     defaultConfig {
-        applicationId 'ru.uyut.upravdom'
+        applicationId project.hasProperty('upravdomPreview') ? 'ru.uyut.upravdom.preview' : 'ru.uyut.upravdom'
+        manifestPlaceholders = [appLabel: project.hasProperty('upravdomPreview') ? 'Управдом · тест' : 'Управдом']
         minSdk 26
         targetSdk 36
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
-        versionCode 15
-        versionName '0.8.3-rc.2'
+        versionCode 16
+        versionName '0.9.0-rc.1'
     }
     signingConfigs {
+        if (project.hasProperty('upravdomPreviewKeystore')) {
+            debug {
+                storeFile file(project.property('upravdomPreviewKeystore'))
+                storePassword 'android'
+                keyAlias 'androiddebugkey'
+                keyPassword 'android'
+            }
+        }
         if (signedRelease) {
             publisher {
                 storeFile file(System.getenv('UPRAVDOM_KEYSTORE'))

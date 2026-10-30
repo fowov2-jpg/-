@@ -35,7 +35,7 @@ import java.nio.charset.StandardCharsets;
 public class MainActivity extends Activity {
     private static final int IMPORT_FILE = 100;
     private static final int EXPORT_FILE = 101;
-    private static final int MAX_DOCUMENT_BYTES = 8_000_000;
+    private static final int MAX_DOCUMENT_BYTES = 64_000_000;
     private static final String ORIGIN = "https://appassets.androidplatform.net/";
     private WebView web;
     private OnBackInvokedCallback backCallback;
